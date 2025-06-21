@@ -1,0 +1,17 @@
+node_modules/
+.env
+.vscode/
+.DS_Store
+package-lock.json
+
+# Ignore backend dependencies and config files
+/backend/node_modules/
+/backend/.env
+/backend/.vscode/
+/backend/.DS_Store
+
+# Ignore root level stuff if needed
+node_modules/
+.env
+.vscode/
+.DS_Store
