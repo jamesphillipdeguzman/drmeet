@@ -6,14 +6,14 @@ const options = {
     definition: {
         openapi: '3.0.0',
         info: {
-            title: 'drmeet-api',
+            title: 'drmeet',
             version: '1.0.0',
             description:
                 'A simple Appointment Booking System for small clinics, ready for frontend consumption',
         },
         servers: [
             {
-                url: 'https://drmeet-api.onrender.com/',
+                url: 'https://drmeet-wqws.onrender.com/',
             },
             {
                 url: 'http://127.0.0.1:3001',

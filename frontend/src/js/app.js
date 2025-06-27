@@ -1,7 +1,7 @@
 // SPA navigation and dynamic content rendering
 const mainContent = document.getElementById("main-content");
 const navLinks = document.querySelectorAll(".nav-link");
-const API_BASE = "https://drmeet-api.onrender.com/api";
+const API_BASE = "https://drmeet-wqws.onrender.com/api";
 
 function setActiveNav(hash) {
   navLinks.forEach((link) => {
