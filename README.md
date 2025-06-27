@@ -4,8 +4,8 @@
 
 ## 🌐 Live Demo
 
-Frontend: [https://drmeet.netlify.app](https://drmeeet.netlify.app)  
-Backend API: [https://drmeet.onrender.com](https://drmeet.onrender.com)
+Frontend: [https://drmeet-wqws.netlify.app](https://drmeeet.netlify.app)  
+Backend API: [https://drmeet-wqws.onrender.com](https://drmeet-wqws.onrender.com)
 
 > Built to streamline patient care with minimal setup and zero infrastructure costs.
 

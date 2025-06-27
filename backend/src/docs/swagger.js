@@ -13,7 +13,7 @@ const options = {
         },
         servers: [
             {
-                url: 'https://drmeet.onrender.com/',
+                url: 'https://drmeet-wqws.onrender.com/',
             },
             {
                 url: 'http://127.0.0.1:3001',
