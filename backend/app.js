@@ -7,8 +7,8 @@ import authRoutes from './src/routes/auth.routes.js';
 import doctorRoutes from './src/routes/doctor.routes.js';
 import patientRoutes from './src/routes/patient.routes.js';
 import appointmentRoutes from './src/routes/appointment.routes.js';
-// import swaggerUi from "swagger-ui-express";
-// import swaggerSpec from "./src/docs/swagger.js";
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './src/docs/swagger.js';
 import session from 'express-session';
 import passport from './src/config/passport.config.js';
 
@@ -68,7 +68,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Server Swagger UI
-// app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Greet the user
 app.get('/', (req, res) => {
