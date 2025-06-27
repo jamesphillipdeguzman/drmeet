@@ -1,0 +1,1008 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "drmeet-api",
+    "version": "1.0.0",
+    "description": "A simple Appointment Booking System for small clinics, ready for frontend consumption"
+  },
+  "servers": [
+    {
+      "url": "https://drmeet-api.onrender.com/"
+    },
+    {
+      "url": "http://127.0.0.1:3001"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "Google OAuth login/logout routes are not for testing, but for documentation only"
+    },
+    {
+      "name": "Users",
+      "description": "User management routes for testing"
+    },
+    {
+      "name": "Patients",
+      "description": "Patient management routes for testing"
+    },
+    {
+      "name": "Doctors",
+      "description": "Doctor management routes for testing"
+    },
+    {
+      "name": "Appointments",
+      "description": "Appointment management routes for testing"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "User": {
+        "type": "object",
+        "required": [
+          "firstName",
+          "lastName",
+          "email"
+        ],
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "description": "First name of the user"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Last name of the user"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Email address of the user"
+          },
+          "password": {
+            "type": "string",
+            "description": "User password (hashed in storage)"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ],
+            "description": "User role for access control"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone number of the user"
+          },
+          "address": {
+            "type": "string",
+            "description": "Physical address of the user"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Patient": {
+        "type": "object",
+        "required": [
+          "firstName",
+          "lastName",
+          "email"
+        ],
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "description": "First name of the patient"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Last name of the patient"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Email address of the patient"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone number of the patient"
+          },
+          "address": {
+            "type": "string",
+            "description": "Physical address of the patient"
+          },
+          "dateOfBirth": {
+            "type": "string",
+            "format": "date",
+            "description": "Date of birth of the patient"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Doctor": {
+        "type": "object",
+        "required": [
+          "firstName",
+          "lastName",
+          "email",
+          "specialization"
+        ],
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "description": "First name of the doctor"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Last name of the doctor"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Email address of the doctor"
+          },
+          "specialization": {
+            "type": "string",
+            "description": "Medical specialization of the doctor"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Phone number of the doctor"
+          },
+          "address": {
+            "type": "string",
+            "description": "Physical address of the doctor"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Appointment": {
+        "type": "object",
+        "required": [
+          "doctor",
+          "patient",
+          "date",
+          "time"
+        ],
+        "properties": {
+          "doctor": {
+            "type": "string",
+            "description": "MongoDB ObjectId reference to the Doctor"
+          },
+          "patient": {
+            "type": "string",
+            "description": "MongoDB ObjectId reference to the Patient"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date of the appointment"
+          },
+          "time": {
+            "type": "string",
+            "description": "Time of the appointment"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional notes for the appointment"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "confirmed",
+              "cancelled",
+              "completed"
+            ],
+            "description": "Status of the appointment"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "responses": {
+      "NotFound": {
+        "description": "The specified resource was not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Resource not found"
+                }
+              }
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Bad request",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Invalid input data"
+                },
+                "error": {
+                  "type": "string",
+                  "example": "Validation error details"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ServerError": {
+        "description": "Server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "string",
+                  "example": "Internal server error"
+                },
+                "error": {
+                  "type": "string",
+                  "example": "Error details"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/appointments": {
+      "get": {
+        "summary": "Get all appointments",
+        "tags": [
+          "Appointments"
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of all appointments"
+          },
+          "500": {
+            "description": "An error occurred while fetching appointments"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new appointment",
+        "tags": [
+          "Appointments"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "doctor",
+                  "patient",
+                  "date",
+                  "time"
+                ],
+                "properties": {
+                  "doctor": {
+                    "type": "string"
+                  },
+                  "patient": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "time": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "confirmed",
+                      "cancelled",
+                      "completed"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "A new appointment created"
+          },
+          "400": {
+            "description": "Failed to create appointment"
+          },
+          "500": {
+            "description": "An error occurred while creating the appointment"
+          }
+        }
+      }
+    },
+    "/api/appointments/{id}": {
+      "get": {
+        "summary": "Get an appointment by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique ID of the appointment"
+          }
+        ],
+        "tags": [
+          "Appointments"
+        ],
+        "responses": {
+          "200": {
+            "description": "The appointment with the specified ID"
+          },
+          "400": {
+            "description": "Invalid appointment ID format"
+          },
+          "404": {
+            "description": "Appointment not found"
+          },
+          "500": {
+            "description": "An error occurred while fetching the appointment"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update an appointment by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique ID of the appointment"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "doctor": {
+                    "type": "string"
+                  },
+                  "patient": {
+                    "type": "string"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "time": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "confirmed",
+                      "cancelled",
+                      "completed"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Appointments"
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointment updated"
+          },
+          "400": {
+            "description": "Invalid appointment ID format"
+          },
+          "404": {
+            "description": "Appointment not found"
+          },
+          "500": {
+            "description": "An error occurred while updating the appointment"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Deletes an appointment by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique ID of the appointment"
+          }
+        ],
+        "tags": [
+          "Appointments"
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointment was deleted successfully"
+          },
+          "400": {
+            "description": "Invalid appointment ID format"
+          },
+          "404": {
+            "description": "Appointment not found"
+          },
+          "500": {
+            "description": "An error occurred while deleting the appointment"
+          }
+        }
+      }
+    },
+    "/auth/google": {
+      "get": {
+        "summary": "Redirect user to Google OAuth for login",
+        "tags": [
+          "Authentication"
+        ],
+        "responses": {
+          "302": {
+            "description": "Initiate Google OAuth login via browser"
+          }
+        }
+      }
+    },
+    "/auth/google/callback": {
+      "get": {
+        "summary": "Google OAuth callback url for login",
+        "tags": [
+          "Authentication"
+        ],
+        "responses": {
+          "200": {
+            "description": "OAuth login success, JWT returned to client via postMessage",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string",
+                  "example": "<script>window.opener.postMessage({ token: 'JWT_TOKEN' })</script>"
+                }
+              }
+            }
+          },
+          "302": {
+            "description": "Redirect if login fails"
+          }
+        }
+      }
+    },
+    "/auth/status": {
+      "get": {
+        "summary": "Check the current authentication status",
+        "description": "Returns whether the user is currently authenticated and includes user profile if logged in",
+        "tags": [
+          "Authentication"
+        ],
+        "responses": {
+          "200": {
+            "description": "Returns auth status and user data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "authenticated": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "user": {
+                      "type": "object",
+                      "properties": {
+                        "displayName": {
+                          "type": "string",
+                          "example": "James Phillip De Guzman"
+                        },
+                        "emails": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "value": {
+                                "type": "string",
+                                "example": "jamesphillipdeguzman@gmail.com"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/logout": {
+      "get": {
+        "summary": "Logs out the current user and redirects to home",
+        "tags": [
+          "Authentication"
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirects to homepage after logout"
+          }
+        }
+      }
+    },
+    "/set-cookie": {
+      "get": {
+        "summary": "Set a secure, test cookie",
+        "description": "Useful for debugging cookie behavior",
+        "tags": [
+          "Development"
+        ],
+        "responses": {
+          "200": {
+            "description": "Cookie set successfully",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "example": "Cookie set"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/doctors": {
+      "get": {
+        "summary": "Get all doctors",
+        "tags": [
+          "Doctors"
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of all doctors"
+          },
+          "500": {
+            "description": "An error occurred while fetching doctors"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new doctor",
+        "tags": [
+          "Doctors"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "firstName",
+                  "lastName",
+                  "email",
+                  "specialization"
+                ],
+                "properties": {
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "specialization": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "A new doctor created"
+          },
+          "400": {
+            "description": "Failed to create doctor"
+          },
+          "500": {
+            "description": "An error occurred while creating the doctor"
+          }
+        }
+      }
+    },
+    "/api/doctors/{id}": {
+      "get": {
+        "summary": "Get a doctor by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique ID of the doctor"
+          }
+        ],
+        "tags": [
+          "Doctors"
+        ],
+        "responses": {
+          "200": {
+            "description": "The doctor with the specified ID"
+          },
+          "400": {
+            "description": "Invalid doctor ID format"
+          },
+          "404": {
+            "description": "Doctor not found"
+          },
+          "500": {
+            "description": "An error occurred while fetching the doctor"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a doctor by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique ID of the doctor"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "specialization": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Doctors"
+        ],
+        "responses": {
+          "200": {
+            "description": "Doctor updated"
+          },
+          "400": {
+            "description": "Invalid doctor ID format"
+          },
+          "404": {
+            "description": "Doctor not found"
+          },
+          "500": {
+            "description": "An error occurred while updating the doctor"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Deletes a doctor by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique ID of the doctor"
+          }
+        ],
+        "tags": [
+          "Doctors"
+        ],
+        "responses": {
+          "200": {
+            "description": "Doctor was deleted successfully"
+          },
+          "400": {
+            "description": "Invalid doctor ID format"
+          },
+          "404": {
+            "description": "Doctor not found"
+          },
+          "500": {
+            "description": "An error occurred while deleting the doctor"
+          }
+        }
+      }
+    },
+    "/api/patients": {
+      "get": {
+        "summary": "Get all patients",
+        "tags": [
+          "Patients"
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of all patients"
+          },
+          "500": {
+            "description": "An error occurred while fetching patients"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new patient",
+        "tags": [
+          "Patients"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "firstName",
+                  "lastName",
+                  "email"
+                ],
+                "properties": {
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "dateOfBirth": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "A new patient created"
+          },
+          "400": {
+            "description": "Failed to create patient"
+          },
+          "500": {
+            "description": "An error occurred while creating the patient"
+          }
+        }
+      }
+    },
+    "/api/patients/{id}": {
+      "get": {
+        "summary": "Get a patient by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique ID of the patient"
+          }
+        ],
+        "tags": [
+          "Patients"
+        ],
+        "responses": {
+          "200": {
+            "description": "The patient with the specified ID"
+          },
+          "400": {
+            "description": "Invalid patient ID format"
+          },
+          "404": {
+            "description": "Patient not found"
+          },
+          "500": {
+            "description": "An error occurred while fetching the patient"
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a patient by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique ID of the patient"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "dateOfBirth": {
+                    "type": "string",
+                    "format": "date"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "Patients"
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient updated"
+          },
+          "400": {
+            "description": "Invalid patient ID format"
+          },
+          "404": {
+            "description": "Patient not found"
+          },
+          "500": {
+            "description": "An error occurred while updating the patient"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Deletes a patient by ID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique ID of the patient"
+          }
+        ],
+        "tags": [
+          "Patients"
+        ],
+        "responses": {
+          "200": {
+            "description": "Patient was deleted successfully"
+          },
+          "400": {
+            "description": "Invalid patient ID format"
+          },
+          "404": {
+            "description": "Patient not found"
+          },
+          "500": {
+            "description": "An error occurred while deleting the patient"
+          }
+        }
+      }
+    }
+  }
+}

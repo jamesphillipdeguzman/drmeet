@@ -1,18 +1,17 @@
 {
   "name": "drmeet",
-  "type": "module",
   "version": "1.0.0",
-  "main": "app.js",
+  "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node --no-deprecation server.js",
-    "dev": "nodemon server.js",
-    "server": "nodemon server.js",
+    "server": "nodemon --no-deprecation server.js",
     "inspect": "node --inspect server.js",
     "debug": "node --inspect-brk server.js",
     "format": "prettier --write .",
     "lint": "eslint .",
     "lint-fix": "eslint . --fix",
-    "generate-swagger": "node generate.swagger.js",
+    "generate-swagger": "node generate-swagger.js",
     "test": "jest"
   },
   "dependencies": {
@@ -21,6 +20,7 @@
     "express": "^5.1.0",
     "express-session": "^1.18.1",
     "express-validator": "^7.2.1",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.8.7",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
