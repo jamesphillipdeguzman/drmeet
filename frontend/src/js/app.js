@@ -1,7 +1,6 @@
 // SPA navigation and dynamic content rendering
 const mainContent = document.getElementById('main-content');
 const navLinks = document.querySelectorAll('.nav-link');
-
 const API_BASE = 'http://127.0.0.1:3001/api';
 
 function setActiveNav(hash) {
@@ -15,7 +14,10 @@ function setActiveNav(hash) {
 }
 
 window.addEventListener('hashchange', renderPage);
-window.addEventListener('DOMContentLoaded', renderPage);
+window.addEventListener('DOMContentLoaded', () => {
+    updateAuthNav();
+    renderPage();
+});
 
 function renderPage() {
     const hash = window.location.hash || '#home';
@@ -33,6 +35,9 @@ function renderPage() {
         case '#users':
             renderUsers();
             break;
+        case '#login':
+            renderLogin();
+            break;
         default:
             renderHome();
     }
@@ -43,6 +48,84 @@ function renderHome() {
     <h1>Welcome to DrMeet</h1>
     <p>Your modern clinic management system. Use the navigation above to manage patients, doctors, appointments, and users.</p>
   `;
+}
+
+// --- Authentication ---
+function isLoggedIn() {
+    return !!localStorage.getItem('token');
+}
+
+function updateAuthNav() {
+    const loginLink = document.getElementById('login-link');
+    if (!loginLink) return;
+    if (isLoggedIn()) {
+        loginLink.textContent = 'Logout';
+        loginLink.onclick = (e) => {
+            e.preventDefault();
+            localStorage.removeItem('token');
+            updateAuthNav();
+            window.location.hash = '#login';
+            renderLogin();
+        };
+    } else {
+        loginLink.textContent = 'Login';
+        loginLink.onclick = null;
+    }
+}
+
+function renderLogin() {
+    if (isLoggedIn()) {
+        mainContent.innerHTML = `
+      <div class="feedback success">You are logged in.</div>
+      <button onclick="window.logoutUser()">Logout</button>
+    `;
+        window.logoutUser = () => {
+            localStorage.removeItem('token');
+            updateAuthNav();
+            window.location.hash = '#login';
+            renderLogin();
+        };
+        return;
+    }
+    mainContent.innerHTML = `
+    <h2>Login</h2>
+    <form id="login-form">
+      <label>Email <input name="email" type="email" required /></label>
+      <label>Password <input name="password" type="password" required /></label>
+      <button type="submit">Login</button>
+    </form>
+    <div id="login-feedback"></div>
+  `;
+    const form = document.getElementById('login-form');
+    const feedback = document.getElementById('login-feedback');
+    form.onsubmit = async e => {
+        e.preventDefault();
+        feedback.textContent = 'Logging in...';
+        const creds = Object.fromEntries(new FormData(form));
+        try {
+            const res = await fetch(`${API_BASE}/auth`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(creds)
+            });
+            if (!res.ok) throw new Error('Invalid credentials');
+            const data = await res.json();
+            if (data.token) {
+                localStorage.setItem('token', data.token);
+                feedback.textContent = 'Login successful!';
+                updateAuthNav();
+                setTimeout(() => {
+                    window.location.hash = '#home';
+                    renderHome();
+                }, 800);
+            } else {
+                throw new Error('No token received');
+            }
+        } catch (err) {
+            feedback.textContent = err.message;
+            feedback.className = 'feedback error';
+        }
+    };
 }
 
 // --- Patients ---
