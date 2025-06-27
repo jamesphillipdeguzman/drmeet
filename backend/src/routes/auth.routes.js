@@ -2,6 +2,9 @@ import dotenv from 'dotenv';
 import express from 'express';
 import passport from 'passport';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import { validateUserSignup } from '../middlewares/user.validation.middleware.js';
+import User from '../models/user.model.js';
 
 // Load environment variables
 dotenv.config();
@@ -210,6 +213,80 @@ router.get('/set-cookie', (req, res) => {
     maxAge: 60000,
   });
   res.send('Cookie set');
+});
+
+/**
+ * @swagger
+ * /api/auth/signup:
+ *   post:
+ *     summary: Register a new user
+ *     tags:
+ *       - Authentication
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - firstName
+ *               - lastName
+ *               - email
+ *               - password
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *               lastName:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               address:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [admin, doctor, patient]
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *       400:
+ *         description: Invalid input or user already exists
+ *       500:
+ *         description: Server error
+ */
+router.post('/auth/signup', validateUserSignup, async (req, res) => {
+  try {
+    const { firstName, lastName, email, password, phone, address, role } = req.body;
+    const existing = await User.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await User.create({
+      firstName,
+      lastName,
+      email,
+      password: hashed,
+      phone,
+      address,
+      role: role || 'user',
+    });
+    const payload = {
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+    };
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.status(201).json({ token });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;

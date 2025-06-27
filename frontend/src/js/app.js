@@ -17,6 +17,7 @@ window.addEventListener("hashchange", renderPage);
 window.addEventListener("DOMContentLoaded", () => {
   updateAuthNav();
   renderPage();
+  window.addEventListener('message', handleGoogleAuthMessage);
 });
 
 function renderPage() {
@@ -37,6 +38,9 @@ function renderPage() {
       break;
     case "#login":
       renderLogin();
+      break;
+    case "#signup":
+      renderSignup();
       break;
     default:
       renderHome();
@@ -94,38 +98,118 @@ function renderLogin() {
       <label>Password <input name="password" type="password" required /></label>
       <button type="submit">Login</button>
     </form>
+    <button id="google-login-btn" type="button" class="btn" style="background:#ea4335;margin-top:1rem;">Login with Google</button>
     <div id="login-feedback"></div>
   `;
-  const form = document.getElementById("login-form");
-  const feedback = document.getElementById("login-feedback");
-  form.onsubmit = async (e) => {
+  document.getElementById('google-login-btn').onclick = googleLogin;
+  const form = document.getElementById('login-form');
+  const feedback = document.getElementById('login-feedback');
+  form.onsubmit = async e => {
     e.preventDefault();
-    feedback.textContent = "Logging in...";
+    feedback.textContent = 'Logging in...';
     const creds = Object.fromEntries(new FormData(form));
     try {
       const res = await fetch(`${API_BASE}/auth`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(creds),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(creds)
       });
-      if (!res.ok) throw new Error("Invalid credentials");
+      if (!res.ok) throw new Error('Invalid credentials');
       const data = await res.json();
       if (data.token) {
-        localStorage.setItem("token", data.token);
-        feedback.textContent = "Login successful!";
+        localStorage.setItem('token', data.token);
+        feedback.textContent = 'Login successful!';
         updateAuthNav();
         setTimeout(() => {
-          window.location.hash = "#home";
+          window.location.hash = '#home';
           renderHome();
         }, 800);
       } else {
-        throw new Error("No token received");
+        throw new Error('No token received');
       }
     } catch (err) {
       feedback.textContent = err.message;
-      feedback.className = "feedback error";
+      feedback.className = 'feedback error';
     }
   };
+}
+
+function renderSignup() {
+  if (isLoggedIn()) {
+    mainContent.innerHTML = `<div class="feedback success">You are already logged in.</div>`;
+    return;
+  }
+  mainContent.innerHTML = `
+    <h2>Signup</h2>
+    <form id="signup-form">
+      <label>First Name <input name="firstName" required /></label>
+      <label>Last Name <input name="lastName" required /></label>
+      <label>Email <input name="email" type="email" required /></label>
+      <label>Password <input name="password" type="password" required /></label>
+      <label>Phone <input name="phone" /></label>
+      <label>Address <input name="address" /></label>
+      <label>Role
+        <select name="role">
+          <option value="user">User</option>
+          <option value="doctor">Doctor</option>
+          <option value="patient">Patient</option>
+          <option value="admin">Admin</option>
+        </select>
+      </label>
+      <button type="submit">Signup</button>
+    </form>
+    <button id="google-signup-btn" type="button" class="btn" style="background:#ea4335;margin-top:1rem;">Signup with Google</button>
+    <div id="signup-feedback"></div>
+  `;
+  document.getElementById('google-signup-btn').onclick = googleLogin;
+  const form = document.getElementById('signup-form');
+  const feedback = document.getElementById('signup-feedback');
+  form.onsubmit = async e => {
+    e.preventDefault();
+    feedback.textContent = 'Signing up...';
+    const user = Object.fromEntries(new FormData(form));
+    try {
+      const res = await fetch(`${API_BASE}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user)
+      });
+      if (!res.ok) throw new Error('Signup failed');
+      const data = await res.json();
+      if (data.token) {
+        localStorage.setItem('token', data.token);
+        feedback.textContent = 'Signup successful!';
+        updateAuthNav();
+        setTimeout(() => {
+          window.location.hash = '#home';
+          renderHome();
+        }, 800);
+      } else {
+        throw new Error('No token received');
+      }
+    } catch (err) {
+      feedback.textContent = err.message;
+      feedback.className = 'feedback error';
+    }
+  };
+}
+
+function googleLogin() {
+  const popup = window.open(
+    `${API_BASE.replace('/api', '')}/auth/google`,
+    'googleLogin',
+    'width=500,height=600'
+  );
+}
+
+function handleGoogleAuthMessage(event) {
+  if (!event.data || event.data.type !== 'GOOGLE_AUTH_SUCCESS') return;
+  if (event.data.token) {
+    localStorage.setItem('token', event.data.token);
+    updateAuthNav();
+    window.location.hash = '#home';
+    renderHome();
+  }
 }
 
 // --- Patients ---

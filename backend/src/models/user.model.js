@@ -2,7 +2,12 @@ import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
   {
-    name: {
+    firstName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    lastName: {
       type: String,
       required: true,
       trim: true,
@@ -17,12 +22,33 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
+      required: false, // Not required for Google OAuth users
+    },
+    googleId: {
+      type: String,
+      required: false,
+    },
+    picture: {
+      type: String,
+      required: false,
     },
     role: {
       type: String,
-      enum: ["doctor", "patient"],
+      enum: ["admin", "doctor", "patient", "user"],
+      default: "user",
       required: true,
+    },
+    phone: {
+      type: String,
+      required: false,
+    },
+    address: {
+      type: String,
+      required: false,
+    },
+    lastLogin: {
+      type: Date,
+      required: false,
     },
   },
   { timestamps: true }
