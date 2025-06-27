@@ -1,23 +1,23 @@
-import dotenv from "dotenv";
+import dotenv from 'dotenv';
 // Load environment variables first
 dotenv.config();
-import express from "express";
-import cors from "cors";
-import authRoutes from "./src/routes/auth.routes.js";
-import doctorRoutes from "./src/routes/doctor.routes.js";
-import patientRoutes from "./src/routes/patient.routes.js";
-import appointmentRoutes from "./src/routes/appointment.routes.js";
+import express from 'express';
+import cors from 'cors';
+import authRoutes from './src/routes/auth.routes.js';
+import doctorRoutes from './src/routes/doctor.routes.js';
+import patientRoutes from './src/routes/patient.routes.js';
+import appointmentRoutes from './src/routes/appointment.routes.js';
 // import swaggerUi from "swagger-ui-express";
 // import swaggerSpec from "./src/docs/swagger.js";
-import session from "express-session";
-import passport from "./src/config/passport.config.js";
+import session from 'express-session';
+import passport from './src/config/passport.config.js';
 
-console.log("ENV:", {
+console.log('ENV:', {
   CLIENT_ORIGIN: process.env.CLIENT_ORIGIN,
   SESSION_SECRET: !!process.env.SESSION_SECRET,
   NODE_ENV: process.env.NODE_ENV,
 });
-console.log("Secure cookie:", process.env.NODE_ENV === "production");
+console.log('Secure cookie:', process.env.NODE_ENV === 'production');
 
 // Initialize an express app
 const app = express();
@@ -25,11 +25,11 @@ const app = express();
 // CORS middleware
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || "http://127.0.0.1:3000",
+    origin: process.env.CLIENT_ORIGIN || 'http://127.0.0.1:3000',
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }),
 );
 
 // Parse JSON payloads
@@ -46,20 +46,20 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // Required for HTTPS. Evaluates to true for production
-      sameSite: "none", // Required for cross-origin
+      secure: process.env.NODE_ENV === 'production', // Required for HTTPS. Evaluates to true for production
+      sameSite: 'none', // Required for cross-origin
       maxAge: 1000 * 60 * 60, // 1 hour
     },
     proxy: true, // Required for secure cookies behind a proxy
-  })
+  }),
 );
 
 // Add debug logging
 app.use((req, res, next) => {
-  console.log("Request Origin:", req.headers.origin);
-  console.log("Session:", req.session);
-  console.log("Session ID:", req.sessionID);
-  console.log("Cookies:", req.cookies);
+  console.log('Request Origin:', req.headers.origin);
+  console.log('Session:', req.session);
+  console.log('Session ID:', req.sessionID);
+  console.log('Cookies:', req.cookies);
   next();
 });
 
@@ -71,7 +71,7 @@ app.use(passport.session());
 // app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Greet the user
-app.get("/", (req, res) => {
+app.get('/', (req, res) => {
   res.send(`
     <html>
       <head>
@@ -102,8 +102,8 @@ app.get("/", (req, res) => {
         <h1>Welcome to DrMeet!</h1>
         <p>
           Please login at 
-          <a href="https://drmeet.netlify.app/" target="_blank">
-            https://drmeet.netlify.app
+          <a href="https://drmeeet.netlify.app/" target="_blank">
+            https://drmeeet.netlify.app
           </a>
         </p>
       </body>
@@ -112,11 +112,11 @@ app.get("/", (req, res) => {
 });
 
 // Mount routes at /auth, /api/products, and /api/sales
-app.use("/", authRoutes);
+app.use('/', authRoutes);
 
-app.use("/api/doctors", doctorRoutes);
-app.use("/api/patients", patientRoutes);
-app.use("/api/appointments", appointmentRoutes);
-app.use("/api/login", authRoutes);
+app.use('/api/doctors', doctorRoutes);
+app.use('/api/patients', patientRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/login', authRoutes);
 
 export { app };
