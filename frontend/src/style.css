@@ -1,0 +1,175 @@
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f7fafd;
+    color: #222;
+}
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #0d6efd;
+    color: #fff;
+    padding: 0.75rem 2rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.nav-brand {
+    font-size: 1.5rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.nav-links {
+    list-style: none;
+    display: flex;
+    gap: 1.5rem;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-link {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.nav-link.active,
+.nav-link:hover {
+    color: #b2f0e6;
+}
+
+main#main-content {
+    max-width: 900px;
+    margin: 2rem auto 3rem auto;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+    padding: 2rem;
+    min-height: 400px;
+}
+
+footer {
+    text-align: center;
+    padding: 1rem 0;
+    background: #e9f5fb;
+    color: #555;
+    font-size: 0.95rem;
+    position: fixed;
+    width: 100%;
+    bottom: 0;
+}
+
+h1,
+h2,
+h3 {
+    color: #0d6efd;
+    margin-top: 0;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    background: #f9fcff;
+}
+
+table th,
+table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e3e3e3;
+    text-align: left;
+}
+
+table th {
+    background: #e9f5fb;
+    color: #0d6efd;
+}
+
+table tr:last-child td {
+    border-bottom: none;
+}
+
+button,
+.btn {
+    background: #0d6efd;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 0.5rem 1.2rem;
+    font-size: 1rem;
+    cursor: pointer;
+    margin: 0.2rem 0.2rem;
+    transition: background 0.2s;
+}
+
+button:hover,
+.btn:hover {
+    background: #0bb3a7;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 1.5rem 0;
+}
+
+form label {
+    font-weight: 500;
+}
+
+form input,
+form select,
+form textarea {
+    padding: 0.5rem 0.8rem;
+    border: 1px solid #b2f0e6;
+    border-radius: 5px;
+    font-size: 1rem;
+    background: #f7fafd;
+}
+
+.feedback {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+.feedback.success {
+    background: #d1f7e7;
+    color: #0b7a4c;
+    border: 1px solid #0bb3a7;
+}
+
+.feedback.error {
+    background: #ffe0e0;
+    color: #b30000;
+    border: 1px solid #ffb3b3;
+}
+
+@media (max-width: 700px) {
+    main#main-content {
+        padding: 1rem;
+        max-width: 98vw;
+    }
+
+    .navbar {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 1rem;
+    }
+
+    .nav-links {
+        flex-direction: column;
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    footer {
+        font-size: 0.85rem;
+        padding: 0.7rem 0;
+    }
+}
