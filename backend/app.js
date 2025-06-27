@@ -25,7 +25,7 @@ const app = express();
 // CORS middleware
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || 'https://drmeeet.netlify.app',
+    origin: process.env.CLIENT_ORIGIN || 'https://drmeeet.netflify.app',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
