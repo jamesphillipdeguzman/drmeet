@@ -50,24 +50,36 @@ router.get(
  *       302:
  *         description: Redirect if login fails
  */
-router.get(
-  '/auth/google/callback',
-  passport.authenticate('google', {
-    failureRedirect: '/',
-  }),
-  (req, res) => {
-    console.log('User:', req.user);
-    console.log('Session:', req.session);
-    console.log('Session ID:', req.sessionID);
-    console.log('Cookies', req.cookies);
+router.get('/auth/google/callback', (req, res, next) => {
+  passport.authenticate('google', { session: true }, (err, user) => {
+    if (err) {
+      console.error('Google OAuth callback error:', err);
+      return res.status(500).json({
+        error: 'Google OAuth callback failed',
+        details: err.message,
+      });
+    }
+
+    if (!user) {
+      return res.redirect('/');
+    }
+
+    req.logIn(user, (loginErr) => {
+      if (loginErr) {
+        console.error('Session login error:', loginErr);
+        return res.status(500).json({
+          error: 'Failed to establish login session',
+          details: loginErr.message,
+        });
+      }
 
     // Create JWT payload
     const payload = {
-      // id: req.user.id,
-      _id: req.user._id,
-      name: req.user.name,
-      email: req.user.email || null,
-      role: req.user.role,
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email || null,
+      role: user.role,
     };
 
     // Sign JWT with secret and expiration
@@ -75,27 +87,33 @@ router.get(
       expiresIn: '1h',
     });
 
-    console.log('Callback - JWT token:', token);
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('Session save error:', saveErr);
+        return res.status(500).send('Failed to persist login session');
+        }
 
-    res.send(`
-            <html>
-                <body> 
-                    <script>
-                        if(window.opener) {
-                            window.opener.postMessage({
-                                type: 'GOOGLE_AUTH_SUCCESS',
-                                token: '${token}',
-                            }, '${process.env.CLIENT_ORIGIN}');
-                            window.close();
-                        } else {
-                            window.location.href = '${process.env.CLIENT_ORIGIN}';
-                        }
-                    </script>
-                </body>
-            </html>
-        `);
-  },
-);
+        return res.send(`
+              <html>
+                  <body> 
+                      <script>
+                          if(window.opener) {
+                              window.opener.postMessage({
+                                  type: 'GOOGLE_AUTH_SUCCESS',
+                                  token: '${token}',
+                              }, '${process.env.CLIENT_ORIGIN}');
+                              window.close();
+                          } else {
+                              window.location.href = '${process.env.CLIENT_ORIGIN}';
+                          }
+                      </script>
+                  </body>
+              </html>
+          `);
+      });
+    });
+  })(req, res, next);
+});
 
 // Check for current authentication status
 /**
@@ -213,6 +231,39 @@ router.get('/set-cookie', (req, res) => {
     maxAge: 60000,
   });
   res.send('Cookie set');
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
+
+    const user = await User.findOne({ email }).lean();
+    if (!user || !user.password) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const payload = {
+      _id: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+    };
+
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+    return res.status(200).json({ token });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
 });
 
 /**

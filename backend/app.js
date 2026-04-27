@@ -7,9 +7,11 @@ import authRoutes from './src/routes/auth.routes.js';
 import doctorRoutes from './src/routes/doctor.routes.js';
 import patientRoutes from './src/routes/patient.routes.js';
 import appointmentRoutes from './src/routes/appointment.routes.js';
+import userRoutes from './src/routes/user.routes.js';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './src/docs/swagger.js';
 import session from 'express-session';
+import MongoStore from 'connect-mongo';
 import passport from './src/config/passport.config.js';
 
 console.log('ENV:', {
@@ -19,13 +21,18 @@ console.log('ENV:', {
 });
 console.log('Secure cookie:', process.env.NODE_ENV === 'production');
 
+const isProduction = process.env.NODE_ENV === 'production';
+const clientOrigin = process.env.CLIENT_ORIGIN || 'https://drmeeet.netlify.app';
+const mongoUri = process.env.MONGO_URI;
+
 // Initialize an express app
 const app = express();
+app.set('trust proxy', 1);
 
 // CORS middleware
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || 'https://drmeeet.netflify.app',
+    origin: clientOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -44,24 +51,22 @@ app.use(
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    name: 'drmeet.sid',
+    store: mongoUri
+      ? MongoStore.create({
+          mongoUrl: mongoUri,
+          ttl: 60 * 60, // 1 hour
+          autoRemove: 'native',
+        })
+      : undefined,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Required for HTTPS. Evaluates to true for production
-      sameSite: 'none', // Required for cross-origin
+      secure: isProduction, // required for SameSite=None in production
+      sameSite: isProduction ? 'none' : 'lax',
       maxAge: 1000 * 60 * 60, // 1 hour
     },
-    proxy: true, // Required for secure cookies behind a proxy
   }),
 );
-
-// Add debug logging
-app.use((req, res, next) => {
-  console.log('Request Origin:', req.headers.origin);
-  console.log('Session:', req.session);
-  console.log('Session ID:', req.sessionID);
-  console.log('Cookies:', req.cookies);
-  next();
-});
 
 // Initialize Passport
 app.use(passport.initialize());
@@ -117,6 +122,7 @@ app.use('/', authRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/login', authRoutes);
 
 export { app };

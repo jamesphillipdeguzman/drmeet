@@ -2,6 +2,19 @@
 const mainContent = document.getElementById("main-content");
 const navLinks = document.querySelectorAll(".nav-link");
 const API_BASE = "https://drmeet-wqws.onrender.com/api";
+const API_ORIGIN = API_BASE.replace("/api", "");
+
+function buildHeaders(baseHeaders = {}) {
+  const token = localStorage.getItem("token");
+  return token
+    ? { ...baseHeaders, Authorization: `Bearer ${token}` }
+    : { ...baseHeaders };
+}
+
+async function apiRequest(url, options = {}) {
+  const headers = buildHeaders(options.headers || {});
+  return fetch(url, { ...options, headers, credentials: "include" });
+}
 
 function setActiveNav(hash) {
   navLinks.forEach((link) => {
@@ -15,10 +28,27 @@ function setActiveNav(hash) {
 
 window.addEventListener("hashchange", renderPage);
 window.addEventListener("DOMContentLoaded", () => {
+  checkAuthStatus();
   updateAuthNav();
   renderPage();
   window.addEventListener('message', handleGoogleAuthMessage);
 });
+
+async function checkAuthStatus() {
+  try {
+    const res = await fetch(`${API_ORIGIN}/auth/status`, {
+      method: "GET",
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
+    const data = await res.json();
+    if (data?.authenticated) {
+      updateAuthNav();
+    }
+  } catch (error) {
+    console.warn("Auth status check failed:", error);
+  }
+}
 
 function renderPage() {
   const hash = window.location.hash || "#home";
@@ -109,8 +139,9 @@ function renderLogin() {
     feedback.textContent = 'Logging in...';
     const creds = Object.fromEntries(new FormData(form));
     try {
-      const res = await fetch(`${API_BASE}/auth`, {
+      const res = await fetch(`${API_ORIGIN}/api/login`, {
         method: 'POST',
+        credentials: "include",
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(creds)
       });
@@ -169,8 +200,9 @@ function renderSignup() {
     feedback.textContent = 'Signing up...';
     const user = Object.fromEntries(new FormData(form));
     try {
-      const res = await fetch(`${API_BASE}/auth/signup`, {
+      const res = await fetch(`${API_ORIGIN}/api/login/auth/signup`, {
         method: 'POST',
+        credentials: "include",
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user)
       });
@@ -196,7 +228,7 @@ function renderSignup() {
 
 function googleLogin() {
   const popup = window.open(
-    `${API_BASE.replace('/api', '')}/auth/google`,
+    `${API_ORIGIN}/auth/google`,
     'googleLogin',
     'width=500,height=600'
   );
@@ -217,7 +249,7 @@ async function renderPatients() {
   mainContent.innerHTML =
     '<h2>Patients</h2><div class="feedback">Loading...</div>';
   try {
-    const res = await fetch(`${API_BASE}/patients`);
+    const res = await apiRequest(`${API_BASE}/patients`);
     if (!res.ok) throw new Error("Failed to fetch patients");
     const patients = await res.json();
     mainContent.innerHTML = `
@@ -278,7 +310,7 @@ function showPatientForm(editId = null) {
   };
   const form = document.getElementById("patient-form");
   if (editId) {
-    fetch(`${API_BASE}/patients/${editId}`)
+    apiRequest(`${API_BASE}/patients/${editId}`)
       .then((res) => res.json())
       .then((data) => {
         form.firstName.value = data.firstName || "";
@@ -293,7 +325,7 @@ function showPatientForm(editId = null) {
     e.preventDefault();
     const patient = Object.fromEntries(new FormData(form));
     try {
-      const res = await fetch(
+      const res = await apiRequest(
         `${API_BASE}/patients${editId ? "/" + editId : ""}`,
         {
           method: editId ? "PUT" : "POST",
@@ -316,7 +348,7 @@ function editPatient(id) {
 async function deletePatient(id) {
   if (!confirm("Delete this patient?")) return;
   try {
-    const res = await fetch(`${API_BASE}/patients/${id}`, { method: "DELETE" });
+    const res = await apiRequest(`${API_BASE}/patients/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete patient");
     renderPatients();
   } catch (err) {
@@ -329,7 +361,7 @@ async function renderDoctors() {
   mainContent.innerHTML =
     '<h2>Doctors</h2><div class="feedback">Loading...</div>';
   try {
-    const res = await fetch(`${API_BASE}/doctors`);
+    const res = await apiRequest(`${API_BASE}/doctors`);
     if (!res.ok) throw new Error("Failed to fetch doctors");
     const doctors = await res.json();
     mainContent.innerHTML = `
@@ -390,7 +422,7 @@ function showDoctorForm(editId = null) {
   };
   const form = document.getElementById("doctor-form");
   if (editId) {
-    fetch(`${API_BASE}/doctors/${editId}`)
+    apiRequest(`${API_BASE}/doctors/${editId}`)
       .then((res) => res.json())
       .then((data) => {
         form.firstName.value = data.firstName || "";
@@ -405,7 +437,7 @@ function showDoctorForm(editId = null) {
     e.preventDefault();
     const doctor = Object.fromEntries(new FormData(form));
     try {
-      const res = await fetch(
+      const res = await apiRequest(
         `${API_BASE}/doctors${editId ? "/" + editId : ""}`,
         {
           method: editId ? "PUT" : "POST",
@@ -428,7 +460,7 @@ function editDoctor(id) {
 async function deleteDoctor(id) {
   if (!confirm("Delete this doctor?")) return;
   try {
-    const res = await fetch(`${API_BASE}/doctors/${id}`, { method: "DELETE" });
+    const res = await apiRequest(`${API_BASE}/doctors/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete doctor");
     renderDoctors();
   } catch (err) {
@@ -441,7 +473,7 @@ async function renderAppointments() {
   mainContent.innerHTML =
     '<h2>Appointments</h2><div class="feedback">Loading...</div>';
   try {
-    const res = await fetch(`${API_BASE}/appointments`);
+    const res = await apiRequest(`${API_BASE}/appointments`);
     if (!res.ok) throw new Error("Failed to fetch appointments");
     const appointments = await res.json();
     mainContent.innerHTML = `
@@ -511,7 +543,7 @@ function showAppointmentForm(editId = null) {
   };
   const form = document.getElementById("appointment-form");
   if (editId) {
-    fetch(`${API_BASE}/appointments/${editId}`)
+    apiRequest(`${API_BASE}/appointments/${editId}`)
       .then((res) => res.json())
       .then((data) => {
         form.doctor.value = data.doctor || "";
@@ -526,7 +558,7 @@ function showAppointmentForm(editId = null) {
     e.preventDefault();
     const appointment = Object.fromEntries(new FormData(form));
     try {
-      const res = await fetch(
+      const res = await apiRequest(
         `${API_BASE}/appointments${editId ? "/" + editId : ""}`,
         {
           method: editId ? "PUT" : "POST",
@@ -549,7 +581,7 @@ function editAppointment(id) {
 async function deleteAppointment(id) {
   if (!confirm("Delete this appointment?")) return;
   try {
-    const res = await fetch(`${API_BASE}/appointments/${id}`, {
+    const res = await apiRequest(`${API_BASE}/appointments/${id}`, {
       method: "DELETE",
     });
     if (!res.ok) throw new Error("Failed to delete appointment");
@@ -564,7 +596,7 @@ async function renderUsers() {
   mainContent.innerHTML =
     '<h2>Users</h2><div class="feedback">Loading...</div>';
   try {
-    const res = await fetch(`${API_BASE}/users`);
+    const res = await apiRequest(`${API_BASE}/users`);
     if (!res.ok) throw new Error("Failed to fetch users");
     const users = await res.json();
     mainContent.innerHTML = `
@@ -629,7 +661,7 @@ function showUserForm(editId = null) {
   };
   const form = document.getElementById("user-form");
   if (editId) {
-    fetch(`${API_BASE}/users/${editId}`)
+    apiRequest(`${API_BASE}/users/${editId}`)
       .then((res) => res.json())
       .then((data) => {
         form.firstName.value = data.firstName || "";
@@ -644,7 +676,7 @@ function showUserForm(editId = null) {
     e.preventDefault();
     const user = Object.fromEntries(new FormData(form));
     try {
-      const res = await fetch(
+      const res = await apiRequest(
         `${API_BASE}/users${editId ? "/" + editId : ""}`,
         {
           method: editId ? "PUT" : "POST",
@@ -667,7 +699,7 @@ function editUser(id) {
 async function deleteUser(id) {
   if (!confirm("Delete this user?")) return;
   try {
-    const res = await fetch(`${API_BASE}/users/${id}`, { method: "DELETE" });
+    const res = await apiRequest(`${API_BASE}/users/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete user");
     renderUsers();
   } catch (err) {
