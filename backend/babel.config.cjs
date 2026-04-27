@@ -1,4 +1,3 @@
-// babel.config.mjs
-export default {
+module.exports = {
   presets: [['@babel/preset-env', { targets: { node: 'current' } }]],
 };
