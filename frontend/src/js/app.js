@@ -16,6 +16,21 @@ async function apiRequest(url, options = {}) {
   return fetch(url, { ...options, headers, credentials: "include" });
 }
 
+function formatDateForInput(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+}
+
+function buildDoctorAvailabilityLabel(doctor) {
+  const slots = Array.isArray(doctor.availability) ? doctor.availability : [];
+  if (!slots.length) return "Availability not set";
+  return slots
+    .map((slot) => `${slot.day || "Day"} ${slot.startTime || "--:--"}-${slot.endTime || "--:--"}`)
+    .join(" | ");
+}
+
 function setActiveNav(hash) {
   navLinks.forEach((link) => {
     if (link.getAttribute("href") === hash) {
@@ -298,7 +313,16 @@ function showPatientForm(editId = null) {
       <label>Email <input name="email" type="email" required /></label>
       <label>Phone <input name="phone" /></label>
       <label>Date of Birth <input name="dateOfBirth" type="date" /></label>
+      <label>Gender
+        <select name="gender">
+          <option value="">Select gender</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+          <option value="Other">Other</option>
+        </select>
+      </label>
       <label>Address <input name="address" /></label>
+      <label>Notes <textarea name="notes" placeholder="Medical notes or reminders"></textarea></label>
       <div style="margin-top:1rem;">
         <button type="submit">${editId ? "Update" : "Add"}</button>
         <button type="button" onclick="window.closePatientForm()">Cancel</button>
@@ -317,8 +341,10 @@ function showPatientForm(editId = null) {
         form.lastName.value = data.lastName || "";
         form.email.value = data.email || "";
         form.phone.value = data.phone || "";
-        form.dateOfBirth.value = data.dateOfBirth || "";
+        form.dateOfBirth.value = formatDateForInput(data.dateOfBirth || data.birthdate);
+        form.gender.value = data.gender || "";
         form.address.value = data.address || "";
+        form.notes.value = data.notes || "";
       });
   }
   form.onsubmit = async (e) => {
@@ -409,6 +435,23 @@ function showDoctorForm(editId = null) {
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
       <label>Specialization <input name="specialization" required /></label>
+      <label>Bio <textarea name="bio" placeholder="Short profile"></textarea></label>
+      <label>Availability Day
+        <select name="availabilityDay">
+          <option value="">Select day</option>
+          <option value="Monday">Monday</option>
+          <option value="Tuesday">Tuesday</option>
+          <option value="Wednesday">Wednesday</option>
+          <option value="Thursday">Thursday</option>
+          <option value="Friday">Friday</option>
+          <option value="Saturday">Saturday</option>
+          <option value="Sunday">Sunday</option>
+        </select>
+      </label>
+      <label>Availability Start Time <input name="availabilityStartTime" type="time" /></label>
+      <label>Availability End Time <input name="availabilityEndTime" type="time" /></label>
+      <label>Room <input name="room" placeholder="e.g. Room 204" /></label>
+      <label>Affiliated Hospitals / Clinics <input name="affiliatedClinics" placeholder="Clinic A, Hospital B" /></label>
       <label>Phone <input name="phone" /></label>
       <label>Address <input name="address" /></label>
       <div style="margin-top:1rem;">
@@ -425,10 +468,18 @@ function showDoctorForm(editId = null) {
     apiRequest(`${API_BASE}/doctors/${editId}`)
       .then((res) => res.json())
       .then((data) => {
+        const firstSlot = Array.isArray(data.availability) ? data.availability[0] : null;
         form.firstName.value = data.firstName || "";
         form.lastName.value = data.lastName || "";
         form.email.value = data.email || "";
         form.specialization.value = data.specialization || "";
+        form.bio.value = data.bio || "";
+        form.availabilityDay.value = firstSlot?.day || "";
+        form.availabilityStartTime.value = firstSlot?.startTime || "";
+        form.availabilityEndTime.value = firstSlot?.endTime || "";
+        form.room.value = data.room || "";
+        form.affiliatedClinics.value =
+          data.affiliatedClinics || firstSlot?.location?.clinicName || "";
         form.phone.value = data.phone || "";
         form.address.value = data.address || "";
       });
@@ -436,13 +487,33 @@ function showDoctorForm(editId = null) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const doctor = Object.fromEntries(new FormData(form));
+    const availability =
+      doctor.availabilityDay && doctor.availabilityStartTime && doctor.availabilityEndTime
+        ? [
+            {
+              day: doctor.availabilityDay,
+              startTime: doctor.availabilityStartTime,
+              endTime: doctor.availabilityEndTime,
+              location: {
+                clinicName: doctor.affiliatedClinics || "",
+              },
+            },
+          ]
+        : [];
+    const doctorPayload = {
+      ...doctor,
+      availability,
+    };
+    delete doctorPayload.availabilityDay;
+    delete doctorPayload.availabilityStartTime;
+    delete doctorPayload.availabilityEndTime;
     try {
       const res = await apiRequest(
         `${API_BASE}/doctors${editId ? "/" + editId : ""}`,
         {
           method: editId ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(doctor),
+          body: JSON.stringify(doctorPayload),
         }
       );
       if (!res.ok) throw new Error("Failed to save doctor");
@@ -513,14 +584,55 @@ async function renderAppointments() {
   }
 }
 
-function showAppointmentForm(editId = null) {
+async function showAppointmentForm(editId = null) {
   const modal = document.getElementById("appointment-form-modal");
   modal.style.display = "block";
+  modal.innerHTML = `<div class="feedback">Loading form...</div>`;
+  let doctors = [];
+  let patients = [];
+  try {
+    const [doctorRes, patientRes] = await Promise.all([
+      apiRequest(`${API_BASE}/doctors`),
+      apiRequest(`${API_BASE}/patients`),
+    ]);
+    doctors = doctorRes.ok ? await doctorRes.json() : [];
+    patients = patientRes.ok ? await patientRes.json() : [];
+  } catch (error) {
+    modal.innerHTML = `<div class="feedback error">Failed to load doctors and patients.</div>`;
+    return;
+  }
+
+  const doctorOptions = doctors
+    .map((doctor) => {
+      const fullName = `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim();
+      const specialty = doctor.specialization || doctor.specialty || "No specialty";
+      const availability = buildDoctorAvailabilityLabel(doctor);
+      return `<option value="${doctor._id}">${fullName} - ${specialty} (${availability})</option>`;
+    })
+    .join("");
+
+  const patientOptions = patients
+    .map((patient) => {
+      const fullName = `${patient.firstName || ""} ${patient.lastName || ""}`.trim();
+      return `<option value="${patient._id}">${fullName} (${patient.email || "No email"})</option>`;
+    })
+    .join("");
+
   modal.innerHTML = `
     <form id="appointment-form">
       <h3>${editId ? "Edit" : "Add"} Appointment</h3>
-      <label>Doctor <input name="doctor" required /></label>
-      <label>Patient <input name="patient" required /></label>
+      <label>Doctor
+        <select name="doctor" required>
+          <option value="">Select doctor</option>
+          ${doctorOptions}
+        </select>
+      </label>
+      <label>Patient
+        <select name="patient" required>
+          <option value="">Select patient</option>
+          ${patientOptions}
+        </select>
+      </label>
       <label>Date <input name="date" type="date" required /></label>
       <label>Time <input name="time" type="time" required /></label>
       <label>Status
@@ -543,16 +655,18 @@ function showAppointmentForm(editId = null) {
   };
   const form = document.getElementById("appointment-form");
   if (editId) {
-    apiRequest(`${API_BASE}/appointments/${editId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        form.doctor.value = data.doctor || "";
-        form.patient.value = data.patient || "";
-        form.date.value = data.date || "";
-        form.time.value = data.time || "";
-        form.status.value = data.status || "pending";
-        form.notes.value = data.notes || "";
-      });
+    try {
+      const res = await apiRequest(`${API_BASE}/appointments/${editId}`);
+      const data = await res.json();
+      form.doctor.value = data.doctor || "";
+      form.patient.value = data.patient || "";
+      form.date.value = formatDateForInput(data.date);
+      form.time.value = data.time || "";
+      form.status.value = data.status || "pending";
+      form.notes.value = data.notes || data.reason || "";
+    } catch (error) {
+      console.error(error);
+    }
   }
   form.onsubmit = async (e) => {
     e.preventDefault();

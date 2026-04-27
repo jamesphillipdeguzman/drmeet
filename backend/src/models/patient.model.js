@@ -50,6 +50,10 @@ const patientSchema = new mongoose.Schema(
     },
 
     medicalHistory: [String],
+    notes: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

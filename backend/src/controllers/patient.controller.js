@@ -7,6 +7,29 @@ import {
   updatePatientById as updatePatientByIdService,
   deletePatientById as deletePatientByIdService,
 } from '../services/patient.service.js';
+
+const mapPatientForClient = (patient) => {
+  const plain = patient?.toObject ? patient.toObject() : patient;
+  const addressText =
+    typeof plain.address === 'string'
+      ? plain.address
+      : [
+          plain.address?.address1,
+          plain.address?.address2,
+          plain.address?.city,
+          plain.address?.province,
+          plain.address?.postcode,
+          plain.address?.country,
+        ]
+          .filter(Boolean)
+          .join(', ');
+
+  return {
+    ...plain,
+    dateOfBirth: plain.dateOfBirth || plain.birthdate || null,
+    address: addressText || '',
+  };
+};
 /**
  * @route GET /api/patients
  * @desc Fetch all patients
@@ -14,13 +37,7 @@ import {
 export const getAllPatients = async (req, res) => {
   try {
     const patients = await findAllPatients();
-    const normalizedPatients = patients.map((patient) => {
-      const plain = patient.toObject ? patient.toObject() : patient;
-      return {
-        ...plain,
-        dateOfBirth: plain.dateOfBirth || plain.birthdate || null,
-      };
-    });
+    const normalizedPatients = patients.map(mapPatientForClient);
     console.log('[PATIENT]✅ GET /api/patients was called.');
     return res.status(200).json(normalizedPatients);
   } catch (error) {
@@ -46,12 +63,8 @@ export const getPatientById = async (req, res) => {
     if (!patient) {
       return res.status(404).json({ error: 'Patient not found.' });
     }
-    const plainPatient = patient.toObject ? patient.toObject() : patient;
     console.log(`[PATIENT]✅ GET /api/patients/${id} was called`);
-    return res.status(200).json({
-      ...plainPatient,
-      dateOfBirth: plainPatient.dateOfBirth || plainPatient.birthdate || null,
-    });
+    return res.status(200).json(mapPatientForClient(patient));
   } catch (error) {
     console.log(`Error fetching the patient with ${id}:`, error);
     return res
@@ -76,6 +89,10 @@ export const postPatient = async (req, res) => {
     const patientData = {
       ...req.body,
       birthdate: req.body.birthdate || req.body.dateOfBirth || null,
+      address:
+        typeof req.body.address === 'string'
+          ? { address1: req.body.address }
+          : req.body.address,
     };
     const newPatient = await createPatientService(patientData);
     if (!newPatient) {
@@ -102,6 +119,10 @@ export const updatePatient = async (req, res) => {
     const updates = {
       ...req.body,
       birthdate: req.body.birthdate || req.body.dateOfBirth || undefined,
+      address:
+        typeof req.body.address === 'string'
+          ? { address1: req.body.address }
+          : req.body.address,
     };
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ error: 'Invalid patient ID format.' });

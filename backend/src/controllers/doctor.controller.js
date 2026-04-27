@@ -16,9 +16,16 @@ export const getAllDoctors = async (req, res) => {
         const doctors = await findAllDoctors();
         const normalizedDoctors = doctors.map((doctor) => {
             const plain = doctor.toObject ? doctor.toObject() : doctor;
+            const firstSlot = Array.isArray(plain.availability)
+                ? plain.availability[0]
+                : null;
             return {
                 ...plain,
                 specialization: plain.specialization || plain.specialty || '',
+                affiliatedClinics:
+                    plain.affiliatedClinics ||
+                    firstSlot?.location?.clinicName ||
+                    '',
             };
         });
         console.log('[DOCTOR]✅ GET /api/doctors was called.');
@@ -47,11 +54,18 @@ export const getDoctorById = async (req, res) => {
             return res.status(404).json({ error: 'Doctor not found.' });
         }
         const plainDoctor = doctor.toObject ? doctor.toObject() : doctor;
+        const firstSlot = Array.isArray(plainDoctor.availability)
+            ? plainDoctor.availability[0]
+            : null;
         console.log(`[DOCTOR]✅ GET /api/doctors/${id} was called`);
         return res.status(200).json({
             ...plainDoctor,
             specialization:
                 plainDoctor.specialization || plainDoctor.specialty || '',
+            affiliatedClinics:
+                plainDoctor.affiliatedClinics ||
+                firstSlot?.location?.clinicName ||
+                '',
         });
     } catch (error) {
         console.log(`Error fetching the doctor with ${id}:`, error);

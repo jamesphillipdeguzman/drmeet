@@ -50,6 +50,14 @@ const doctorSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    room: {
+      type: String,
+      default: "",
+    },
+    affiliatedClinics: {
+      type: String,
+      default: "",
+    },
     experienceYears: { type: Number },
     email: {
       type: String,
