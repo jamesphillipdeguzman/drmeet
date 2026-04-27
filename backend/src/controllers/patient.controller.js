@@ -14,8 +14,15 @@ import {
 export const getAllPatients = async (req, res) => {
   try {
     const patients = await findAllPatients();
+    const normalizedPatients = patients.map((patient) => {
+      const plain = patient.toObject ? patient.toObject() : patient;
+      return {
+        ...plain,
+        dateOfBirth: plain.dateOfBirth || plain.birthdate || null,
+      };
+    });
     console.log('[PATIENT]✅ GET /api/patients was called.');
-    return res.status(200).json(patients);
+    return res.status(200).json(normalizedPatients);
   } catch (error) {
     console.log('Error fetching patients: ', error);
     return res
@@ -39,8 +46,12 @@ export const getPatientById = async (req, res) => {
     if (!patient) {
       return res.status(404).json({ error: 'Patient not found.' });
     }
+    const plainPatient = patient.toObject ? patient.toObject() : patient;
     console.log(`[PATIENT]✅ GET /api/patients/${id} was called`);
-    return res.status(200).json(patient);
+    return res.status(200).json({
+      ...plainPatient,
+      dateOfBirth: plainPatient.dateOfBirth || plainPatient.birthdate || null,
+    });
   } catch (error) {
     console.log(`Error fetching the patient with ${id}:`, error);
     return res
@@ -62,7 +73,10 @@ export const postPatient = async (req, res) => {
       req.body.lastName = lastNameParts.join(' ') || '';
     }
 
-    const patientData = req.body;
+    const patientData = {
+      ...req.body,
+      birthdate: req.body.birthdate || req.body.dateOfBirth || null,
+    };
     const newPatient = await createPatientService(patientData);
     if (!newPatient) {
       return res.status(400).json({ error: 'Failed to create patient.' });
@@ -85,7 +99,10 @@ export const postPatient = async (req, res) => {
  */
 export const updatePatient = async (req, res) => {
   const { id } = req.params;
-  const updates = req.body;
+    const updates = {
+      ...req.body,
+      birthdate: req.body.birthdate || req.body.dateOfBirth || undefined,
+    };
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ error: 'Invalid patient ID format.' });
   }

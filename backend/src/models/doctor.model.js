@@ -5,8 +5,9 @@ const doctorSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
     },
     firstName: {
       type: String,
@@ -26,24 +27,6 @@ const doctorSchema = new mongoose.Schema(
     specialty: {
       type: String,
       required: true,
-      enum: [
-        "General Medicine",
-        "Pediatrics",
-        "Dermatology",
-        "Cardiology",
-        "Neurology",
-        "Psychiatry",
-        "OB-GYN",
-        "ENT",
-        "Orthopedics",
-        "Surgery",
-        "Family Medicine",
-        "Radiology",
-        "Pathology",
-        "Urology",
-        "Dentistry",
-        "Ophthalmology",
-      ],
     },
 
     department: {

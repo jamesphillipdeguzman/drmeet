@@ -55,7 +55,10 @@ export const getAppointmentById = async (req, res) => {
  */
 export const postAppointment = async (req, res) => {
     try {
-        const appointmentData = req.body;
+        const appointmentData = {
+            ...req.body,
+            reason: req.body.reason || req.body.notes || '',
+        };
         const newAppointment = await createAppointmentService(appointmentData);
         if (!newAppointment) {
             return res.status(400).json({ error: 'Failed to create appointment.' });
@@ -78,7 +81,10 @@ export const postAppointment = async (req, res) => {
  */
 export const updateAppointment = async (req, res) => {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = {
+        ...req.body,
+        reason: req.body.reason || req.body.notes || undefined,
+    };
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid appointment ID format.' });
     }

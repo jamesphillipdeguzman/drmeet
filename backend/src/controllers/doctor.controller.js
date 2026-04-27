@@ -14,8 +14,15 @@ import {
 export const getAllDoctors = async (req, res) => {
     try {
         const doctors = await findAllDoctors();
+        const normalizedDoctors = doctors.map((doctor) => {
+            const plain = doctor.toObject ? doctor.toObject() : doctor;
+            return {
+                ...plain,
+                specialization: plain.specialization || plain.specialty || '',
+            };
+        });
         console.log('[DOCTOR]✅ GET /api/doctors was called.');
-        return res.status(200).json(doctors);
+        return res.status(200).json(normalizedDoctors);
     } catch (error) {
         console.log('Error fetching doctors: ', error);
         return res
@@ -39,8 +46,13 @@ export const getDoctorById = async (req, res) => {
         if (!doctor) {
             return res.status(404).json({ error: 'Doctor not found.' });
         }
+        const plainDoctor = doctor.toObject ? doctor.toObject() : doctor;
         console.log(`[DOCTOR]✅ GET /api/doctors/${id} was called`);
-        return res.status(200).json(doctor);
+        return res.status(200).json({
+            ...plainDoctor,
+            specialization:
+                plainDoctor.specialization || plainDoctor.specialty || '',
+        });
     } catch (error) {
         console.log(`Error fetching the doctor with ${id}:`, error);
         return res
@@ -55,7 +67,10 @@ export const getDoctorById = async (req, res) => {
  */
 export const postDoctor = async (req, res) => {
     try {
-        const doctorData = req.body;
+        const doctorData = {
+            ...req.body,
+            specialty: req.body.specialty || req.body.specialization,
+        };
         const newDoctor = await createDoctorService(doctorData);
         if (!newDoctor) {
             return res.status(400).json({ error: 'Failed to create doctor.' });
@@ -78,7 +93,10 @@ export const postDoctor = async (req, res) => {
  */
 export const updateDoctor = async (req, res) => {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = {
+        ...req.body,
+        specialty: req.body.specialty || req.body.specialization,
+    };
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid doctor ID format.' });
     }

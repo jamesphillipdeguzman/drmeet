@@ -5,8 +5,9 @@ const patientSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
     },
     firstName: {
       type: String,
@@ -50,7 +51,7 @@ const patientSchema = new mongoose.Schema(
 
     medicalHistory: [String],
   },
-  { timeStamps: true }
+  { timestamps: true }
 );
 
 export default mongoose.model("Patient", patientSchema);
