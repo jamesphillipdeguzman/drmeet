@@ -70,7 +70,7 @@ router.get('/:id', hybridAuth, validateMongoIdParam, getDoctorById);
  *              - firstName
  *              - lastName
  *              - email
- *              - specialization
+ *              - specialty
  *            properties:
  *              firstName:
  *                type: string
@@ -78,7 +78,7 @@ router.get('/:id', hybridAuth, validateMongoIdParam, getDoctorById);
  *                type: string
  *              email:
  *                type: string
- *              specialization:
+ *              specialty:
  *                type: string
  *              phone:
  *                type: string
@@ -119,7 +119,7 @@ router.post('/', hybridAuth, validateDoctor, postDoctor);
  *                type: string
  *              email:
  *                type: string
- *              specialization:
+ *              specialty:
  *                type: string
  *              phone:
  *                type: string

@@ -90,7 +90,7 @@ router.get('/:id', hybridAuth, validateMongoIdParam, getPatientById);
  *                type: string
  *              address:
  *                type: string
- *              dateOfBirth:
+ *              birthdate:
  *                type: string
  *                format: date
  *    responses:
@@ -134,7 +134,7 @@ router.post('/', hybridAuth, validatePatient, postPatient);
  *                type: string
  *              address:
  *                type: string
- *              dateOfBirth:
+ *              birthdate:
  *                type: string
  *                format: date
  *    tags:

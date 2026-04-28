@@ -21,9 +21,9 @@ jest.mock('../src/middlewares/common.middleware.js', () => ({
 
 jest.mock('../src/controllers/doctor.controller.js', () => ({
     getAllDoctors: (req, res) =>
-        res.status(200).json([{ _id: 'doc123', firstName: 'Alice', lastName: 'Smith', specialization: 'Cardiology' }]),
+        res.status(200).json([{ _id: 'doc123', firstName: 'Alice', lastName: 'Smith', specialty: 'Cardiology' }]),
     getDoctorById: (req, res) =>
-        res.status(200).json({ _id: req.params.id, firstName: 'Alice', lastName: 'Smith', specialization: 'Cardiology' }),
+        res.status(200).json({ _id: req.params.id, firstName: 'Alice', lastName: 'Smith', specialty: 'Cardiology' }),
     postDoctor: (req, res) => res.status(201).json({ created: true }),
     updateDoctor: (req, res) => res.status(200).json({ updated: true }),
     deleteDoctor: (req, res) => res.status(200).json({ deleted: true }),

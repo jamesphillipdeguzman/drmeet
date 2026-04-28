@@ -10,9 +10,9 @@ export const validateDoctor = [
     body('email')
         .isEmail()
         .withMessage('A valid email is required.'),
-    body('specialization')
+    body('specialty')
         .notEmpty()
-        .withMessage('Specialization is required.'),
+        .withMessage('specialty is required.'),
     (req, res, next) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
