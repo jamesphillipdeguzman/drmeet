@@ -36,6 +36,25 @@ async function apiRequest(url, options = {}) {
   return fetch(url, { ...options, headers, credentials: "include" });
 }
 
+async function getApiErrorMessage(res, fallbackMessage) {
+  try {
+    const payload = await res.json();
+    if (payload?.error) return payload.error;
+    if (Array.isArray(payload?.missingFields) && payload.missingFields.length) {
+      return `Missing required fields: ${payload.missingFields.join(", ")}`;
+    }
+    if (Array.isArray(payload?.errors) && payload.errors.length) {
+      return payload.errors.map((item) => item.msg || item.message).filter(Boolean).join(", ");
+    }
+    if (Array.isArray(payload?.details) && payload.details.length) {
+      return payload.details.join(", ");
+    }
+  } catch (error) {
+    // Ignore JSON parse errors and use fallback text.
+  }
+  return fallbackMessage;
+}
+
 function formatDateForInput(value) {
   if (!value) return "";
   const date = new Date(value);
@@ -814,7 +833,9 @@ function showPatientForm(editId = null) {
           body: JSON.stringify(patient),
         }
       );
-      if (!res.ok) throw new Error("Failed to save patient");
+      if (!res.ok) {
+        throw new Error(await getApiErrorMessage(res, "Failed to save patient"));
+      }
       modal.style.display = "none";
       renderPatients();
     } catch (err) {
@@ -975,7 +996,9 @@ function showDoctorForm(editId = null) {
           body: JSON.stringify(doctorPayload),
         }
       );
-      if (!res.ok) throw new Error("Failed to save doctor");
+      if (!res.ok) {
+        throw new Error(await getApiErrorMessage(res, "Failed to save doctor"));
+      }
       modal.style.display = "none";
       renderDoctors();
     } catch (err) {
