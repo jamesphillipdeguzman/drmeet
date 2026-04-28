@@ -890,7 +890,7 @@ function showDoctorForm(editId = null) {
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
-      <label>Specialization <input name="specialization" required /></label>
+      <label>Specialization <input name="specialty" required /></label>
       <label>Bio <textarea name="bio" placeholder="Short profile"></textarea></label>
       <label>Availability Rules (one per line)
         <textarea name="availabilityText" placeholder="Monday - Friday 10:00-15:00&#10;Saturday 09:00-12:00"></textarea>

@@ -89,8 +89,8 @@ export const postPatient = async (req, res) => {
     // ✅ 1. Validate date FIRST
     let parsedDate = null;
 
-    if (req.body.dateOfBirth) {
-      parsedDate = new Date(req.body.dateOfBirth);
+    if (req.body.birthdate) {
+      parsedDate = new Date(req.body.birthdate);
 
       if (isNaN(parsedDate.getTime())) {
         return res.status(400).json({
