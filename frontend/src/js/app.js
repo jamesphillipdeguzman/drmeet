@@ -1,8 +1,23 @@
 // SPA navigation and dynamic content rendering
 const mainContent = document.getElementById("main-content");
 const navLinks = document.querySelectorAll(".nav-link");
+const sidebar = document.getElementById("app-sidebar");
+const sidebarToggle = document.getElementById("sidebar-toggle");
+const commandPalette = document.getElementById("command-palette");
+const commandInput = document.getElementById("command-input");
+const commandResults = document.getElementById("command-results");
+const commandPaletteTrigger = document.getElementById("command-palette-trigger");
 const API_BASE = "https://drmeet-wqws.onrender.com/api";
 const API_ORIGIN = API_BASE.replace("/api", "");
+const DASHBOARD_STATE_KEY = "drmeet-dashboard-state";
+const dashboardSubscribers = [];
+const dashboardState = {
+  messageBoard: [],
+  smsFeed: [
+    { from: "Maria T.", message: "I can do tomorrow morning.", status: "pending" },
+    { from: "James K.", message: "Confirmed for 3:00 PM.", status: "confirmed" },
+  ],
+};
 
 function buildHeaders(baseHeaders = {}) {
   const token = localStorage.getItem("token");
@@ -25,9 +40,14 @@ function formatDateForInput(value) {
 
 function buildDoctorAvailabilityLabel(doctor) {
   const slots = Array.isArray(doctor.availability) ? doctor.availability : [];
+  if (doctor.availabilityText) return doctor.availabilityText;
   if (!slots.length) return "Availability not set";
   return slots
-    .map((slot) => `${slot.day || "Day"} ${slot.startTime || "--:--"}-${slot.endTime || "--:--"}`)
+    .map((slot) =>
+      slot.timeRange
+        ? `${slot.day || "Day"} ${slot.timeRange}`
+        : `${slot.day || "Day"} ${slot.startTime || "--:--"}-${slot.endTime || "--:--"}`
+    )
     .join(" | ");
 }
 
@@ -43,11 +63,113 @@ function setActiveNav(hash) {
 
 window.addEventListener("hashchange", renderPage);
 window.addEventListener("DOMContentLoaded", () => {
+  loadDashboardState();
+  setupShellInteractions();
+  setupCommandPalette();
   checkAuthStatus();
   updateAuthNav();
   renderPage();
   window.addEventListener('message', handleGoogleAuthMessage);
 });
+
+function setupShellInteractions() {
+  if (!sidebarToggle || !sidebar) return;
+  sidebarToggle.addEventListener("click", () => {
+    sidebar.classList.toggle("collapsed");
+  });
+}
+
+function setupCommandPalette() {
+  if (!commandPalette || !commandInput || !commandResults) return;
+  commandPaletteTrigger?.addEventListener("click", openCommandPalette);
+  document.addEventListener("keydown", (event) => {
+    const pressedK = event.key.toLowerCase() === "k";
+    if ((event.ctrlKey || event.metaKey) && pressedK) {
+      event.preventDefault();
+      openCommandPalette();
+    }
+    if (event.key === "Escape" && !commandPalette.classList.contains("hidden")) {
+      closeCommandPalette();
+    }
+  });
+  commandInput.addEventListener("input", renderCommandResults);
+  commandPalette.addEventListener("click", (event) => {
+    if (event.target === commandPalette) closeCommandPalette();
+  });
+}
+
+function getSearchableCommands() {
+  const staticCommands = [
+    { id: "home", label: "Go to Home", action: () => navigateTo("#home") },
+    { id: "patients", label: "Go to Patients", action: () => navigateTo("#patients") },
+    { id: "doctors", label: "Go to Doctors", action: () => navigateTo("#doctors") },
+    { id: "appointments", label: "Go to Appointments", action: () => navigateTo("#appointments") },
+    { id: "users", label: "Go to Users", action: () => navigateTo("#users") },
+  ];
+  return staticCommands;
+}
+
+function openCommandPalette() {
+  commandPalette.classList.remove("hidden");
+  commandInput.value = "";
+  renderCommandResults();
+  commandInput.focus();
+}
+
+function closeCommandPalette() {
+  commandPalette.classList.add("hidden");
+}
+
+function renderCommandResults() {
+  const query = commandInput.value.trim().toLowerCase();
+  const matches = getSearchableCommands().filter((item) =>
+    item.label.toLowerCase().includes(query)
+  );
+  commandResults.innerHTML = matches
+    .map(
+      (item) => `<li><button type="button" data-command-id="${item.id}" class="command-item">${item.label}</button></li>`
+    )
+    .join("") || '<li class="empty">No matches found.</li>';
+  commandResults.querySelectorAll("[data-command-id]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const command = matches.find((entry) => entry.id === button.dataset.commandId);
+      if (!command) return;
+      command.action();
+      closeCommandPalette();
+    });
+  });
+}
+
+function navigateTo(hash) {
+  window.location.hash = hash;
+  renderPage();
+}
+
+function loadDashboardState() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(DASHBOARD_STATE_KEY) || "{}");
+    if (Array.isArray(parsed.messageBoard)) {
+      dashboardState.messageBoard = parsed.messageBoard;
+    }
+    if (Array.isArray(parsed.smsFeed) && parsed.smsFeed.length) {
+      dashboardState.smsFeed = parsed.smsFeed;
+    }
+  } catch (error) {
+    console.warn("Unable to load dashboard state", error);
+  }
+}
+
+function persistDashboardState() {
+  localStorage.setItem(DASHBOARD_STATE_KEY, JSON.stringify(dashboardState));
+}
+
+function subscribeDashboard(listener) {
+  dashboardSubscribers.push(listener);
+}
+
+function notifyDashboardSubscribers() {
+  dashboardSubscribers.forEach((listener) => listener(dashboardState));
+}
 
 async function checkAuthStatus() {
   try {
@@ -94,9 +216,122 @@ function renderPage() {
 
 function renderHome() {
   mainContent.innerHTML = `
-    <h1>Welcome to DrMeet</h1>
-    <p>Your modern clinic management system. Use the navigation above to manage patients, doctors, appointments, and users.</p>
+    <section class="dashboard-intro card">
+      <h1>Welcome to DrMeet</h1>
+      <p>Premium clinic command center for care teams. Use the command palette (Ctrl/Cmd+K) to quickly navigate.</p>
+    </section>
+    <section class="dashboard-grid">
+      <article class="card board-card">
+        <div class="card-header">
+          <h3>Message Board</h3>
+          <button class="btn" id="add-board-message">Add Message</button>
+        </div>
+        <div id="message-board-list" class="masonry-grid"></div>
+      </article>
+      <article class="card sms-card">
+        <div class="card-header">
+          <h3>SMS Feed</h3>
+        </div>
+        <div id="sms-feed-list" class="chat-thread"></div>
+      </article>
+    </section>
   `;
+  mountDashboardWidgets();
+}
+
+function createSkeletonRows(total = 3) {
+  return Array.from({ length: total })
+    .map(
+      () => `
+        <div class="skeleton-row">
+          <div class="skeleton-line w-60"></div>
+          <div class="skeleton-line w-90"></div>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function mountDashboardWidgets() {
+  const boardContainer = document.getElementById("message-board-list");
+  const smsContainer = document.getElementById("sms-feed-list");
+  const addButton = document.getElementById("add-board-message");
+  if (!boardContainer || !smsContainer) return;
+
+  boardContainer.innerHTML = createSkeletonRows(2);
+  smsContainer.innerHTML = createSkeletonRows(3);
+  setTimeout(() => {
+    renderMessageBoard(boardContainer);
+    renderSmsFeed(smsContainer);
+  }, 350);
+
+  addButton?.addEventListener("click", () => {
+    const note = prompt("Add dashboard message");
+    if (!note) return;
+    dashboardState.messageBoard.unshift({
+      id: `msg-${Date.now()}`,
+      title: "Team update",
+      body: note,
+      tags: ["NDIS", "Urgent", "Physio"].slice(0, 1 + (Date.now() % 3)),
+      createdAt: new Date().toISOString(),
+    });
+    persistDashboardState();
+    notifyDashboardSubscribers();
+  });
+
+  dashboardSubscribers.length = 0;
+  subscribeDashboard(() => {
+    renderMessageBoard(boardContainer);
+    renderSmsFeed(smsContainer);
+  });
+}
+
+function renderMessageBoard(container) {
+  const posts = dashboardState.messageBoard.length
+    ? dashboardState.messageBoard
+    : [
+        {
+          id: "seed-1",
+          title: "Follow-up queue",
+          body: "Prioritize respiratory reviews before 3pm handover.",
+          tags: ["Urgent", "Physio"],
+          createdAt: new Date().toISOString(),
+        },
+      ];
+  container.innerHTML = posts
+    .map(
+      (post) => `
+      <article class="message-card">
+        <div class="message-meta">
+          ${(post.tags || []).map((tag) => `<span class="chip">#${tag}</span>`).join("")}
+        </div>
+        <h4>${post.title}</h4>
+        <p>${post.body}</p>
+        <div class="quick-actions">
+          <button type="button">Reply</button>
+          <button type="button">Archive</button>
+          <button type="button">Pin</button>
+        </div>
+      </article>
+    `
+    )
+    .join("");
+}
+
+function renderSmsFeed(container) {
+  container.innerHTML = dashboardState.smsFeed
+    .map(
+      (sms) => `
+      <div class="chat-bubble">
+        <div class="chat-head">
+          <strong>${sms.from}</strong>
+          <span class="status-dot ${sms.status === "confirmed" ? "green" : "yellow"}"></span>
+        </div>
+        <p>${sms.message}</p>
+      </div>
+    `
+    )
+    .join("");
 }
 
 // --- Authentication ---
@@ -394,7 +629,7 @@ async function renderDoctors() {
       <h2>Doctors</h2>
       <button onclick="window.showDoctorForm()">Add Doctor</button>
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Specialization</th><th>Phone</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Specialization</th><th>Availability</th><th>Phone</th><th>Actions</th></tr></thead>
         <tbody>
           ${doctors
         .map(
@@ -403,6 +638,7 @@ async function renderDoctors() {
               <td>${d.firstName} ${d.lastName}</td>
               <td>${d.email || ""}</td>
               <td>${d.specialization || ""}</td>
+              <td>${buildDoctorAvailabilityLabel(d)}</td>
               <td>${d.phone || ""}</td>
               <td>
                 <button onclick="window.editDoctor('${d._id}')">Edit</button>
@@ -436,20 +672,9 @@ function showDoctorForm(editId = null) {
       <label>Email <input name="email" type="email" required /></label>
       <label>Specialization <input name="specialization" required /></label>
       <label>Bio <textarea name="bio" placeholder="Short profile"></textarea></label>
-      <label>Availability Day
-        <select name="availabilityDay">
-          <option value="">Select day</option>
-          <option value="Monday">Monday</option>
-          <option value="Tuesday">Tuesday</option>
-          <option value="Wednesday">Wednesday</option>
-          <option value="Thursday">Thursday</option>
-          <option value="Friday">Friday</option>
-          <option value="Saturday">Saturday</option>
-          <option value="Sunday">Sunday</option>
-        </select>
+      <label>Availability Rules (one per line)
+        <textarea name="availabilityText" placeholder="Monday - Friday 10:00-15:00&#10;Saturday 09:00-12:00"></textarea>
       </label>
-      <label>Availability Start Time <input name="availabilityStartTime" type="time" /></label>
-      <label>Availability End Time <input name="availabilityEndTime" type="time" /></label>
       <label>Room <input name="room" placeholder="e.g. Room 204" /></label>
       <label>Affiliated Hospitals / Clinics <input name="affiliatedClinics" placeholder="Clinic A, Hospital B" /></label>
       <label>Phone <input name="phone" /></label>
@@ -468,18 +693,25 @@ function showDoctorForm(editId = null) {
     apiRequest(`${API_BASE}/doctors/${editId}`)
       .then((res) => res.json())
       .then((data) => {
-        const firstSlot = Array.isArray(data.availability) ? data.availability[0] : null;
         form.firstName.value = data.firstName || "";
         form.lastName.value = data.lastName || "";
         form.email.value = data.email || "";
         form.specialization.value = data.specialization || "";
         form.bio.value = data.bio || "";
-        form.availabilityDay.value = firstSlot?.day || "";
-        form.availabilityStartTime.value = firstSlot?.startTime || "";
-        form.availabilityEndTime.value = firstSlot?.endTime || "";
+        form.availabilityText.value =
+          data.availabilityText ||
+          (Array.isArray(data.availability)
+            ? data.availability
+                .map((slot) =>
+                  slot.timeRange
+                    ? `${slot.day || ""} ${slot.timeRange}`.trim()
+                    : `${slot.day || ""} ${slot.startTime || ""}-${slot.endTime || ""}`.trim()
+                )
+                .join("\n")
+            : "");
         form.room.value = data.room || "";
         form.affiliatedClinics.value =
-          data.affiliatedClinics || firstSlot?.location?.clinicName || "";
+          data.affiliatedClinics || "";
         form.phone.value = data.phone || "";
         form.address.value = data.address || "";
       });
@@ -487,26 +719,33 @@ function showDoctorForm(editId = null) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const doctor = Object.fromEntries(new FormData(form));
-    const availability =
-      doctor.availabilityDay && doctor.availabilityStartTime && doctor.availabilityEndTime
-        ? [
-            {
-              day: doctor.availabilityDay,
-              startTime: doctor.availabilityStartTime,
-              endTime: doctor.availabilityEndTime,
-              location: {
-                clinicName: doctor.affiliatedClinics || "",
-              },
-            },
-          ]
-        : [];
+    const availability = (doctor.availabilityText || "")
+      .split("\n")
+      .map((row) => row.trim())
+      .filter(Boolean)
+      .map((row) => {
+        const match = row.match(/^(.+?)\s+(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2})$/);
+        if (match) {
+          return {
+            day: match[1].trim(),
+            timeRange: match[2].replace(/\s+/g, ""),
+            startTime: match[2].split("-")[0].trim(),
+            endTime: match[2].split("-")[1].trim(),
+            location: { clinicName: doctor.affiliatedClinics || "" },
+          };
+        }
+        return {
+          day: row,
+          timeRange: "",
+          startTime: "",
+          endTime: "",
+          location: { clinicName: doctor.affiliatedClinics || "" },
+        };
+      });
     const doctorPayload = {
       ...doctor,
       availability,
     };
-    delete doctorPayload.availabilityDay;
-    delete doctorPayload.availabilityStartTime;
-    delete doctorPayload.availabilityEndTime;
     try {
       const res = await apiRequest(
         `${API_BASE}/doctors${editId ? "/" + editId : ""}`,
@@ -544,9 +783,27 @@ async function renderAppointments() {
   mainContent.innerHTML =
     '<h2>Appointments</h2><div class="feedback">Loading...</div>';
   try {
-    const res = await apiRequest(`${API_BASE}/appointments`);
+    const [res, doctorRes, patientRes] = await Promise.all([
+      apiRequest(`${API_BASE}/appointments`),
+      apiRequest(`${API_BASE}/doctors`),
+      apiRequest(`${API_BASE}/patients`),
+    ]);
     if (!res.ok) throw new Error("Failed to fetch appointments");
     const appointments = await res.json();
+    const doctors = doctorRes.ok ? await doctorRes.json() : [];
+    const patients = patientRes.ok ? await patientRes.json() : [];
+    const doctorLookup = new Map(
+      doctors.map((doctor) => [
+        String(doctor._id),
+        `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim(),
+      ])
+    );
+    const patientLookup = new Map(
+      patients.map((patient) => [
+        String(patient._id),
+        `${patient.firstName || ""} ${patient.lastName || ""}`.trim(),
+      ])
+    );
     mainContent.innerHTML = `
       <h2>Appointments</h2>
       <button onclick="window.showAppointmentForm()">Add Appointment</button>
@@ -557,8 +814,8 @@ async function renderAppointments() {
         .map(
           (a) => `
             <tr>
-              <td>${a.doctor || ""}</td>
-              <td>${a.patient || ""}</td>
+              <td>${doctorLookup.get(String(a.doctor?._id || a.doctor)) || a.doctor || ""}</td>
+              <td>${patientLookup.get(String(a.patient?._id || a.patient)) || a.patient || ""}</td>
               <td>${a.date || ""}</td>
               <td>${a.time || ""}</td>
               <td>${a.status || ""}</td>
@@ -658,8 +915,8 @@ async function showAppointmentForm(editId = null) {
     try {
       const res = await apiRequest(`${API_BASE}/appointments/${editId}`);
       const data = await res.json();
-      form.doctor.value = data.doctor || "";
-      form.patient.value = data.patient || "";
+      form.doctor.value = data.doctor?._id || data.doctor || "";
+      form.patient.value = data.patient?._id || data.patient || "";
       form.date.value = formatDateForInput(data.date);
       form.time.value = data.time || "";
       form.status.value = data.status || "pending";

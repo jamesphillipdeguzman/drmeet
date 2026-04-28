@@ -9,21 +9,37 @@
 </head>
 
 <body>
-    <nav class="navbar">
-        <div class="nav-brand"><a href="https://drmeet-wqws.onrender.com/api-docs" target="_blank">DrMeet</a></div>
-        <ul class="nav-links">
-            <li><a href="#home" class="nav-link active">Home</a></li>
-            <li><a href="#patients" class="nav-link">Patients</a></li>
-            <li><a href="#doctors" class="nav-link">Doctors</a></li>
-            <li><a href="#appointments" class="nav-link">Appointments</a></li>
-            <li><a href="#users" class="nav-link">Users</a></li>
-            <li><a href="#login" class="nav-link" id="login-link">Login</a></li>
-            <li><a href="#signup" class="nav-link" id="signup-link">Signup</a></li>
-        </ul>
-    </nav>
-    <main id="main-content">
-        <!-- Dynamic content will be injected here by app.js -->
-    </main>
+    <div class="app-shell">
+        <aside id="app-sidebar" class="sidebar expanded">
+            <div class="sidebar-header">
+                <div class="nav-brand"><a href="https://drmeet-wqws.onrender.com/api-docs" target="_blank">DrMeet</a></div>
+                <button id="sidebar-toggle" class="icon-button" aria-label="Toggle Sidebar">☰</button>
+            </div>
+            <ul class="nav-links">
+                <li><a href="#home" class="nav-link active"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1z"/></svg></span><span class="nav-label">Home</span></a></li>
+                <li><a href="#patients" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-8 2-8 4.5V21h16v-2.5C20 16 16.4 14 12 14z"/></svg></span><span class="nav-label">Patients</span></a></li>
+                <li><a href="#doctors" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M11 4h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg></span><span class="nav-label">Doctors</span></a></li>
+                <li><a href="#appointments" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M7 2h2v2h6V2h2v2h3v18H4V4h3zm11 8H6v10h12zm-6 2h2v5h-4v-2h2z"/></svg></span><span class="nav-label">Appointments</span></a></li>
+                <li><a href="#users" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 9a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm7 3-2-.4a6.8 6.8 0 0 0-1-1.8l1.2-1.7-1.4-1.4-1.7 1.2a6.8 6.8 0 0 0-1.8-1L12 4 11.7 2h-1.4L10 4a6.8 6.8 0 0 0-1.8 1L6.5 3.8 5.1 5.2l1.2 1.7a6.8 6.8 0 0 0-1 1.8L3 12l2 .3a6.8 6.8 0 0 0 1 1.8L4.8 16l1.4 1.4 1.7-1.2a6.8 6.8 0 0 0 1.8 1l.3 2h1.4l.3-2a6.8 6.8 0 0 0 1.8-1l1.7 1.2 1.4-1.4-1.2-1.7a6.8 6.8 0 0 0 1-1.8z"/></svg></span><span class="nav-label">Users</span></a></li>
+                <li><a href="#login" class="nav-link" id="login-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M10 17v-3h6v-4h-6V7l-5 5zM14 3h7v18h-7v-2h5V5h-5z"/></svg></span><span class="nav-label">Login</span></a></li>
+                <li><a href="#signup" class="nav-link" id="signup-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M19 11h-6V5h-2v6H5v2h6v6h2v-6h6z"/></svg></span><span class="nav-label">Signup</span></a></li>
+            </ul>
+        </aside>
+        <section class="content-shell">
+            <header class="topbar">
+                <button id="command-palette-trigger" class="btn ghost">Search (Ctrl/Cmd+K)</button>
+            </header>
+            <main id="main-content">
+                <!-- Dynamic content will be injected here by app.js -->
+            </main>
+        </section>
+    </div>
+    <div id="command-palette" class="command-palette hidden">
+        <div class="command-panel">
+            <input id="command-input" type="text" placeholder="Jump to pages, doctors, patients, appointments..." />
+            <ul id="command-results"></ul>
+        </div>
+    </div>
     <footer>
         <p>&copy; 2024 DrMeet All rights reserved.</p>
     </footer>

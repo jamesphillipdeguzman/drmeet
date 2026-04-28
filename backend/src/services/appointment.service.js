@@ -1,13 +1,11 @@
 // appointment.service.js
 import Appointment from "../models/appointment.model.js";
 
-// Get all appointments with doctor and patient details populated
-export const findAllAppointments = async () =>
-  Appointment.find().populate("doctor patient");
+// Get all appointments
+export const findAllAppointments = async () => Appointment.find();
 
-// Get a single appointment by ID with doctor and patient populated
-export const findAppointmentById = async (id) =>
-  Appointment.findById(id).populate("doctor patient");
+// Get a single appointment by ID
+export const findAppointmentById = async (id) => Appointment.findById(id);
 
 // Create a new appointment
 export const createAppointment = async (data) => new Appointment(data).save();
