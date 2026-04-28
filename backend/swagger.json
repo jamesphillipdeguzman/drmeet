@@ -117,7 +117,7 @@
             "type": "string",
             "description": "Physical address of the patient"
           },
-          "dateOfBirth": {
+          "birthdate": {
             "type": "string",
             "format": "date",
             "description": "Date of birth of the patient"
@@ -138,7 +138,7 @@
           "firstName",
           "lastName",
           "email",
-          "specialization"
+          "specialty"
         ],
         "properties": {
           "firstName": {
@@ -154,7 +154,7 @@
             "format": "email",
             "description": "Email address of the doctor"
           },
-          "specialization": {
+          "specialty": {
             "type": "string",
             "description": "Medical specialization of the doctor"
           },
@@ -615,6 +615,70 @@
         }
       }
     },
+    "/api/auth/signup": {
+      "post": {
+        "summary": "Register a new user",
+        "tags": [
+          "Authentication"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "firstName",
+                  "lastName",
+                  "email",
+                  "password"
+                ],
+                "properties": {
+                  "firstName": {
+                    "type": "string"
+                  },
+                  "lastName": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string"
+                  },
+                  "phone": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "doctor",
+                      "patient"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully"
+          },
+          "400": {
+            "description": "Invalid input or user already exists"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
     "/api/doctors": {
       "get": {
         "summary": "Get all doctors",
@@ -645,7 +709,7 @@
                   "firstName",
                   "lastName",
                   "email",
-                  "specialization"
+                  "specialty"
                 ],
                 "properties": {
                   "firstName": {
@@ -657,7 +721,7 @@
                   "email": {
                     "type": "string"
                   },
-                  "specialization": {
+                  "specialty": {
                     "type": "string"
                   },
                   "phone": {
@@ -745,7 +809,7 @@
                   "email": {
                     "type": "string"
                   },
-                  "specialization": {
+                  "specialty": {
                     "type": "string"
                   },
                   "phone": {
@@ -856,7 +920,7 @@
                   "address": {
                     "type": "string"
                   },
-                  "dateOfBirth": {
+                  "birthdate": {
                     "type": "string",
                     "format": "date"
                   }
@@ -945,7 +1009,7 @@
                   "address": {
                     "type": "string"
                   },
-                  "dateOfBirth": {
+                  "birthdate": {
                     "type": "string",
                     "format": "date"
                   }

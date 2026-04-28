@@ -19,11 +19,10 @@ export const validatePatient = [
         .isEmail()
         .withMessage('A valid email is required.'),
     body('birthdate')
-        .notEmpty()
-        .withMessage('Date of birth is required.'),
+        .notEmpty().withMessage('Date of birth is required.')
+        .isDate().withMessage('Invalid date of birth format'),
     body('phone').optional().isString().trim(),
     body('address').optional().isString().trim(),
-    body('birthdate').optional().isDate().withMessage('Invalid date of birth'),
     runChecks,
 ];
 

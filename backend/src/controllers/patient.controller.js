@@ -79,49 +79,58 @@ export const getPatientById = async (req, res) => {
  */
 export const postPatient = async (req, res) => {
   try {
-    const name = req.body.name?.trim();
-    if (name && !req.body.firstName && !req.body.lastName) {
-      const [firstName, ...lastNameParts] = name.split(' ');
-      req.body.firstName = firstName;
-      req.body.lastName = lastNameParts.join(' ') || '';
+    const { firstName, lastName, email, birthdate, address, name, ...rest } = req.body;
+
+    // Optional: fallback name split
+    let resolvedFirstName = firstName;
+    let resolvedLastName = lastName;
+
+    if (!resolvedFirstName && !resolvedLastName && name) {
+      const parts = name.trim().split(" ");
+      resolvedFirstName = parts[0];
+      resolvedLastName = parts.slice(1).join(" ") || "";
     }
 
-    // ✅ 1. Validate date FIRST
-    let parsedDate = null;
+    // Validate required fields (basic safeguard)
+    if (!resolvedFirstName || !resolvedLastName || !email) {
+      return res.status(400).json({
+        error: "firstName, lastName, and email are required",
+      });
+    }
 
-    if (req.body.birthdate) {
-      parsedDate = new Date(req.body.birthdate);
+    // Parse birthdate safely
+    let parsedBirthdate = undefined;
 
-      if (isNaN(parsedDate.getTime())) {
+    if (birthdate) {
+      const d = new Date(birthdate);
+
+      if (isNaN(d.getTime())) {
         return res.status(400).json({
-          error: "Invalid date format. Use YYYY-MM-DD."
+          error: "Invalid birthdate format. Use YYYY-MM-DD",
         });
       }
+
+      parsedBirthdate = d;
     }
 
-    // ✅ 2. Build clean payload
+    // Build final payload
     const patientData = {
-      ...req.body,
-      birthdate: parsedDate || undefined,
-      address:
-        typeof req.body.address === 'string'
-          ? { address1: req.body.address }
-          : req.body.address,
+      ...rest,
+      firstName: resolvedFirstName,
+      lastName: resolvedLastName,
+      email,
+      birthdate: parsedBirthdate,
+      address: typeof address === "string" ? { address1: address } : address,
     };
 
     const newPatient = await createPatientService(patientData);
 
-    if (!newPatient) {
-      return res.status(400).json({ error: 'Failed to create patient.' });
-    }
-
-    console.log(`[PATIENT] Created: ${newPatient._id}`);
-
     return res.status(201).json(newPatient);
   } catch (error) {
-    console.error('Error creating patient:', error);
+    console.error("CREATE PATIENT ERROR:", error);
+
     return res.status(500).json({
-      error: error.message || 'Server error while creating patient.',
+      error: error.message || "Server error while creating patient",
     });
   }
 };

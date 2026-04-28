@@ -44,34 +44,29 @@ export const getAllDoctors = async (req, res) => {
  */
 export const getDoctorById = async (req, res) => {
     const { id } = req.params;
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
-        console.log('Invalid doctor ID format');
         return res.status(400).json({ error: 'Invalid doctor ID format' });
     }
+
     try {
         const doctor = await findDoctorById(id);
+
         if (!doctor) {
             return res.status(404).json({ error: 'Doctor not found.' });
         }
-        const plainDoctor = doctor.toObject ? doctor.toObject() : doctor;
-        const firstSlot = Array.isArray(plainDoctor.availability)
-            ? plainDoctor.availability[0]
-            : null;
-        console.log(`[DOCTOR]✅ GET /api/doctors/${id} was called`);
-        return res.status(200).json({
-            ...plainDoctor,
-            specialty:
-                plainDoctor.specialty || '',
-            affiliatedClinics:
-                plainDoctor.affiliatedClinics ||
-                firstSlot?.location?.clinicName ||
-                '',
-        });
+
+        const plainDoctor = doctor.toObject?.() || doctor;
+
+        console.log(`[DOCTOR] GET /api/doctors/${id}`);
+
+        return res.status(200).json(plainDoctor);
     } catch (error) {
-        console.log(`Error fetching the doctor with ${id}:`, error);
-        return res
-            .status(500)
-            .json({ error: 'An error occured while fetching the doctor.' });
+        console.error(`Error fetching doctor ${id}:`, error);
+
+        return res.status(500).json({
+            error: 'Error fetching doctor',
+        });
     }
 };
 
