@@ -6,7 +6,7 @@ const inboxState = {
       patientName: "Maria T.",
       body: "I can do tomorrow morning.",
       status: "pending",
-      tags: ["NDIS"],
+      tags: ["PWD"],
       channel: "sms",
       createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
       read: true,

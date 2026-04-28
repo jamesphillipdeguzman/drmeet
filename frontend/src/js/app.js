@@ -43,6 +43,18 @@ function formatDateForInput(value) {
   return date.toISOString().slice(0, 10);
 }
 
+function formatDateDisplay(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (isNaN(date)) return value;
+
+  return date.toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 function buildDoctorAvailabilityLabel(doctor) {
   const slots = Array.isArray(doctor.availability) ? doctor.availability : [];
   if (doctor.availabilityText) return doctor.availabilityText;
@@ -392,21 +404,21 @@ function renderMessageBoard(container) {
   const posts = dashboardState.messageBoard.length
     ? sortMessagesByRecent(dashboardState.messageBoard)
     : [
-        {
-          id: "seed-1",
-          patientId: "patient-001",
-          patientName: "Maria T.",
-          title: "Follow-up queue",
-          body: "Prioritize respiratory reviews before 3pm handover.",
-          tags: ["Urgent", "Physio"],
-          status: "pending",
-          channel: "sms",
-          read: true,
-          typing: true,
-          isNew: true,
-          createdAt: new Date().toISOString(),
-        },
-      ];
+      {
+        id: "seed-1",
+        patientId: "patient-001",
+        patientName: "Maria T.",
+        title: "Follow-up queue",
+        body: "Prioritize respiratory reviews before 3pm handover.",
+        tags: ["Urgent", "Physio"],
+        status: "pending",
+        channel: "sms",
+        read: true,
+        typing: true,
+        isNew: true,
+        createdAt: new Date().toISOString(),
+      },
+    ];
   container.innerHTML = posts
     .map(
       (post) => `
@@ -522,8 +534,8 @@ function renderThreadDrawer(drawer) {
     </div>
     <div class="thread-list">
       ${threadMessages
-        .map(
-          (msg) => `
+      .map(
+        (msg) => `
           <div class="thread-item ${msg.channel === "email" ? "email" : "sms"}">
             <div class="thread-item-header">
               <strong>${msg.channel.toUpperCase().replace("_", " ")}</strong>
@@ -532,8 +544,8 @@ function renderThreadDrawer(drawer) {
             <p>${msg.body}</p>
           </div>
         `
-        )
-        .join("")}
+      )
+      .join("")}
     </div>
   `;
   drawer.querySelector("#close-thread")?.addEventListener("click", () => {
@@ -723,7 +735,7 @@ async function renderPatients() {
               <td>${p.firstName} ${p.lastName}</td>
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
-              <td>${p.dateOfBirth || ""}</td>
+              <td>${formatDateDisplay(p.dateOfBirth) || ""}</td>
               <td>
                 <button onclick="window.editPatient('${p._id}')">Edit</button>
                 <button onclick="window.deletePatient('${p._id
@@ -910,12 +922,12 @@ function showDoctorForm(editId = null) {
           data.availabilityText ||
           (Array.isArray(data.availability)
             ? data.availability
-                .map((slot) =>
-                  slot.timeRange
-                    ? `${slot.day || ""} ${slot.timeRange}`.trim()
-                    : `${slot.day || ""} ${slot.startTime || ""}-${slot.endTime || ""}`.trim()
-                )
-                .join("\n")
+              .map((slot) =>
+                slot.timeRange
+                  ? `${slot.day || ""} ${slot.timeRange}`.trim()
+                  : `${slot.day || ""} ${slot.startTime || ""}-${slot.endTime || ""}`.trim()
+              )
+              .join("\n")
             : "");
         form.room.value = data.room || "";
         form.affiliatedClinics.value =
@@ -1024,7 +1036,7 @@ async function renderAppointments() {
             <tr>
               <td>${doctorLookup.get(String(a.doctor?._id || a.doctor)) || a.doctor || ""}</td>
               <td>${patientLookup.get(String(a.patient?._id || a.patient)) || a.patient || ""}</td>
-              <td>${a.date || ""}</td>
+              <td>${formatDateDisplay(a.date) || ""}</td>
               <td>${a.time || ""}</td>
               <td>${a.status || ""}</td>
               <td>
