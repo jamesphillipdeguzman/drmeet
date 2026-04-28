@@ -69,7 +69,7 @@ export const components = {
                     type: 'string',
                     description: 'Physical address of the patient',
                 },
-                dateOfBirth: {
+                birthdate: {
                     type: 'string',
                     format: 'date',
                     description: 'Date of birth of the patient',
@@ -86,7 +86,7 @@ export const components = {
         },
         Doctor: {
             type: 'object',
-            required: ['firstName', 'lastName', 'email', 'specialization'],
+            required: ['firstName', 'lastName', 'email', 'specialty'],
             properties: {
                 firstName: {
                     type: 'string',
@@ -101,7 +101,7 @@ export const components = {
                     format: 'email',
                     description: 'Email address of the doctor',
                 },
-                specialization: {
+                specialty: {
                     type: 'string',
                     description: 'Medical specialization of the doctor',
                 },

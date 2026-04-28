@@ -735,7 +735,7 @@ async function renderPatients() {
               <td>${p.firstName} ${p.lastName}</td>
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
-              <td>${formatDateDisplay(p.dateOfBirth) || ""}</td>
+              <td>${formatDateDisplay(p.birthdate) || ""}</td>
               <td>
                 <button onclick="window.editPatient('${p._id}')">Edit</button>
                 <button onclick="window.deletePatient('${p._id
@@ -767,7 +767,7 @@ function showPatientForm(editId = null) {
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
       <label>Phone <input name="phone" /></label>
-      <label>Date of Birth <input name="dateOfBirth" type="date" /></label>
+      <label>Date of Birth <input name="birthdate" type="date" /></label>
       <label>Gender
         <select name="gender">
           <option value="">Select gender</option>
@@ -796,7 +796,7 @@ function showPatientForm(editId = null) {
         form.lastName.value = data.lastName || "";
         form.email.value = data.email || "";
         form.phone.value = data.phone || "";
-        form.dateOfBirth.value = formatDateForInput(data.dateOfBirth || data.birthdate);
+        form.birthdate.value = formatDateForInput(data.birthdate);
         form.gender.value = data.gender || "";
         form.address.value = data.address || "";
         form.notes.value = data.notes || "";
@@ -849,7 +849,7 @@ async function renderDoctors() {
       <h2>Doctors</h2>
       <button onclick="window.showDoctorForm()">Add Doctor</button>
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Specialization</th><th>Availability</th><th>Phone</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Specialty</th><th>Availability</th><th>Phone</th><th>Actions</th></tr></thead>
         <tbody>
           ${doctors
         .map(
@@ -857,7 +857,7 @@ async function renderDoctors() {
             <tr>
               <td>${d.firstName} ${d.lastName}</td>
               <td>${d.email || ""}</td>
-              <td>${d.specialization || ""}</td>
+              <td>${d.specialty || ""}</td>
               <td>${buildDoctorAvailabilityLabel(d)}</td>
               <td>${d.phone || ""}</td>
               <td>
@@ -890,7 +890,7 @@ function showDoctorForm(editId = null) {
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
-      <label>Specialization <input name="specialty" required /></label>
+      <label>Specialty <input name="specialty" required /></label>
       <label>Bio <textarea name="bio" placeholder="Short profile"></textarea></label>
       <label>Availability Rules (one per line)
         <textarea name="availabilityText" placeholder="Monday - Friday 10:00-15:00&#10;Saturday 09:00-12:00"></textarea>
@@ -916,7 +916,7 @@ function showDoctorForm(editId = null) {
         form.firstName.value = data.firstName || "";
         form.lastName.value = data.lastName || "";
         form.email.value = data.email || "";
-        form.specialization.value = data.specialization || "";
+        form.specialty.value = data.specialty || "";
         form.bio.value = data.bio || "";
         form.availabilityText.value =
           data.availabilityText ||
@@ -1082,7 +1082,7 @@ async function showAppointmentForm(editId = null) {
   const doctorOptions = doctors
     .map((doctor) => {
       const fullName = `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim();
-      const specialty = doctor.specialization || doctor.specialty || "No specialty";
+      const specialty = doctor.specialty || "No specialty";
       const availability = buildDoctorAvailabilityLabel(doctor);
       return `<option value="${doctor._id}">${fullName} - ${specialty} (${availability})</option>`;
     })

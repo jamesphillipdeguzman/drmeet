@@ -21,7 +21,7 @@ export const getAllDoctors = async (req, res) => {
                 : null;
             return {
                 ...plain,
-                specialization: plain.specialization || plain.specialty || '',
+                specialty: plain.specialty || '',
                 affiliatedClinics:
                     plain.affiliatedClinics ||
                     firstSlot?.location?.clinicName ||
@@ -60,8 +60,8 @@ export const getDoctorById = async (req, res) => {
         console.log(`[DOCTOR]✅ GET /api/doctors/${id} was called`);
         return res.status(200).json({
             ...plainDoctor,
-            specialization:
-                plainDoctor.specialization || plainDoctor.specialty || '',
+            specialty:
+                plainDoctor.specialty || '',
             affiliatedClinics:
                 plainDoctor.affiliatedClinics ||
                 firstSlot?.location?.clinicName ||
@@ -89,7 +89,7 @@ export const postDoctor = async (req, res) => {
             firstName: body.firstName?.trim(),
             lastName: body.lastName?.trim(),
             email: body.email?.trim(),
-            specialty: body.specialty || body.specialization,
+            specialty: body.specialty,
         };
 
         // ✅ manual validation (IMPORTANT for debugging)
@@ -139,7 +139,7 @@ export const updateDoctor = async (req, res) => {
     const { id } = req.params;
     const updates = {
         ...req.body,
-        specialty: req.body.specialty || req.body.specialization,
+        specialty: req.body.specialty,
     };
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid doctor ID format.' });

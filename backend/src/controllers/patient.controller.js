@@ -26,7 +26,7 @@ const mapPatientForClient = (patient) => {
 
   return {
     ...plain,
-    dateOfBirth: plain.dateOfBirth || plain.birthdate || null,
+    birthdate: plain.birthdate || null,
     address: addressText || '',
   };
 };
@@ -134,7 +134,7 @@ export const updatePatient = async (req, res) => {
   const { id } = req.params;
   const updates = {
     ...req.body,
-    birthdate: req.body.birthdate || req.body.dateOfBirth || undefined,
+    birthdate: req.body.birthdate || req.body.birthdate || undefined,
     address:
       typeof req.body.address === 'string'
         ? { address1: req.body.address }
