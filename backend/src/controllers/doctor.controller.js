@@ -81,22 +81,52 @@ export const getDoctorById = async (req, res) => {
  */
 export const postDoctor = async (req, res) => {
     try {
+        const body = req.body;
+
+        // ✅ normalize fields
         const doctorData = {
-            ...req.body,
-            specialty: req.body.specialty || req.body.specialization,
+            ...body,
+            firstName: body.firstName?.trim(),
+            lastName: body.lastName?.trim(),
+            email: body.email?.trim(),
+            specialty: body.specialty || body.specialization,
         };
-        const newDoctor = await createDoctorService(doctorData);
-        if (!newDoctor) {
-            return res.status(400).json({ error: 'Failed to create doctor.' });
+
+        // ✅ manual validation (IMPORTANT for debugging)
+        const missingFields = [];
+
+        if (!doctorData.firstName) missingFields.push("firstName");
+        if (!doctorData.lastName) missingFields.push("lastName");
+        if (!doctorData.email) missingFields.push("email");
+        if (!doctorData.specialty) missingFields.push("specialty");
+
+        if (missingFields.length > 0) {
+            return res.status(400).json({
+                error: "Missing required fields",
+                missingFields,
+            });
         }
-        console.log(
-            `[DOCTOR]✅ POST /api/doctors - Doctor ${newDoctor._id} created`,
-        );
+
+        const newDoctor = await createDoctorService(doctorData);
+
+        console.log(`[DOCTOR] CREATED: ${newDoctor._id}`);
+
         return res.status(201).json(newDoctor);
     } catch (error) {
-        console.error('Error creating the doctor: ', error);
+        console.error("Doctor creation failed:", error);
+
+        // ✅ expose mongoose validation errors clearly
+        if (error.name === "ValidationError") {
+            return res.status(400).json({
+                error: "Validation failed",
+                details: Object.keys(error.errors).map(
+                    (key) => error.errors[key].message
+                ),
+            });
+        }
+
         return res.status(500).json({
-            error: error.message || 'An error occured while creating the doctor.',
+            error: error.message || "Server error while creating doctor",
         });
     }
 };

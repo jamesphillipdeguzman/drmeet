@@ -14,15 +14,15 @@ const mapPatientForClient = (patient) => {
     typeof plain.address === 'string'
       ? plain.address
       : [
-          plain.address?.address1,
-          plain.address?.address2,
-          plain.address?.city,
-          plain.address?.province,
-          plain.address?.postcode,
-          plain.address?.country,
-        ]
-          .filter(Boolean)
-          .join(', ');
+        plain.address?.address1,
+        plain.address?.address2,
+        plain.address?.city,
+        plain.address?.province,
+        plain.address?.postcode,
+        plain.address?.country,
+      ]
+        .filter(Boolean)
+        .join(', ');
 
   return {
     ...plain,
@@ -86,26 +86,42 @@ export const postPatient = async (req, res) => {
       req.body.lastName = lastNameParts.join(' ') || '';
     }
 
+    // ✅ 1. Validate date FIRST
+    let parsedDate = null;
+
+    if (req.body.dateOfBirth) {
+      parsedDate = new Date(req.body.dateOfBirth);
+
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({
+          error: "Invalid date format. Use YYYY-MM-DD."
+        });
+      }
+    }
+
+    // ✅ 2. Build clean payload
     const patientData = {
       ...req.body,
-      birthdate: req.body.birthdate || req.body.dateOfBirth || null,
+      birthdate: parsedDate || undefined,
       address:
         typeof req.body.address === 'string'
           ? { address1: req.body.address }
           : req.body.address,
     };
+
     const newPatient = await createPatientService(patientData);
+
     if (!newPatient) {
       return res.status(400).json({ error: 'Failed to create patient.' });
     }
-    console.log(
-      `[PATIENT]✅ POST /api/patients - Patient ${newPatient._id} created`,
-    );
+
+    console.log(`[PATIENT] Created: ${newPatient._id}`);
+
     return res.status(201).json(newPatient);
   } catch (error) {
-    console.error('Error creating the patient: ', error);
+    console.error('Error creating patient:', error);
     return res.status(500).json({
-      error: error.message || 'An error occured while creating the patient.',
+      error: error.message || 'Server error while creating patient.',
     });
   }
 };
@@ -116,14 +132,14 @@ export const postPatient = async (req, res) => {
  */
 export const updatePatient = async (req, res) => {
   const { id } = req.params;
-    const updates = {
-      ...req.body,
-      birthdate: req.body.birthdate || req.body.dateOfBirth || undefined,
-      address:
-        typeof req.body.address === 'string'
-          ? { address1: req.body.address }
-          : req.body.address,
-    };
+  const updates = {
+    ...req.body,
+    birthdate: req.body.birthdate || req.body.dateOfBirth || undefined,
+    address:
+      typeof req.body.address === 'string'
+        ? { address1: req.body.address }
+        : req.body.address,
+  };
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ error: 'Invalid patient ID format.' });
   }
