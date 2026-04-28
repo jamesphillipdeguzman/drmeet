@@ -10,13 +10,18 @@ const commandPaletteTrigger = document.getElementById("command-palette-trigger")
 const API_BASE = "https://drmeet-wqws.onrender.com/api";
 const API_ORIGIN = API_BASE.replace("/api", "");
 const DASHBOARD_STATE_KEY = "drmeet-dashboard-state";
+const MESSAGES_API = `${API_BASE}/messages`;
 const dashboardSubscribers = [];
+let inboxHeartbeat = null;
+let inboxPoller = null;
 const dashboardState = {
   messageBoard: [],
   smsFeed: [
     { from: "Maria T.", message: "I can do tomorrow morning.", status: "pending" },
     { from: "James K.", message: "Confirmed for 3:00 PM.", status: "confirmed" },
   ],
+  selectedThreadPatientId: "",
+  websocketActive: false,
 };
 
 function buildHeaders(baseHeaders = {}) {
@@ -171,6 +176,100 @@ function notifyDashboardSubscribers() {
   dashboardSubscribers.forEach((listener) => listener(dashboardState));
 }
 
+function parseIsoDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatRelativeTime(isoValue) {
+  const date = parseIsoDate(isoValue);
+  if (!date) return "just now";
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes <= 0) return "just now";
+  if (minutes < 60) return `${minutes} min${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function sortMessagesByRecent(messages) {
+  return [...messages].sort((a, b) => {
+    const left = parseIsoDate(a.createdAt)?.getTime() || 0;
+    const right = parseIsoDate(b.createdAt)?.getTime() || 0;
+    return right - left;
+  });
+}
+
+function makeMessagePayload(raw = {}) {
+  return {
+    id: raw.id || `msg-${Date.now()}`,
+    patientId: raw.patientId || "patient-001",
+    patientName: raw.patientName || raw.from || "Unknown Patient",
+    title: raw.title || "Patient message",
+    body: raw.body || raw.message || "",
+    tags: Array.isArray(raw.tags) ? raw.tags : [],
+    status: raw.status || "pending",
+    channel: raw.channel || "sms",
+    createdAt: raw.createdAt || new Date().toISOString(),
+    read: Boolean(raw.read),
+    typing: Boolean(raw.typing),
+    isNew: raw.isNew !== false,
+  };
+}
+
+async function fetchInboxFeed() {
+  try {
+    const res = await apiRequest(MESSAGES_API);
+    if (!res.ok) throw new Error("Failed to load inbox");
+    const data = await res.json();
+    dashboardState.messageBoard = sortMessagesByRecent((data.messages || []).map(makeMessagePayload));
+    dashboardState.websocketActive = true;
+    persistDashboardState();
+    notifyDashboardSubscribers();
+  } catch (error) {
+    dashboardState.websocketActive = false;
+    notifyDashboardSubscribers();
+  }
+}
+
+function startInboxRealtimeHooks() {
+  if (inboxHeartbeat) clearInterval(inboxHeartbeat);
+  if (inboxPoller) clearInterval(inboxPoller);
+  inboxHeartbeat = setInterval(() => {
+    document.querySelectorAll("[data-rel-time]").forEach((node) => {
+      const iso = node.getAttribute("data-rel-time");
+      node.textContent = formatRelativeTime(iso);
+    });
+  }, 30000);
+  inboxPoller = setInterval(fetchInboxFeed, 12000);
+}
+
+async function sendMessage(patientId, content, channel) {
+  const payload = {
+    patientId,
+    patientName: dashboardState.messageBoard.find((m) => m.patientId === patientId)?.patientName || "Patient",
+    content,
+    channel,
+  };
+  try {
+    const res = await apiRequest(`${MESSAGES_API}/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("Unable to send message");
+    const data = await res.json();
+    dashboardState.messageBoard = sortMessagesByRecent((data.messages || []).map(makeMessagePayload));
+    persistDashboardState();
+    notifyDashboardSubscribers();
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 async function checkAuthStatus() {
   try {
     const res = await fetch(`${API_ORIGIN}/auth/status`, {
@@ -218,23 +317,28 @@ function renderHome() {
   mainContent.innerHTML = `
     <section class="dashboard-intro card">
       <h1>Welcome to DrMeet</h1>
-      <p>Premium clinic command center for care teams. Use the command palette (Ctrl/Cmd+K) to quickly navigate.</p>
+      <p>Unified Inbox for patient communication. Use the command palette (Ctrl/Cmd+K) to quickly navigate.</p>
+      <div class="inbox-live-row">
+        <span class="live-badge ${dashboardState.websocketActive ? "active" : ""}">Live</span>
+        <span>${dashboardState.websocketActive ? "WebSocket active" : "Reconnecting..."}</span>
+      </div>
     </section>
     <section class="dashboard-grid">
       <article class="card board-card">
         <div class="card-header">
-          <h3>Message Board</h3>
+          <h3>Unified Inbox</h3>
           <button class="btn" id="add-board-message">Add Message</button>
         </div>
         <div id="message-board-list" class="masonry-grid"></div>
       </article>
       <article class="card sms-card">
         <div class="card-header">
-          <h3>SMS Feed</h3>
+          <h3>Channel Summary</h3>
         </div>
         <div id="sms-feed-list" class="chat-thread"></div>
       </article>
     </section>
+    <aside id="thread-drawer" class="thread-drawer hidden"></aside>
   `;
   mountDashboardWidgets();
 }
@@ -265,61 +369,125 @@ function mountDashboardWidgets() {
     renderSmsFeed(smsContainer);
   }, 350);
 
-  addButton?.addEventListener("click", () => {
+  addButton?.addEventListener("click", async () => {
     const note = prompt("Add dashboard message");
     if (!note) return;
-    dashboardState.messageBoard.unshift({
-      id: `msg-${Date.now()}`,
-      title: "Team update",
-      body: note,
-      tags: ["NDIS", "Urgent", "Physio"].slice(0, 1 + (Date.now() % 3)),
-      createdAt: new Date().toISOString(),
-    });
-    persistDashboardState();
-    notifyDashboardSubscribers();
+    await sendMessage("patient-001", note, "sms");
   });
 
   dashboardSubscribers.length = 0;
   subscribeDashboard(() => {
+    const liveBadge = document.querySelector(".live-badge");
+    if (liveBadge) liveBadge.classList.toggle("active", dashboardState.websocketActive);
+    const drawer = document.getElementById("thread-drawer");
     renderMessageBoard(boardContainer);
     renderSmsFeed(smsContainer);
+    renderThreadDrawer(drawer);
   });
+  fetchInboxFeed();
+  startInboxRealtimeHooks();
 }
 
 function renderMessageBoard(container) {
   const posts = dashboardState.messageBoard.length
-    ? dashboardState.messageBoard
+    ? sortMessagesByRecent(dashboardState.messageBoard)
     : [
         {
           id: "seed-1",
+          patientId: "patient-001",
+          patientName: "Maria T.",
           title: "Follow-up queue",
           body: "Prioritize respiratory reviews before 3pm handover.",
           tags: ["Urgent", "Physio"],
+          status: "pending",
+          channel: "sms",
+          read: true,
+          typing: true,
+          isNew: true,
           createdAt: new Date().toISOString(),
         },
       ];
   container.innerHTML = posts
     .map(
       (post) => `
-      <article class="message-card">
+      <article class="message-card tailwind-card" data-message-id="${post.id}" data-patient-id="${post.patientId}">
         <div class="message-meta">
           ${(post.tags || []).map((tag) => `<span class="chip">#${tag}</span>`).join("")}
+          ${post.isNew ? '<span class="chip chip-new">New</span>' : ""}
         </div>
-        <h4>${post.title}</h4>
-        <p>${post.body}</p>
+        <div class="message-row">
+          <h4>${post.patientName}</h4>
+          <small data-rel-time="${post.createdAt}">${formatRelativeTime(post.createdAt)}</small>
+        </div>
+        <p class="message-preview">${post.body}</p>
+        <div class="status-row">
+          <span class="status-dot ${post.status === "confirmed" ? "green" : "yellow"}"></span>
+          <span>${post.status}</span>
+          <span class="read-receipt ${post.read ? "read" : ""}">✓✓</span>
+          ${post.typing ? '<span class="typing-indicator">Typing...</span>' : ""}
+        </div>
         <div class="quick-actions">
-          <button type="button">Reply</button>
+          <button type="button" data-open-thread="${post.patientId}">Reply</button>
           <button type="button">Archive</button>
           <button type="button">Pin</button>
+        </div>
+        <div class="quick-reply">
+          <textarea id="quick-reply-${post.id}" placeholder="Quick reply to ${post.patientName}"></textarea>
+          <div class="quick-reply-row">
+            <select id="quick-reply-channel-${post.id}">
+              <option value="sms">SMS</option>
+              <option value="email">Email</option>
+              <option value="web_portal">Web Portal</option>
+            </select>
+            <button type="button" data-send-id="${post.id}">Send</button>
+          </div>
         </div>
       </article>
     `
     )
     .join("");
+  container.querySelectorAll("[data-send-id]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const msgId = button.getAttribute("data-send-id");
+      const post = posts.find((item) => item.id === msgId);
+      if (!post) return;
+      const input = document.getElementById(`quick-reply-${msgId}`);
+      const channelInput = document.getElementById(`quick-reply-channel-${msgId}`);
+      const content = input?.value?.trim();
+      if (!content) return;
+      const success = await sendMessage(post.patientId, content, channelInput?.value || "sms");
+      if (success && input) input.value = "";
+    });
+  });
+  container.querySelectorAll("[data-open-thread]").forEach((button) => {
+    button.addEventListener("click", () => {
+      dashboardState.selectedThreadPatientId = button.getAttribute("data-open-thread") || "";
+      notifyDashboardSubscribers();
+    });
+  });
+  container.querySelectorAll(".message-card").forEach((card) => {
+    card.addEventListener("click", (event) => {
+      if (event.target.closest("button, textarea, select")) return;
+      dashboardState.selectedThreadPatientId = card.getAttribute("data-patient-id") || "";
+      notifyDashboardSubscribers();
+    });
+  });
 }
 
 function renderSmsFeed(container) {
-  container.innerHTML = dashboardState.smsFeed
+  const totals = dashboardState.messageBoard.reduce(
+    (acc, message) => {
+      const key = (message.channel || "sms").toLowerCase();
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    },
+    { sms: 0, email: 0, web_portal: 0 }
+  );
+  container.innerHTML = [
+    { from: "SMS", message: `${totals.sms} conversations`, status: "confirmed" },
+    { from: "Email", message: `${totals.email} conversations`, status: "pending" },
+    { from: "Web Portal", message: `${totals.web_portal} conversations`, status: "confirmed" },
+  ]
     .map(
       (sms) => `
       <div class="chat-bubble">
@@ -332,6 +500,46 @@ function renderSmsFeed(container) {
     `
     )
     .join("");
+}
+
+function renderThreadDrawer(drawer) {
+  if (!drawer) return;
+  const patientId = dashboardState.selectedThreadPatientId;
+  if (!patientId) {
+    drawer.classList.add("hidden");
+    drawer.innerHTML = "";
+    return;
+  }
+  const threadMessages = sortMessagesByRecent(
+    dashboardState.messageBoard.filter((message) => message.patientId === patientId)
+  );
+  const patientName = threadMessages[0]?.patientName || "Patient";
+  drawer.classList.remove("hidden");
+  drawer.innerHTML = `
+    <div class="thread-header">
+      <h3>${patientName} Thread</h3>
+      <button type="button" id="close-thread">Close</button>
+    </div>
+    <div class="thread-list">
+      ${threadMessages
+        .map(
+          (msg) => `
+          <div class="thread-item ${msg.channel === "email" ? "email" : "sms"}">
+            <div class="thread-item-header">
+              <strong>${msg.channel.toUpperCase().replace("_", " ")}</strong>
+              <small data-rel-time="${msg.createdAt}">${formatRelativeTime(msg.createdAt)}</small>
+            </div>
+            <p>${msg.body}</p>
+          </div>
+        `
+        )
+        .join("")}
+    </div>
+  `;
+  drawer.querySelector("#close-thread")?.addEventListener("click", () => {
+    dashboardState.selectedThreadPatientId = "";
+    notifyDashboardSubscribers();
+  });
 }
 
 // --- Authentication ---
