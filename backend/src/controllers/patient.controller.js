@@ -123,6 +123,10 @@ export const postPatient = async (req, res) => {
       address: typeof address === "string" ? { address1: address } : address,
     };
 
+    if (!patientData.userId) {
+      delete patientData.userId;
+    }
+
     const newPatient = await createPatientService(patientData);
 
     return res.status(201).json(newPatient);

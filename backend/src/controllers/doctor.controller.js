@@ -87,6 +87,10 @@ export const postDoctor = async (req, res) => {
             specialty: body.specialty,
         };
 
+        if (!doctorData.userId) {
+            delete doctorData.userId;
+        }
+
         // ✅ manual validation (IMPORTANT for debugging)
         const missingFields = [];
 
