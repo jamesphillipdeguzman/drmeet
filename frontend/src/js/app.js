@@ -759,10 +759,8 @@ function renderThreadDrawer(drawer) {
     </div>
   `;
   drawer.querySelector("#close-thread")?.addEventListener("click", () => {
-    dashboardState.activeConversationId = "";
-    dashboardState.messages = [];
-    persistDashboardState();
-    notifyDashboardSubscribers();
+    dashboardState.activeConversationId = dashboardState.activeConversationId; // keep it
+    drawer.classList.add("hidden");
   });
 }
 
