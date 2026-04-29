@@ -299,32 +299,38 @@ async function loadMessages(conversationId) {
   }
 }
 
-async function createOrGetConversation() {
-  const res = await apiRequest(`${MESSAGES_API}/conversations/ensure/patient-doctor`, {
-    method: "POST",
-    headers: buildHeaders({
-      "Content-Type": "application/json",
-    }),
-  });
+async function createOrGetConversation(patientId, doctorId) {
+  const res = await apiRequest(
+    `${MESSAGES_API}/conversations/ensure/patient-doctor`,
+    {
+      method: "POST",
+      headers: buildHeaders({
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        patientId,
+        doctorId,
+      }),
+    }
+  );
 
   if (!res.ok) {
     const errorText = await res.text();
-  
     console.error("CREATE CONV ERROR:", errorText);
     alert(`CREATE CONV ERROR: ${errorText}`);
-  
     throw new Error(errorText || "Failed to create conversation");
   }
+
   const data = await res.json();
-  return data.conversation;
+  return data.conversationId; // ⚠️ backend returns conversationId, not conversation object
 }
 
 async function sendMessage(text) {
   let conversationId = dashboardState.activeConversationId;
 
   if (!conversationId) {
-    const created = await createOrGetConversation();
-    conversationId = created._id; // 🔥 IMPORTANT FIX
+    const createdConversationId = await createOrGetConversation(patientId, doctorId);
+    conversationId = createdConversationId;
     dashboardState.activeConversationId = conversationId;
   }
 
