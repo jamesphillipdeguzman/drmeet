@@ -299,27 +299,52 @@ async function loadMessages(conversationId) {
   }
 }
 
+async function createOrGetConversation() {
+  const res = await apiRequest(`${MESSAGES_API}/conversations/ensure`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" }
+  });
+
+  if (!res.ok) {
+    throw new Error(await getApiErrorMessage(res, "Failed to create conversation"));
+  }
+
+  const data = await res.json();
+  return data.conversation;
+}
+
 async function sendMessage(text) {
-  const conversationId = dashboardState.activeConversationId;
-  if (!conversationId) throw new Error("No active conversation selected.");
+  let conversationId = dashboardState.activeConversationId;
+
+  if (!conversationId) {
+    const created = await createOrGetConversation();
+    conversationId = created._id; // 🔥 IMPORTANT FIX
+    dashboardState.activeConversationId = conversationId;
+  }
 
   const res = await apiRequest(`${MESSAGES_API}/send`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ conversationId, message: text }),
   });
+
   if (!res.ok) throw new Error(await getApiErrorMessage(res, "Unable to send message"));
 
   const data = await res.json();
-  // Backend returns the newly-created message (with sender populated).
-  dashboardState.activeConversationId = String(data?.conversationId || dashboardState.activeConversationId);
-  if (data?.message) dashboardState.messages = [...dashboardState.messages, data.message];
 
-  // Update conversation preview (last message + lastMessageAt).
+  dashboardState.activeConversationId = String(data?.conversationId || conversationId);
+
+  if (data?.message) {
+    dashboardState.messages = [...dashboardState.messages, data.message];
+  }
+
   const idx = dashboardState.conversations.findIndex(
-    (c) => String(c._id) === String(data?.conversationId),
+    (c) => String(c._id) === String(conversationId),
   );
-  if (idx !== -1 && data?.conversation) dashboardState.conversations[idx] = data.conversation;
+
+  if (idx !== -1 && data?.conversation) {
+    dashboardState.conversations[idx] = data.conversation;
+  }
 
   persistDashboardState();
   notifyDashboardSubscribers();
@@ -497,9 +522,12 @@ function mountDashboardWidgets() {
     const note = prompt("Add dashboard message");
     if (!note) return;
     try {
-      if (!dashboardState.activeConversationId && dashboardState.conversations.length) {
+      if (dashboardState.conversations.length > 0) {
         dashboardState.activeConversationId = String(dashboardState.conversations[0]._id);
         await loadMessages(dashboardState.activeConversationId);
+      } else {
+        dashboardState.activeConversationId = "";
+        dashboardState.messages = [];
       }
       await sendMessage(note);
     } catch (err) {
