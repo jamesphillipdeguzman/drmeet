@@ -308,9 +308,13 @@ async function createOrGetConversation() {
   });
 
   if (!res.ok) {
-    throw new Error(await getApiErrorMessage(res, "Failed to create conversation"));
+    const errorText = await res.text();
+  
+    console.error("CREATE CONV ERROR:", errorText);
+    alert(`CREATE CONV ERROR: ${errorText}`);
+  
+    throw new Error(errorText || "Failed to create conversation");
   }
-
   const data = await res.json();
   return data.conversation;
 }
