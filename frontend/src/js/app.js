@@ -303,10 +303,13 @@ async function sendMessage(patientId, content, channel) {
 
 async function checkAuthStatus() {
   try {
+    const token = localStorage.getItem("token");
+    const headers = { Accept: "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetch(`${API_ORIGIN}/auth/status`, {
       method: "GET",
       credentials: "include",
-      headers: { Accept: "application/json" },
+      headers,
     });
     const data = await res.json();
     if (data?.authenticated) {

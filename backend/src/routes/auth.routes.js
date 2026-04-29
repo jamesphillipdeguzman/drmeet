@@ -51,63 +51,84 @@ router.get(
  *         description: Redirect if login fails
  */
 router.get('/auth/google/callback', (req, res, next) => {
+  const clientOrigin = process.env.CLIENT_ORIGIN || 'https://drmeeet.netlify.app';
+
+  // If someone hits the callback URL directly without the OAuth query params,
+  // passport-google-oauth20 will throw "Bad Request". Redirect instead of returning JSON.
+  if (!req.query || (!req.query.code && !req.query.error)) {
+    return res.redirect(`${clientOrigin}/#login?oauth=missing_code`);
+  }
+
   passport.authenticate('google', { session: true }, (err, user) => {
     if (err) {
       console.error('Google OAuth callback error:', err);
-      return res.status(500).json({
-        error: 'Google OAuth callback failed',
-        details: err.message,
-      });
+      return res.redirect(
+        `${clientOrigin}/#login?oauth=failed&reason=${encodeURIComponent(err.message || 'oauth_error')}`,
+      );
     }
 
     if (!user) {
-      return res.redirect('/');
+      return res.redirect(`${clientOrigin}/#login?oauth=failed`);
     }
 
     req.logIn(user, (loginErr) => {
       if (loginErr) {
         console.error('Session login error:', loginErr);
-        return res.status(500).json({
-          error: 'Failed to establish login session',
-          details: loginErr.message,
-        });
+        return res.redirect(
+          `${clientOrigin}/#login?oauth=session_login_failed&reason=${encodeURIComponent(loginErr.message || 'login_error')}`,
+        );
       }
 
-    // Create JWT payload
-    const payload = {
-      _id: user._id,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email || null,
-      role: user.role,
-    };
+      // Create JWT payload
+      const payload = {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email || null,
+        role: user.role,
+      };
 
-    // Sign JWT with secret and expiration
-    const token = jwt.sign(payload, process.env.JWT_SECRET, {
-      expiresIn: '1h',
-    });
+      // Sign JWT with secret and expiration
+      const token = jwt.sign(payload, process.env.JWT_SECRET, {
+        expiresIn: '1h',
+      });
+
+      const tokenForScript = JSON.stringify(token);
+      const clientOriginForScript = JSON.stringify(clientOrigin);
 
       req.session.save((saveErr) => {
         if (saveErr) {
           console.error('Session save error:', saveErr);
-        return res.status(500).send('Failed to persist login session');
+          return res.redirect(`${clientOrigin}/#login?oauth=session_save_failed`);
         }
+
+        // Persist JWT for non-SP clients (Swagger / direct browser) that don't send Authorization headers.
+        res.cookie('drmeet_token', token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: 'none',
+          maxAge: 1000 * 60 * 60,
+          path: '/',
+        });
 
         return res.send(`
               <html>
-                  <body> 
-                      <script>
-                          if(window.opener) {
-                              window.opener.postMessage({
-                                  type: 'GOOGLE_AUTH_SUCCESS',
-                                  token: '${token}',
-                              }, '${process.env.CLIENT_ORIGIN}');
-                              window.close();
-                          } else {
-                              window.location.href = '${process.env.CLIENT_ORIGIN}';
-                          }
-                      </script>
-                  </body>
+                <body>
+                  <script>
+                    if (window.opener) {
+                      window.opener.postMessage(
+                        {
+                          type: 'GOOGLE_AUTH_SUCCESS',
+                          token: ${tokenForScript},
+                        },
+                        ${clientOriginForScript}
+                      );
+                      window.close();
+                    } else {
+                      window.location.href = ${clientOriginForScript};
+                    }
+                  </script>
+                </body>
               </html>
           `);
       });
@@ -155,11 +176,22 @@ router.get('/auth/status', (req, res) => {
   let user = null;
 
   const authHeader = req.headers.authorization;
+  let token = null;
   if (authHeader) {
     // Use regext to extract token safely
     const tokenMatch = authHeader.match(/^Bearer (.+)$/);
-    const token = tokenMatch ? tokenMatch[1] : null;
+    token = tokenMatch ? tokenMatch[1] : null;
+  }
 
+  // Support cookie-based token checks when Authorization header is not provided.
+  if (!token && req.headers.cookie) {
+    const match = req.headers.cookie.match(/(?:^|;\s*)drmeet_token=([^;]+)/);
+    if (match?.[1]) {
+      token = decodeURIComponent(match[1]);
+    }
+  }
+
+  if (token) {
     try {
       user = jwt.verify(token, process.env.JWT_SECRET);
       authenticated = true;
