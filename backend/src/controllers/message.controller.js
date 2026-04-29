@@ -44,28 +44,48 @@ async function ensurePatientDoctorConversation({ patientId, doctorId }) {
 export const ensurePatientDoctorConversationId = async (req, res) => {
   try {
     const userId = getUserId(req);
-    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
     const { patientId, doctorId } = req.body || {};
+
     if (!patientId || !doctorId) {
-      return res.status(400).json({ error: "patientId and doctorId are required." });
+      return res.status(400).json({
+        error: "patientId and doctorId are required.",
+      });
     }
 
     assertValidObjectId(patientId);
     assertValidObjectId(doctorId);
 
-    // Strict security: non-admin users can only ensure a conversation that includes themselves.
-    if (!isAdmin(req)) {
-      if (String(req.user?.role || "") !== "patient") {
-        return res.status(403).json({ error: "Only patient can start a patient-doctor conversation." });
-      }
+    const role = String(req.user?.role || "");
+
+    // ✅ Allow patient + admin
+    const allowedRoles = ["patient", "admin"];
+
+    if (!allowedRoles.includes(role)) {
+      return res.status(403).json({
+        error: "Only patient or admin can start a patient-doctor conversation.",
+      });
+    }
+
+    // ✅ If user is patient, enforce ownership rule
+    if (role === "patient") {
       if (String(patientId) !== String(userId)) {
         return res.status(403).json({ error: "Forbidden." });
       }
     }
 
-    const conversation = await ensurePatientDoctorConversation({ patientId, doctorId });
-    return res.status(200).json({ conversationId: conversation._id });
+    // 🛠 Admin can act freely (no ownership restriction)
+    const conversation = await ensurePatientDoctorConversation({
+      patientId,
+      doctorId,
+    });
+
+    return res.status(200).json({
+      conversationId: conversation._id,
+    });
   } catch (error) {
     return res.status(error.statusCode || 500).json({
       error: error.message || "Failed to ensure conversation",

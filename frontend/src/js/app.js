@@ -328,30 +328,57 @@ async function createOrGetConversation(patientId, doctorId) {
 async function sendMessage(text) {
   let conversationId = dashboardState.activeConversationId;
 
+  // ✅ Get patientId from logged-in user (JWT)
+  const patientId = getCurrentUserId();
+
+  // ⚠️ TEMP HARD-CODED DOCTOR ID (for testing only)
+  const doctorId = "69ef69286e907b9bd4211fe4";
+
+  // 🚨 Safety check
+  if (!patientId) {
+    throw new Error("No logged-in user (patientId missing)");
+  }
+
   if (!conversationId) {
-    const createdConversationId = await createOrGetConversation(patientId, doctorId);
+    const createdConversationId = await createOrGetConversation(
+      patientId,
+      doctorId
+    );
+
     conversationId = createdConversationId;
     dashboardState.activeConversationId = conversationId;
   }
 
   const res = await apiRequest(`${MESSAGES_API}/send`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ conversationId, message: text }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      conversationId,
+      message: text,
+    }),
   });
 
-  if (!res.ok) throw new Error(await getApiErrorMessage(res, "Unable to send message"));
+  if (!res.ok) {
+    throw new Error(await getApiErrorMessage(res, "Unable to send message"));
+  }
 
   const data = await res.json();
 
-  dashboardState.activeConversationId = String(data?.conversationId || conversationId);
+  dashboardState.activeConversationId = String(
+    data?.conversationId || conversationId
+  );
 
   if (data?.message) {
-    dashboardState.messages = [...dashboardState.messages, data.message];
+    dashboardState.messages = [
+      ...dashboardState.messages,
+      data.message,
+    ];
   }
 
   const idx = dashboardState.conversations.findIndex(
-    (c) => String(c._id) === String(conversationId),
+    (c) => String(c._id) === String(conversationId)
   );
 
   if (idx !== -1 && data?.conversation) {
