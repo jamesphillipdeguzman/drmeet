@@ -302,7 +302,9 @@ async function loadMessages(conversationId) {
 async function createOrGetConversation() {
   const res = await apiRequest(`${MESSAGES_API}/conversations/ensure`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" }
+    headers: buildHeaders({
+      "Content-Type": "application/json",
+    }),
   });
 
   if (!res.ok) {
