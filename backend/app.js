@@ -8,7 +8,7 @@ import doctorRoutes from './src/routes/doctor.routes.js';
 import patientRoutes from './src/routes/patient.routes.js';
 import appointmentRoutes from './src/routes/appointment.routes.js';
 import userRoutes from './src/routes/user.routes.js';
-import inboxRoutes from './src/routes/inbox.routes.js';
+import messageRoutes from './src/routes/message.routes.js';
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './src/docs/swagger.js';
 import session from 'express-session';
@@ -124,7 +124,7 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/messages', inboxRoutes);
+app.use('/api/messages', messageRoutes);
 app.use('/api/login', authRoutes);
 
 export { app };

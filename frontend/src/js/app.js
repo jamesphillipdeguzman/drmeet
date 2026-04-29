@@ -12,17 +12,15 @@ const API_ORIGIN = API_BASE.replace("/api", "");
 const DASHBOARD_STATE_KEY = "drmeet-dashboard-state";
 const MESSAGES_API = `${API_BASE}/messages`;
 const dashboardSubscribers = [];
-let inboxHeartbeat = null;
-let inboxPoller = null;
 const dashboardState = {
-  messageBoard: [],
-  smsFeed: [
-    { from: "Maria T.", message: "I can do tomorrow morning.", status: "pending" },
-    { from: "James K.", message: "Confirmed for 3:00 PM.", status: "confirmed" },
-  ],
-  selectedThreadPatientId: "",
+  conversations: [],
+  activeConversationId: "",
+  messages: [],
   websocketActive: false,
 };
+
+let socket = null;
+let socketInitialized = false;
 
 function buildHeaders(baseHeaders = {}) {
   const token = localStorage.getItem("token");
@@ -184,12 +182,9 @@ function navigateTo(hash) {
 function loadDashboardState() {
   try {
     const parsed = JSON.parse(localStorage.getItem(DASHBOARD_STATE_KEY) || "{}");
-    if (Array.isArray(parsed.messageBoard)) {
-      dashboardState.messageBoard = parsed.messageBoard;
-    }
-    if (Array.isArray(parsed.smsFeed) && parsed.smsFeed.length) {
-      dashboardState.smsFeed = parsed.smsFeed;
-    }
+    if (Array.isArray(parsed.conversations)) dashboardState.conversations = parsed.conversations;
+    if (typeof parsed.activeConversationId === "string") dashboardState.activeConversationId = parsed.activeConversationId;
+    if (Array.isArray(parsed.messages)) dashboardState.messages = parsed.messages;
   } catch (error) {
     console.warn("Unable to load dashboard state", error);
   }
@@ -233,29 +228,43 @@ function sortMessagesByRecent(messages) {
   });
 }
 
-function makeMessagePayload(raw = {}) {
-  return {
-    id: raw.id || `msg-${Date.now()}`,
-    patientId: raw.patientId || "patient-001",
-    patientName: raw.patientName || raw.from || "Unknown Patient",
-    title: raw.title || "Patient message",
-    body: raw.body || raw.message || "",
-    tags: Array.isArray(raw.tags) ? raw.tags : [],
-    status: raw.status || "pending",
-    channel: raw.channel || "sms",
-    createdAt: raw.createdAt || new Date().toISOString(),
-    read: Boolean(raw.read),
-    typing: Boolean(raw.typing),
-    isNew: raw.isNew !== false,
-  };
+function decodeJwtPayload(token) {
+  // Basic JWT payload decoder (no signature verification on client).
+  try {
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => `%${c.charCodeAt(0).toString(16).padStart(2, "0")}`)
+        .join(""),
+    );
+    return JSON.parse(json);
+  } catch (error) {
+    return null;
+  }
 }
 
-async function fetchInboxFeed() {
+function getCurrentUserId() {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  const payload = decodeJwtPayload(token);
+  return payload?._id || payload?.id || null;
+}
+
+async function loadConversations() {
   try {
-    const res = await apiRequest(MESSAGES_API);
-    if (!res.ok) throw new Error("Failed to load inbox");
+    const res = await apiRequest(`${MESSAGES_API}/conversations`);
+    if (!res.ok) throw new Error("Failed to load conversations");
     const data = await res.json();
-    dashboardState.messageBoard = sortMessagesByRecent((data.messages || []).map(makeMessagePayload));
+    dashboardState.conversations = Array.isArray(data?.conversations) ? data.conversations : [];
+
+    // Default: load first conversation.
+    if (!dashboardState.activeConversationId && dashboardState.conversations.length) {
+      dashboardState.activeConversationId = String(dashboardState.conversations[0]._id);
+      await loadMessages(dashboardState.activeConversationId);
+    }
+
     dashboardState.websocketActive = true;
     persistDashboardState();
     notifyDashboardSubscribers();
@@ -265,40 +274,55 @@ async function fetchInboxFeed() {
   }
 }
 
-function startInboxRealtimeHooks() {
-  if (inboxHeartbeat) clearInterval(inboxHeartbeat);
-  if (inboxPoller) clearInterval(inboxPoller);
-  inboxHeartbeat = setInterval(() => {
-    document.querySelectorAll("[data-rel-time]").forEach((node) => {
-      const iso = node.getAttribute("data-rel-time");
-      node.textContent = formatRelativeTime(iso);
-    });
-  }, 30000);
-  inboxPoller = setInterval(fetchInboxFeed, 12000);
-}
-
-async function sendMessage(patientId, content, channel) {
-  const payload = {
-    patientId,
-    patientName: dashboardState.messageBoard.find((m) => m.patientId === patientId)?.patientName || "Patient",
-    content,
-    channel,
-  };
+async function loadMessages(conversationId) {
   try {
-    const res = await apiRequest(`${MESSAGES_API}/send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error("Unable to send message");
+    if (!conversationId) {
+      dashboardState.messages = [];
+      return;
+    }
+    const res = await apiRequest(
+      `${MESSAGES_API}/conversations/${conversationId}/messages`,
+    );
+    if (!res.ok) throw new Error("Failed to load messages");
     const data = await res.json();
-    dashboardState.messageBoard = sortMessagesByRecent((data.messages || []).map(makeMessagePayload));
+    dashboardState.messages = Array.isArray(data?.messages) ? data.messages : [];
+
+    // Mark as read for the current user.
+    await apiRequest(`${MESSAGES_API}/conversations/${conversationId}/read`, {
+      method: "POST",
+    });
+  } catch (error) {
+    dashboardState.messages = [];
+  } finally {
     persistDashboardState();
     notifyDashboardSubscribers();
-    return true;
-  } catch (error) {
-    return false;
   }
+}
+
+async function sendMessage(text) {
+  const conversationId = dashboardState.activeConversationId;
+  if (!conversationId) throw new Error("No active conversation selected.");
+
+  const res = await apiRequest(`${MESSAGES_API}/send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ conversationId, message: text }),
+  });
+  if (!res.ok) throw new Error(await getApiErrorMessage(res, "Unable to send message"));
+
+  const data = await res.json();
+  // Backend returns the newly-created message (with sender populated).
+  dashboardState.activeConversationId = String(data?.conversationId || dashboardState.activeConversationId);
+  if (data?.message) dashboardState.messages = [...dashboardState.messages, data.message];
+
+  // Update conversation preview (last message + lastMessageAt).
+  const idx = dashboardState.conversations.findIndex(
+    (c) => String(c._id) === String(data?.conversationId),
+  );
+  if (idx !== -1 && data?.conversation) dashboardState.conversations[idx] = data.conversation;
+
+  persistDashboardState();
+  notifyDashboardSubscribers();
 }
 
 async function checkAuthStatus() {
@@ -318,6 +342,69 @@ async function checkAuthStatus() {
   } catch (error) {
     console.warn("Auth status check failed:", error);
   }
+}
+
+function setupSocket() {
+  if (socketInitialized) return;
+  const token = localStorage.getItem("token");
+  if (!token) return;
+  if (typeof window.io !== "function") return;
+
+  socketInitialized = true;
+  socket = window.io(API_ORIGIN, {
+    auth: { token },
+    transports: ["websocket"],
+  });
+
+  socket.on("connect", () => {
+    dashboardState.websocketActive = true;
+    persistDashboardState();
+    notifyDashboardSubscribers();
+  });
+
+  socket.on("disconnect", () => {
+    dashboardState.websocketActive = false;
+    persistDashboardState();
+    notifyDashboardSubscribers();
+  });
+
+  socket.on("newMessage", async (msg) => {
+    const incomingConversationId = msg?.conversationId || msg?.conversation_id;
+    if (!incomingConversationId) return;
+
+    const conversationId = String(incomingConversationId);
+    const isActive = String(dashboardState.activeConversationId) === conversationId;
+
+    // Update conversation preview (last message + sorting).
+    const idx = dashboardState.conversations.findIndex(
+      (c) => String(c._id) === conversationId,
+    );
+    if (idx !== -1) {
+      dashboardState.conversations[idx] = {
+        ...dashboardState.conversations[idx],
+        lastMessage: msg?.message || dashboardState.conversations[idx].lastMessage,
+        lastMessageAt: msg?.createdAt || dashboardState.conversations[idx].lastMessageAt,
+      };
+    }
+
+    if (isActive) {
+      // Avoid duplicates by message id when possible.
+      const incomingId = msg?._id || msg?.id;
+      const alreadyExists =
+        incomingId && dashboardState.messages.some((m) => String(m._id || m.id) === String(incomingId));
+      if (!alreadyExists) dashboardState.messages = [...dashboardState.messages, msg];
+
+      // Keep read receipts current for open conversations.
+      try {
+        await apiRequest(`${MESSAGES_API}/conversations/${conversationId}/read`, { method: "POST" });
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    persistDashboardState();
+    notifyDashboardSubscribers();
+  });
 }
 
 function renderPage() {
@@ -396,17 +483,28 @@ function mountDashboardWidgets() {
   const addButton = document.getElementById("add-board-message");
   if (!boardContainer || !smsContainer) return;
 
+  setupSocket();
+
   boardContainer.innerHTML = createSkeletonRows(2);
   smsContainer.innerHTML = createSkeletonRows(3);
   setTimeout(() => {
     renderMessageBoard(boardContainer);
     renderSmsFeed(smsContainer);
+    renderThreadDrawer(document.getElementById("thread-drawer"));
   }, 350);
 
   addButton?.addEventListener("click", async () => {
     const note = prompt("Add dashboard message");
     if (!note) return;
-    await sendMessage("patient-001", note, "sms");
+    try {
+      if (!dashboardState.activeConversationId && dashboardState.conversations.length) {
+        dashboardState.activeConversationId = String(dashboardState.conversations[0]._id);
+        await loadMessages(dashboardState.activeConversationId);
+      }
+      await sendMessage(note);
+    } catch (err) {
+      alert(err?.message || "Unable to send message");
+    }
   });
 
   dashboardSubscribers.length = 0;
@@ -418,160 +516,185 @@ function mountDashboardWidgets() {
     renderSmsFeed(smsContainer);
     renderThreadDrawer(drawer);
   });
-  fetchInboxFeed();
-  startInboxRealtimeHooks();
+  loadConversations();
 }
 
 function renderMessageBoard(container) {
-  const posts = dashboardState.messageBoard.length
-    ? sortMessagesByRecent(dashboardState.messageBoard)
-    : [
-      {
-        id: "seed-1",
-        patientId: "patient-001",
-        patientName: "Maria T.",
-        title: "Follow-up queue",
-        body: "Prioritize respiratory reviews before 3pm handover.",
-        tags: ["Urgent", "Physio"],
-        status: "pending",
-        channel: "sms",
-        read: true,
-        typing: true,
-        isNew: true,
-        createdAt: new Date().toISOString(),
-      },
-    ];
-  container.innerHTML = posts
-    .map(
-      (post) => `
-      <article class="message-card tailwind-card" data-message-id="${post.id}" data-patient-id="${post.patientId}">
-        <div class="message-meta">
-          ${(post.tags || []).map((tag) => `<span class="chip">#${tag}</span>`).join("")}
-          ${post.isNew ? '<span class="chip chip-new">New</span>' : ""}
-        </div>
-        <div class="message-row">
-          <h4>${post.patientName}</h4>
-          <small data-rel-time="${post.createdAt}">${formatRelativeTime(post.createdAt)}</small>
-        </div>
-        <p class="message-preview">${post.body}</p>
-        <div class="status-row">
-          <span class="status-dot ${post.status === "confirmed" ? "green" : "yellow"}"></span>
-          <span>${post.status}</span>
-          <span class="read-receipt ${post.read ? "read" : ""}">✓✓</span>
-          ${post.typing ? '<span class="typing-indicator">Typing...</span>' : ""}
-        </div>
-        <div class="quick-actions">
-          <button type="button" data-open-thread="${post.patientId}">Reply</button>
-          <button type="button">Archive</button>
-          <button type="button">Pin</button>
-        </div>
-        <div class="quick-reply">
-          <textarea id="quick-reply-${post.id}" placeholder="Quick reply to ${post.patientName}"></textarea>
-          <div class="quick-reply-row">
-            <select id="quick-reply-channel-${post.id}">
-              <option value="sms">SMS</option>
-              <option value="email">Email</option>
-              <option value="web_portal">Web Portal</option>
-            </select>
-            <button type="button" data-send-id="${post.id}">Send</button>
-          </div>
-        </div>
-      </article>
-    `
-    )
-    .join("");
-  container.querySelectorAll("[data-send-id]").forEach((button) => {
+  const currentUserId = getCurrentUserId();
+  const conversations = Array.isArray(dashboardState.conversations)
+    ? dashboardState.conversations
+    : [];
+  const sorted = [...conversations].sort((a, b) => {
+    const left = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+    const right = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+    return right - left;
+  });
+
+  container.innerHTML = sorted.length
+    ? sorted
+        .map((conv) => {
+          const participants = Array.isArray(conv.participants) ? conv.participants : [];
+          const other =
+            participants.find((p) => String(p._id) !== String(currentUserId)) ||
+            participants[0] ||
+            null;
+          const otherName = other
+            ? `${other.firstName || ""} ${other.lastName || ""}`.trim()
+            : "Conversation";
+          const lastAt = conv.lastMessageAt || conv.updatedAt;
+          const lastMsg = conv.lastMessage || "";
+
+          return `
+            <article class="message-card tailwind-card" data-conversation-id="${conv._id}">
+              <div class="message-row">
+                <h4>${otherName}</h4>
+                <small>${lastAt ? formatRelativeTime(lastAt) : ""}</small>
+              </div>
+              <p class="message-preview">${lastMsg || "No messages yet"}</p>
+              <div class="quick-actions">
+                <button type="button" data-open-thread="${conv._id}">Reply</button>
+              </div>
+              <div class="quick-reply">
+                <textarea id="quick-reply-${conv._id}" placeholder="Quick reply to ${otherName}"></textarea>
+                <div class="quick-reply-row">
+                  <button type="button" data-send-message="${conv._id}">Send</button>
+                </div>
+              </div>
+            </article>
+          `;
+        })
+        .join("")
+    : `<div class="feedback">No conversations yet.</div>`;
+
+  container.querySelectorAll("[data-send-message]").forEach((button) => {
     button.addEventListener("click", async () => {
-      const msgId = button.getAttribute("data-send-id");
-      const post = posts.find((item) => item.id === msgId);
-      if (!post) return;
-      const input = document.getElementById(`quick-reply-${msgId}`);
-      const channelInput = document.getElementById(`quick-reply-channel-${msgId}`);
+      const conversationId = button.getAttribute("data-send-message");
+      const input = document.getElementById(`quick-reply-${conversationId}`);
       const content = input?.value?.trim();
       if (!content) return;
-      const success = await sendMessage(post.patientId, content, channelInput?.value || "sms");
-      if (success && input) input.value = "";
+
+      if (String(dashboardState.activeConversationId) !== String(conversationId)) {
+        dashboardState.activeConversationId = String(conversationId);
+        await loadMessages(conversationId);
+      }
+
+      await sendMessage(content);
+      if (input) input.value = "";
     });
   });
+
   container.querySelectorAll("[data-open-thread]").forEach((button) => {
-    button.addEventListener("click", () => {
-      dashboardState.selectedThreadPatientId = button.getAttribute("data-open-thread") || "";
-      notifyDashboardSubscribers();
+    button.addEventListener("click", async () => {
+      const conversationId = button.getAttribute("data-open-thread");
+      if (!conversationId) return;
+      dashboardState.activeConversationId = String(conversationId);
+      await loadMessages(conversationId);
     });
   });
+
   container.querySelectorAll(".message-card").forEach((card) => {
-    card.addEventListener("click", (event) => {
-      if (event.target.closest("button, textarea, select")) return;
-      dashboardState.selectedThreadPatientId = card.getAttribute("data-patient-id") || "";
-      notifyDashboardSubscribers();
+    card.addEventListener("click", async (event) => {
+      if (event.target.closest("button, textarea")) return;
+      const conversationId = card.getAttribute("data-conversation-id");
+      if (!conversationId) return;
+      dashboardState.activeConversationId = String(conversationId);
+      await loadMessages(conversationId);
     });
   });
 }
 
 function renderSmsFeed(container) {
-  const totals = dashboardState.messageBoard.reduce(
-    (acc, message) => {
-      const key = (message.channel || "sms").toLowerCase();
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    },
-    { sms: 0, email: 0, web_portal: 0 }
+  const containerEmptyState = `
+    <div class="feedback">
+      ${dashboardState.activeConversationId ? "Select a conversation to view messages." : "Select a conversation to view messages."}
+    </div>
+  `;
+
+  if (!dashboardState.activeConversationId) {
+    container.innerHTML = containerEmptyState;
+    return;
+  }
+
+  const conv = dashboardState.conversations.find(
+    (c) => String(c._id) === String(dashboardState.activeConversationId),
   );
-  container.innerHTML = [
-    { from: "SMS", message: `${totals.sms} conversations`, status: "confirmed" },
-    { from: "Email", message: `${totals.email} conversations`, status: "pending" },
-    { from: "Web Portal", message: `${totals.web_portal} conversations`, status: "confirmed" },
-  ]
-    .map(
-      (sms) => `
-      <div class="chat-bubble">
-        <div class="chat-head">
-          <strong>${sms.from}</strong>
-          <span class="status-dot ${sms.status === "confirmed" ? "green" : "yellow"}"></span>
-        </div>
-        <p>${sms.message}</p>
+  const participants = Array.isArray(conv?.participants) ? conv.participants : [];
+  const currentUserId = getCurrentUserId();
+  const other =
+    participants.find((p) => String(p._id) !== String(currentUserId)) || participants[0] || null;
+  const otherName = other
+    ? `${other.firstName || ""} ${other.lastName || ""}`.trim()
+    : "Conversation";
+
+  container.innerHTML = `
+    <div class="chat-bubble">
+      <div class="chat-head">
+        <strong>${otherName}</strong>
       </div>
-    `
-    )
-    .join("");
+      <p style="opacity:0.85">${(dashboardState.messages?.length || 0)} message(s)</p>
+    </div>
+  `;
 }
 
 function renderThreadDrawer(drawer) {
   if (!drawer) return;
-  const patientId = dashboardState.selectedThreadPatientId;
-  if (!patientId) {
+  const conversationId = dashboardState.activeConversationId;
+  if (!conversationId) {
     drawer.classList.add("hidden");
     drawer.innerHTML = "";
     return;
   }
-  const threadMessages = sortMessagesByRecent(
-    dashboardState.messageBoard.filter((message) => message.patientId === patientId)
+
+  const conv = dashboardState.conversations.find(
+    (c) => String(c._id) === String(conversationId),
   );
-  const patientName = threadMessages[0]?.patientName || "Patient";
+  const participants = Array.isArray(conv?.participants) ? conv.participants : [];
+  const currentUserId = getCurrentUserId();
+  const other =
+    participants.find((p) => String(p._id) !== String(currentUserId)) || participants[0] || null;
+  const otherName = other
+    ? `${other.firstName || ""} ${other.lastName || ""}`.trim()
+    : "Conversation";
+
+  const threadMessages = Array.isArray(dashboardState.messages) ? dashboardState.messages : [];
   drawer.classList.remove("hidden");
   drawer.innerHTML = `
     <div class="thread-header">
-      <h3>${patientName} Thread</h3>
+      <h3>${otherName}</h3>
       <button type="button" id="close-thread">Close</button>
     </div>
     <div class="thread-list">
-      ${threadMessages
-      .map(
-        (msg) => `
-          <div class="thread-item ${msg.channel === "email" ? "email" : "sms"}">
-            <div class="thread-item-header">
-              <strong>${msg.channel.toUpperCase().replace("_", " ")}</strong>
-              <small data-rel-time="${msg.createdAt}">${formatRelativeTime(msg.createdAt)}</small>
-            </div>
-            <p>${msg.body}</p>
-          </div>
-        `
-      )
-      .join("")}
+      ${
+        threadMessages.length
+          ? threadMessages
+              .map((msg) => {
+                const sender = msg.senderId || {};
+                const senderId = msg.senderId?._id || msg.senderId || null;
+                const isYou = senderId ? String(senderId) === String(currentUserId) : false;
+                const senderName = sender
+                  ? `${sender.firstName || ""} ${sender.lastName || ""}`.trim()
+                  : "Unknown";
+                const displayName = isYou ? "You" : senderName;
+
+                return `
+                  <div class="thread-item">
+                    <div class="thread-item-header">
+                      <strong>${displayName}</strong>
+                      <small>${msg.createdAt ? formatRelativeTime(msg.createdAt) : ""}</small>
+                    </div>
+                    <p>${msg.message || ""}</p>
+                  </div>
+                `;
+              })
+              .join("")
+          : `<div class="feedback">No messages yet.</div>`
+      }
     </div>
   `;
   drawer.querySelector("#close-thread")?.addEventListener("click", () => {
-    dashboardState.selectedThreadPatientId = "";
+    dashboardState.activeConversationId = "";
+    dashboardState.messages = [];
+    persistDashboardState();
     notifyDashboardSubscribers();
   });
 }
