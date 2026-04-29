@@ -120,7 +120,7 @@ app.get('/', (req, res) => {
 // ========================
 
 // 🔥 AUTH MUST BE SINGLE BASE PATH
-app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/patients', patientRoutes);
