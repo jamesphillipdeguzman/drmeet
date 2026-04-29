@@ -351,9 +351,9 @@ async function sendMessage(text) {
 
   const res = await apiRequest(`${MESSAGES_API}/send`, {
     method: "POST",
-    headers: {
+    headers: buildHeaders({
       "Content-Type": "application/json",
-    },
+    }),
     body: JSON.stringify({
       conversationId,
       message: text,
@@ -1448,8 +1448,10 @@ function showUserForm(editId = null) {
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
       <label>Role
-        <select name="role">
-          <option value="user">User</option>
+        <select name="role" required>
+          <option value="patient">Patient</option>
+          <option value="doctor">Doctor</option>
+          <option value="receptionist">Receptionist</option>
           <option value="admin">Admin</option>
         </select>
       </label>
@@ -1472,7 +1474,7 @@ function showUserForm(editId = null) {
         form.firstName.value = data.firstName || "";
         form.lastName.value = data.lastName || "";
         form.email.value = data.email || "";
-        form.role.value = data.role || "user";
+        form.role.value = data.role || "patient";
         form.phone.value = data.phone || "";
         form.address.value = data.address || "";
       });
