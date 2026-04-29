@@ -300,7 +300,7 @@ async function loadMessages(conversationId) {
 }
 
 async function createOrGetConversation() {
-  const res = await apiRequest(`${MESSAGES_API}/conversations/ensure`, {
+  const res = await apiRequest(`${MESSAGES_API}/conversations/ensure/patient-doctor`, {
     method: "POST",
     headers: buildHeaders({
       "Content-Type": "application/json",
