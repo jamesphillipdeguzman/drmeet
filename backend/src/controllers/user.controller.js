@@ -7,6 +7,7 @@ import {
     updateUserById as updateUserByIdService,
     deleteUserById as deleteUserByIdService,
 } from '../services/user.service.js';
+import { ensureDoctorProfileForUser } from '../services/doctorProfileSync.service.js';
 /**
  * @route GET /api/users
  * @desc Fetch all users
@@ -57,6 +58,7 @@ export const postUser = async (req, res) => {
     try {
         const userData = req.body;
         const newUser = await createUserService(userData);
+        await ensureDoctorProfileForUser(newUser);
         if (!newUser) {
             return res.status(400).json({ error: 'Failed to create user.' });
         }
@@ -88,6 +90,7 @@ export const updateUser = async (req, res) => {
         if (!updatedUser) {
             return res.status(404).json({ error: 'User not found. ' });
         }
+        await ensureDoctorProfileForUser(updatedUser);
         console.log(`[USER]✅ PUT /api/users/${id} was called`);
 
         return res.status(200).json(updatedUser);

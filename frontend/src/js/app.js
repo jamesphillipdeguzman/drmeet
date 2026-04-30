@@ -7,6 +7,9 @@ const sidebarUserTrigger = document.getElementById("sidebar-user-trigger");
 const sidebarUserPopover = document.getElementById("sidebar-user-popover");
 const sidebarLogoutBtn = document.getElementById("sidebar-logout-btn");
 const sidebarUserMenu = document.querySelector(".sidebar-user-menu");
+const sidebarAvatarCircle = document.querySelector(".sidebar-avatar-circle");
+const sidebarAvatarName = document.querySelector(".sidebar-avatar-name");
+const sidebarAccountMeta = document.getElementById("sidebar-account-meta");
 const commandPalette = document.getElementById("command-palette");
 const commandInput = document.getElementById("command-input");
 const commandResults = document.getElementById("command-results");
@@ -40,6 +43,7 @@ const googleAuthState = {
   buttonEl: null,
   inProgress: false,
 };
+let sidebarClockIntervalId = null;
 
 function normalizeFetchErrorMessage(err, fallbackMessage) {
   const message = String(err?.message || "");
@@ -261,6 +265,12 @@ function setupCommandPalette() {
 }
 
 function getSearchableCommands() {
+  if (!isLoggedIn()) {
+    return [
+      { id: "home", label: "Go to Home", action: () => navigateTo("#home") },
+      { id: "book", label: "Book a visit (patients)", action: () => navigateTo("#book") },
+    ];
+  }
   const staticCommands = [
     { id: "home", label: "Go to Home", action: () => navigateTo("#home") },
     { id: "book", label: "Book a visit (patients)", action: () => navigateTo("#book") },
@@ -392,6 +402,52 @@ function getCurrentUserRole() {
   const payload = decodeJwtPayload(token);
   const role = payload?.role;
   return role != null ? String(role).toLowerCase() : null;
+}
+
+function getCurrentUserName() {
+  const token = localStorage.getItem("token");
+  if (!token) return "";
+  const payload = decodeJwtPayload(token);
+  const first = String(payload?.firstName || "").trim();
+  const last = String(payload?.lastName || "").trim();
+  return `${first} ${last}`.trim();
+}
+
+function getSidebarRoleLabel(role) {
+  switch (String(role || "").toLowerCase()) {
+    case "patient":
+      return "I'm a patient!";
+    case "doctor":
+      return "I'm a doctor";
+    case "receptionist":
+      return "I'm a receptionist";
+    case "admin":
+      return "I'm an admin!";
+    default:
+      return "My Account";
+  }
+}
+
+function updateSidebarAccountInfo() {
+  const signedIn = isLoggedIn();
+  const role = getCurrentUserRole();
+  const fullName = getCurrentUserName();
+  const now = new Date();
+  const dateText = now.toLocaleDateString("en-PH", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const timeText = now.toLocaleTimeString("en-PH");
+  const roleLabel = getSidebarRoleLabel(role);
+  const initial = (fullName || role || "U").charAt(0).toUpperCase();
+  if (sidebarAvatarCircle) sidebarAvatarCircle.textContent = signedIn ? initial : "U";
+  if (sidebarAvatarName) sidebarAvatarName.textContent = signedIn ? roleLabel : "My Account";
+  if (sidebarAccountMeta) {
+    sidebarAccountMeta.innerHTML = signedIn
+      ? `<strong>${fullName || "User"}</strong><br>${dateText}<br>${timeText}`
+      : "Not signed in";
+  }
 }
 
 async function resolveDoctorIdForPatientMessaging() {
@@ -724,6 +780,7 @@ function renderPage() {
 }
 
 function renderHome() {
+  const signedIn = isLoggedIn();
   const bookCta =
     getCurrentUserRole() === "patient"
       ? `<p class="dashboard-book-teaser"><a href="#book" class="btn btn-primary">Book a visit</a> <span class="dashboard-book-hint">Search for a doctor and request an appointment.</span></p>`
@@ -766,22 +823,26 @@ function renderHome() {
         </button>
       </div>
     </section>
-    <section class="dashboard-grid">
-      <article class="card board-card">
-        <div class="card-header">
-          <h3>Unified Inbox</h3>
-          <button type="button" class="btn btn-primary" id="add-board-message">Compose message</button>
-        </div>
-        <div id="message-board-list" class="masonry-grid"></div>
-      </article>
-      <article class="card sms-card">
-        <div class="card-header">
-          <h3>Channel Summary</h3>
-        </div>
-        <div id="sms-feed-list" class="chat-thread"></div>
-      </article>
-    </section>
-    <aside id="thread-drawer" class="thread-drawer hidden"></aside>
+    ${
+      signedIn
+        ? `<section class="dashboard-grid">
+            <article class="card board-card">
+              <div class="card-header">
+                <h3>Unified Inbox</h3>
+                <button type="button" class="btn btn-primary" id="add-board-message">Compose message</button>
+              </div>
+              <div id="message-board-list" class="masonry-grid"></div>
+            </article>
+            <article class="card sms-card">
+              <div class="card-header">
+                <h3>Channel Summary</h3>
+              </div>
+              <div id="sms-feed-list" class="chat-thread"></div>
+            </article>
+          </section>
+          <aside id="thread-drawer" class="thread-drawer hidden"></aside>`
+        : ""
+    }
   `;
   document.getElementById("role-select-doctor")?.addEventListener("click", () => {
     if (!isLoggedIn()) {
@@ -801,7 +862,7 @@ function renderHome() {
     window.location.hash = "#book";
     renderPatientBooking();
   });
-  mountDashboardWidgets();
+  if (signedIn) mountDashboardWidgets();
 }
 
 function createSkeletonRows(total = 3) {
@@ -818,6 +879,7 @@ function createSkeletonRows(total = 3) {
 }
 
 function mountDashboardWidgets() {
+  if (!isLoggedIn()) return;
   const boardContainer = document.getElementById("message-board-list");
   const smsContainer = document.getElementById("sms-feed-list");
   const addButton = document.getElementById("add-board-message");
@@ -965,6 +1027,13 @@ function renderSmsFeed(container) {
 }
 
 function renderThreadDrawer(drawer) {
+  if (!isLoggedIn()) {
+    if (drawer) {
+      drawer.classList.add("hidden");
+      drawer.innerHTML = "";
+    }
+    return;
+  }
   if (!drawer) return;
   const conversationId = dashboardState.activeConversationId;
   if (!conversationId) {
@@ -1087,6 +1156,14 @@ function updateAuthNav() {
   });
   if (sidebarUserMenu) {
     sidebarUserMenu.style.display = signedIn ? "" : "none";
+  }
+  updateSidebarAccountInfo();
+  if (sidebarClockIntervalId) {
+    clearInterval(sidebarClockIntervalId);
+    sidebarClockIntervalId = null;
+  }
+  if (signedIn) {
+    sidebarClockIntervalId = setInterval(updateSidebarAccountInfo, 1000);
   }
   if (signedIn) {
     loginLink.textContent = "Login";
@@ -1730,10 +1807,23 @@ async function renderDoctors() {
             </section>`
           : ""
       }
+      <div class="list-filters">
+        <input type="search" id="doctor-filter-name" placeholder="Filter by name" />
+        <input type="search" id="doctor-filter-email" placeholder="Filter by email" />
+        <input type="search" id="doctor-filter-specialty" placeholder="Filter by specialty" />
+        <input type="search" id="doctor-filter-availability" placeholder="Filter by availability" />
+        <input type="search" id="doctor-filter-phone" placeholder="Filter by phone" />
+        <input type="search" id="doctor-filter-receptionist" placeholder="Filter by receptionist" />
+      </div>
       <table>
         <thead><tr><th>Name</th><th>Email</th><th>Specialty</th><th>Availability</th><th>Phone</th><th>Receptionist</th><th>Actions</th></tr></thead>
-        <tbody>
-          ${doctors
+        <tbody id="doctors-table-body"></tbody>
+      </table>
+      <div id="doctor-form-modal" style="display:none"></div>
+    `;
+    const bodyEl = document.getElementById("doctors-table-body");
+    const renderRows = (list) => {
+      bodyEl.innerHTML = list
         .map(
           (d) => `
             <tr>
@@ -1758,11 +1848,37 @@ async function renderDoctors() {
             </tr>
           `
         )
-        .join("")}
-        </tbody>
-      </table>
-      <div id="doctor-form-modal" style="display:none"></div>
-    `;
+        .join("");
+    };
+    const applyDoctorFilters = () => {
+      const nameQ = String(document.getElementById("doctor-filter-name")?.value || "").toLowerCase().trim();
+      const emailQ = String(document.getElementById("doctor-filter-email")?.value || "").toLowerCase().trim();
+      const specialtyQ = String(document.getElementById("doctor-filter-specialty")?.value || "").toLowerCase().trim();
+      const availabilityQ = String(document.getElementById("doctor-filter-availability")?.value || "").toLowerCase().trim();
+      const phoneQ = String(document.getElementById("doctor-filter-phone")?.value || "").toLowerCase().trim();
+      const receptionistQ = String(document.getElementById("doctor-filter-receptionist")?.value || "").toLowerCase().trim();
+      const filtered = doctors.filter((d) => {
+        const name = `${d.firstName || ""} ${d.lastName || ""}`.toLowerCase();
+        const email = String(d.email || "").toLowerCase();
+        const specialty = String(d.specialty || "").toLowerCase();
+        const availability = String(buildDoctorAvailabilityLabel(d) || "").toLowerCase();
+        const phone = String(d.phone || "").toLowerCase();
+        const receptionist = `${d.receptionistName || ""} ${d.receptionistPhone || ""} ${d.receptionistEmail || ""}`.toLowerCase();
+        return (
+          (!nameQ || name.includes(nameQ)) &&
+          (!emailQ || email.includes(emailQ)) &&
+          (!specialtyQ || specialty.includes(specialtyQ)) &&
+          (!availabilityQ || availability.includes(availabilityQ)) &&
+          (!phoneQ || phone.includes(phoneQ)) &&
+          (!receptionistQ || receptionist.includes(receptionistQ))
+        );
+      });
+      renderRows(filtered);
+    };
+    ["doctor-filter-name", "doctor-filter-email", "doctor-filter-specialty", "doctor-filter-availability", "doctor-filter-phone", "doctor-filter-receptionist"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("input", applyDoctorFilters);
+    });
+    renderRows(doctors);
     window.showDoctorForm = showDoctorForm;
     window.editDoctor = editDoctor;
     window.deleteDoctor = deleteDoctor;

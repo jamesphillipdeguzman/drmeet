@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import User from '../models/user.model.js';
+import { ensureDoctorProfileForUser } from '../services/doctorProfileSync.service.js';
 
 dotenv.config();
 
@@ -101,6 +102,7 @@ passport.use(
           if (!user.googleId) user.googleId = profile.id;
           user.lastLogin = new Date();
           await user.save();
+          await ensureDoctorProfileForUser(user);
           return done(null, user);
         }
 
@@ -114,6 +116,7 @@ passport.use(
           role,
           lastLogin: new Date(),
         });
+        await ensureDoctorProfileForUser(user);
 
         return done(null, user);
       } catch (err) {

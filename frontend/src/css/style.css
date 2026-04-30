@@ -106,6 +106,13 @@ body {
     background: #1a2756;
 }
 
+.sidebar-account-meta {
+    font-size: 0.82rem;
+    color: #d4ddff;
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+
 .icon-button {
     background: transparent;
     border: 1px solid #5f71bf;

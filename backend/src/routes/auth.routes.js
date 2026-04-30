@@ -8,6 +8,7 @@ import bcrypt from 'bcrypt';
 
 import { validateUserSignup } from '../middlewares/user.validation.middleware.js';
 import User from '../models/user.model.js';
+import { ensureDoctorProfileForUser } from '../services/doctorProfileSync.service.js';
 
 const router = express.Router();
 
@@ -309,6 +310,7 @@ router.post('/signup', validateUserSignup, async (req, res) => {
       address,
       role: normalizeAmbiguousSignupRole(req.body.role),
     });
+    await ensureDoctorProfileForUser(user);
 
     const token = jwt.sign(
       {
