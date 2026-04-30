@@ -272,9 +272,7 @@ function setupCommandPalette() {
     }
   });
   commandInput.addEventListener("input", renderCommandResults);
-  commandPalette.addEventListener("click", (event) => {
-    if (event.target === commandPalette) closeCommandPalette();
-  });
+  commandPalette.addEventListener("click", () => {});
 }
 
 function getSearchableCommands() {
@@ -464,18 +462,22 @@ function updateSidebarAccountInfo() {
 }
 
 async function resolveDoctorIdForPatientMessaging() {
-  const res = await apiRequest(`${API_BASE}/appointments`);
-  if (res.ok) {
-    const list = await res.json();
-    if (Array.isArray(list) && list.length) {
-      const row = list.find((a) => a.doctor);
-      if (row?.doctor) return String(row.doctor);
-    }
-  }
   const docRes = await apiRequest(`${API_BASE}/doctors`);
   if (!docRes.ok) return null;
   const doctors = await docRes.json();
-  if (Array.isArray(doctors) && doctors[0]?._id) return String(doctors[0]._id);
+  if (!Array.isArray(doctors) || !doctors.length) return null;
+  const apptRes = await apiRequest(`${API_BASE}/appointments`);
+  if (apptRes.ok) {
+    const list = await apptRes.json();
+    if (Array.isArray(list) && list.length) {
+      const row = list.find((a) => a.doctor);
+      if (row?.doctor) {
+        const profile = doctors.find((d) => String(d._id) === String(row.doctor));
+        if (profile?.userId) return String(profile.userId);
+      }
+    }
+  }
+  if (doctors[0]?.userId) return String(doctors[0].userId);
   return null;
 }
 
@@ -484,6 +486,40 @@ async function fetchMyPatientRecord() {
   if (!res.ok) return null;
   const list = await res.json();
   return Array.isArray(list) && list.length ? list[0] : null;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      reject(new Error("No file selected."));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function sendDocumentMessage({ conversationId = "", patientId = "", doctorId = "", text = "", file }) {
+  const fileData = await fileToDataUrl(file);
+  return sendMessage(text, {
+    conversationId,
+    patientId,
+    doctorId,
+    fileData,
+    attachmentName: file?.name || "",
+    attachmentType: file?.type || "",
+  });
 }
 
 function doctorMatchesPatientSearch(doctor, q) {
@@ -583,8 +619,8 @@ async function createOrGetConversation(patientId, doctorId) {
   return data.conversationId; // ⚠️ backend returns conversationId, not conversation object
 }
 
-async function sendMessage(text) {
-  let conversationId = dashboardState.activeConversationId;
+async function sendMessage(text, options = {}) {
+  let conversationId = options.conversationId || dashboardState.activeConversationId;
 
   const userId = getCurrentUserId();
   const role = getCurrentUserRole();
@@ -594,16 +630,15 @@ async function sendMessage(text) {
   }
 
   if (!conversationId) {
-    if (role !== "patient") {
+    if (role !== "patient" && !(options.patientId && options.doctorId)) {
       throw new Error("Select a conversation before sending a message.");
     }
-    const doctorId = await resolveDoctorIdForPatientMessaging();
+    const doctorId = options.doctorId || await resolveDoctorIdForPatientMessaging();
+    const patientId = options.patientId || userId;
     if (!doctorId) {
-      throw new Error(
-        "No assigned doctor found. Book an appointment first so messaging can be enabled.",
-      );
+      throw new Error("No assigned doctor found. Book an appointment first so messaging can be enabled.");
     }
-    const createdConversationId = await createOrGetConversation(userId, doctorId);
+    const createdConversationId = await createOrGetConversation(patientId, doctorId);
 
     conversationId = createdConversationId;
     dashboardState.activeConversationId = conversationId;
@@ -617,6 +652,9 @@ async function sendMessage(text) {
     body: JSON.stringify({
       conversationId,
       message: text,
+      fileData: options.fileData || "",
+      attachmentName: options.attachmentName || "",
+      attachmentType: options.attachmentType || "",
     }),
   });
 
@@ -913,6 +951,35 @@ function createSkeletonRows(total = 3) {
     .join("");
 }
 
+function showComposeMessageModal(onSubmit) {
+  const modal = document.createElement("div");
+  modal.className = "modal-overlay";
+  modal.innerHTML = `
+    <div class="card" style="max-width:520px;margin:8vh auto;padding:1rem;">
+      <h3>Compose message</h3>
+      <form id="compose-message-form">
+        <label>Message
+          <textarea id="compose-message-text" rows="4" placeholder="Write your message..." required></textarea>
+        </label>
+        <div class="modal-form-actions">
+          <button type="submit" class="btn btn-primary">Send</button>
+          <button type="button" class="btn btn-secondary" id="compose-message-cancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  const closeModal = () => modal.remove();
+  modal.querySelector("#compose-message-cancel")?.addEventListener("click", closeModal);
+  modal.querySelector("#compose-message-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const text = String(modal.querySelector("#compose-message-text")?.value || "").trim();
+    if (!text) return;
+    await onSubmit(text);
+    closeModal();
+  });
+}
+
 function mountDashboardWidgets() {
   if (!isLoggedIn()) return;
   const boardContainer = document.getElementById("message-board-list");
@@ -931,20 +998,20 @@ function mountDashboardWidgets() {
   }, 350);
 
   addButton?.addEventListener("click", async () => {
-    const note = prompt("Add dashboard message");
-    if (!note) return;
-    try {
-      if (dashboardState.conversations.length > 0) {
-        dashboardState.activeConversationId = String(dashboardState.conversations[0]._id);
-        await loadMessages(dashboardState.activeConversationId);
-      } else {
-        dashboardState.activeConversationId = "";
-        dashboardState.messages = [];
+    showComposeMessageModal(async (note) => {
+      try {
+        if (dashboardState.conversations.length > 0) {
+          dashboardState.activeConversationId = String(dashboardState.conversations[0]._id);
+          await loadMessages(dashboardState.activeConversationId);
+        } else {
+          dashboardState.activeConversationId = "";
+          dashboardState.messages = [];
+        }
+        await sendMessage(note);
+      } catch (err) {
+        alert(err?.message || "Unable to send message");
       }
-      await sendMessage(note);
-    } catch (err) {
-      alert(err?.message || "Unable to send message");
-    }
+    });
   });
 
   dashboardSubscribers.length = 0;
@@ -1118,13 +1185,17 @@ function renderThreadDrawer(drawer) {
                       ? "role-staff"
                       : "role-default";
 
+                const attachmentMarkup = msg.attachmentUrl
+                  ? `<p><a href="${escapeHtml(msg.attachmentUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(msg.attachmentName || "Open attachment")}</a></p>`
+                  : "";
                 return `
                   <div class="thread-item ${roleClass}">
                     <div class="thread-item-header">
                       <strong>${displayName}</strong>
                       <small>${msg.createdAt ? formatRelativeTime(msg.createdAt) : ""}</small>
                     </div>
-                    <p>${msg.message || ""}</p>
+                    <p>${escapeHtml(msg.message || "")}</p>
+                    ${attachmentMarkup}
                   </div>
                 `;
               })
@@ -1136,6 +1207,9 @@ function renderThreadDrawer(drawer) {
       <p class="thread-reply-label">Reply in this conversation</p>
       <p class="thread-quick-hint thread-quick-hint--recipient" data-thread-hint-recipient></p>
       <textarea id="thread-quick-reply" rows="3" placeholder="Type your message…" autocomplete="off"></textarea>
+      <label style="margin:0.5rem 0;">Attach screenshot or document
+        <input id="thread-quick-file" type="file" accept="image/*,.pdf,.doc,.docx,.txt" />
+      </label>
       <button type="button" class="btn btn-primary" id="thread-send-reply">Send message</button>
     </div>
   `;
@@ -1150,14 +1224,21 @@ function renderThreadDrawer(drawer) {
 
   drawer.querySelector("#thread-send-reply")?.addEventListener("click", async () => {
     const input = drawer.querySelector("#thread-quick-reply");
+    const fileInput = drawer.querySelector("#thread-quick-file");
+    const file = fileInput?.files?.[0];
     const content = input?.value?.trim();
-    if (!content || !conversationId) return;
+    if ((!content && !file) || !conversationId) return;
     if (String(dashboardState.activeConversationId) !== String(conversationId)) {
       dashboardState.activeConversationId = String(conversationId);
     }
     try {
-      await sendMessage(content);
+      if (file) {
+        await sendDocumentMessage({ conversationId, text: content, file });
+      } else {
+        await sendMessage(content);
+      }
       if (input) input.value = "";
+      if (fileInput) fileInput.value = "";
     } catch (err) {
       alert(err?.message || "Unable to send message");
     }
@@ -1627,7 +1708,6 @@ async function renderPatientBooking() {
 
   document.getElementById("patient-booking-close").onclick = closeDrawer;
   document.getElementById("patient-booking-cancel").onclick = closeDrawer;
-  document.getElementById("patient-booking-backdrop").onclick = closeDrawer;
 
   bookingForm.onsubmit = async (e) => {
     e.preventDefault();
@@ -1687,11 +1767,13 @@ async function renderPatients() {
     const patientOptions = patients
       .map((p) => `<option value="${p._id}">${p.firstName || ""} ${p.lastName || ""}</option>`)
       .join("");
+    const isDoctor = role === "doctor";
     mainContent.innerHTML = `
       <h2 class="page-title page-title-patients">Patients</h2>
       <div>
         <button class="cta-primary" onclick="window.showPatientForm()">Add Patient</button>
         ${isPatient ? '<button class="cta-primary" onclick="window.showFamilyMemberForm()">Register Family Member</button>' : ""}
+        ${isPatient ? '<button class="cta-primary" onclick="window.sendMyDocumentToClinic()">Send Document to Clinic</button>' : ""}
       </div>
       ${isPatient && patients.length ? `
       <div class="list-filters">
@@ -1729,6 +1811,7 @@ async function renderPatients() {
               <td>
                 <button class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
                 <button class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>
+                ${isDoctor ? `<button class="btn btn-primary btn-action-edit" onclick="window.sendPatientDocumentFromDoctor('${p._id}')">Send Document</button>` : ""}
               </td>
             </tr>
           `
@@ -1771,6 +1854,66 @@ async function renderPatients() {
     window.showFamilyMemberForm = () => showPatientForm(null, true);
     window.editPatient = editPatient;
     window.deletePatient = deletePatient;
+    window.sendMyDocumentToClinic = async () => {
+      const selectedId = String(document.getElementById("patient-switch-profile")?.value || "");
+      const patientProfile = selectedId
+        ? patients.find((p) => String(p._id) === selectedId)
+        : patients.find((p) => !p.relationshipToAccountHolder) || patients[0];
+      if (!patientProfile?.userId) {
+        alert("No messaging profile found for the selected patient.");
+        return;
+      }
+      const doctorUserId = await resolveDoctorIdForPatientMessaging();
+      if (!doctorUserId) {
+        alert("No linked doctor found yet. Book an appointment first.");
+        return;
+      }
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = "image/*,.pdf,.doc,.docx,.txt";
+      fileInput.onchange = async () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        try {
+          await sendDocumentMessage({
+            patientId: String(patientProfile.userId),
+            doctorId: String(doctorUserId),
+            text: "Patient document for clinic review.",
+            file,
+          });
+          alert("Document sent to clinic for review.");
+        } catch (error) {
+          alert(error?.message || "Unable to send document.");
+        }
+      };
+      fileInput.click();
+    };
+    window.sendPatientDocumentFromDoctor = async (patientId) => {
+      const patient = patients.find((p) => String(p._id) === String(patientId));
+      if (!patient?.userId) {
+        alert("This patient has no linked login account for messaging.");
+        return;
+      }
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = "image/*,.pdf,.doc,.docx,.txt";
+      fileInput.onchange = async () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+        try {
+          await sendDocumentMessage({
+            patientId: String(patient.userId),
+            doctorId: String(getCurrentUserId()),
+            text: "Document from your doctor.",
+            file,
+          });
+          alert("Document sent to patient.");
+        } catch (error) {
+          alert(error?.message || "Unable to send document.");
+        }
+      };
+      fileInput.click();
+    };
   } catch (err) {
     mainContent.innerHTML = `<h2>Patients</h2><div class="feedback error">${err.message}</div>`;
   }
@@ -1812,9 +1955,6 @@ function showPatientForm(editId = null, familyMode = false) {
   `;
   window.closePatientForm = () => {
     modal.style.display = "none";
-  };
-  modal.onclick = (event) => {
-    if (event.target === modal) window.closePatientForm();
   };
   const form = document.getElementById("patient-form");
   if (editId) {
@@ -1884,10 +2024,14 @@ async function renderDoctors() {
   try {
     const res = await apiRequest(`${API_BASE}/doctors`);
     if (!res.ok) throw new Error("Failed to fetch doctors");
-    const doctors = await res.json();
+    const allDoctors = await res.json();
     const role = getCurrentUserRole();
     const isAdmin = role === "admin";
     const isDoctor = role === "doctor";
+    const currentUserId = getCurrentUserId();
+    const doctors = isDoctor
+      ? allDoctors.filter((d) => String(d.userId || "") === String(currentUserId || ""))
+      : allDoctors;
     mainContent.innerHTML = `
       <h2 class="page-title page-title-doctors">Doctors</h2>
       ${isAdmin ? '<button class="cta-primary" onclick="window.showDoctorForm()">Add Doctor</button>' : ""}
@@ -1907,14 +2051,14 @@ async function renderDoctors() {
           : ""
       }
       <hr class="section-divider" />
-      <div class="list-filters">
+      ${isDoctor ? "" : `<div class="list-filters">
         <input type="search" id="doctor-filter-name" placeholder="Filter by name" />
         <input type="search" id="doctor-filter-email" placeholder="Filter by email" />
         <input type="search" id="doctor-filter-specialty" placeholder="Filter by specialty" />
         <input type="search" id="doctor-filter-availability" placeholder="Filter by availability" />
         <input type="search" id="doctor-filter-phone" placeholder="Filter by phone" />
         <input type="search" id="doctor-filter-receptionist" placeholder="Filter by receptionist" />
-      </div>
+      </div>`}
       <table>
         <thead><tr><th>Name</th><th>Email</th><th>Specialty</th><th>Availability</th><th>Phone</th><th>Receptionist</th><th>Actions</th></tr></thead>
         <tbody id="doctors-table-body"></tbody>
@@ -1975,9 +2119,11 @@ async function renderDoctors() {
       });
       renderRows(filtered);
     };
-    ["doctor-filter-name", "doctor-filter-email", "doctor-filter-specialty", "doctor-filter-availability", "doctor-filter-phone", "doctor-filter-receptionist"].forEach((id) => {
-      document.getElementById(id)?.addEventListener("input", applyDoctorFilters);
-    });
+    if (!isDoctor) {
+      ["doctor-filter-name", "doctor-filter-email", "doctor-filter-specialty", "doctor-filter-availability", "doctor-filter-phone", "doctor-filter-receptionist"].forEach((id) => {
+        document.getElementById(id)?.addEventListener("input", applyDoctorFilters);
+      });
+    }
     renderRows(doctors);
     window.showDoctorForm = showDoctorForm;
     window.editDoctor = editDoctor;
@@ -2055,9 +2201,6 @@ function showDoctorForm(editId = null) {
   `;
   window.closeDoctorForm = () => {
     modal.style.display = "none";
-  };
-  modal.onclick = (event) => {
-    if (event.target === modal) window.closeDoctorForm();
   };
   const form = document.getElementById("doctor-form");
   if (editId) {
@@ -2323,9 +2466,6 @@ async function showAppointmentForm(editId = null) {
   window.closeAppointmentForm = () => {
     modal.style.display = "none";
   };
-  modal.onclick = (event) => {
-    if (event.target === modal) window.closeAppointmentForm();
-  };
   const form = document.getElementById("appointment-form");
   if (editId) {
     try {
@@ -2476,9 +2616,6 @@ function showUserForm(editId = null) {
   `;
   window.closeUserForm = () => {
     modal.style.display = "none";
-  };
-  modal.onclick = (event) => {
-    if (event.target === modal) window.closeUserForm();
   };
   const form = document.getElementById("user-form");
   if (editId) {

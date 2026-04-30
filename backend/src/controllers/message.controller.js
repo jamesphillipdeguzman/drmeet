@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import Conversation from "../models/conversation.model.js";
 import Message from "../models/message.model.js";
+import Doctor from "../models/doctor.model.js";
+import Patient from "../models/patient.model.js";
+import { uploadToCloudinary } from "../services/cloudinary.service.js";
+import { appointmentExistsForDoctorPatient } from "../services/appointment.service.js";
 import {
   buildUserConversationsQuery,
   userMayAccessConversationType,
@@ -65,12 +69,12 @@ export const ensurePatientDoctorConversationId = async (req, res) => {
 
     const role = String(req.user?.role || "");
 
-    // ✅ Allow patient + admin
-    const allowedRoles = ["patient", "admin"];
+    // ✅ Allow patient + doctor + admin
+    const allowedRoles = ["patient", "doctor", "admin"];
 
     if (!allowedRoles.includes(role)) {
       return res.status(403).json({
-        error: "Only patient or admin can start a patient-doctor conversation.",
+        error: "Only patient, doctor, or admin can start a patient-doctor conversation.",
       });
     }
 
@@ -78,6 +82,26 @@ export const ensurePatientDoctorConversationId = async (req, res) => {
     if (role === "patient") {
       if (String(patientId) !== String(userId)) {
         return res.status(403).json({ error: "Forbidden." });
+      }
+    }
+
+    if (role === "doctor") {
+      if (String(doctorId) !== String(userId)) {
+        return res.status(403).json({ error: "Forbidden." });
+      }
+      const doctorProfile = await Doctor.findOne({ userId }).select("_id").lean();
+      const patientProfile = await Patient.findOne({ userId: patientId }).select("_id").lean();
+      if (!doctorProfile || !patientProfile) {
+        return res.status(403).json({ error: "Forbidden." });
+      }
+      const hasAppointment = await appointmentExistsForDoctorPatient(
+        String(doctorProfile._id),
+        String(patientProfile._id),
+      );
+      if (!hasAppointment) {
+        return res.status(403).json({
+          error: "Conversation allowed only for patients with prior appointments.",
+        });
       }
     }
 
@@ -185,10 +209,19 @@ export const sendMessage = async (req, res) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-    const { conversationId, patientId, doctorId, message } = req.body || {};
+    const {
+      conversationId,
+      patientId,
+      doctorId,
+      message,
+      fileData,
+      attachmentName,
+      attachmentType,
+    } = req.body || {};
 
-    if (!message || typeof message !== "string" || !message.trim()) {
-      return res.status(400).json({ error: "Message is required." });
+    const text = typeof message === "string" ? message.trim() : "";
+    if (!text && !fileData) {
+      return res.status(400).json({ error: "Message or attachment is required." });
     }
 
     let conversation = null;
@@ -226,10 +259,21 @@ export const sendMessage = async (req, res) => {
       }
     }
 
+    let upload = null;
+    if (fileData) {
+      upload = await uploadToCloudinary(fileData, {
+        folder: "drmeet/messages",
+        resource_type: "auto",
+      });
+    }
+
     const newMessage = await Message.create({
       conversationId: conversation._id,
       senderId: userId,
-      message: message.trim(),
+      message: text,
+      attachmentUrl: upload?.secure_url || "",
+      attachmentName: attachmentName || "",
+      attachmentType: attachmentType || "",
       readBy: [userId],
     });
 
@@ -239,7 +283,7 @@ export const sendMessage = async (req, res) => {
     const updatedConversation = await Conversation.findByIdAndUpdate(
       conversation._id,
       {
-        lastMessage: newMessage.message,
+        lastMessage: newMessage.message || (newMessage.attachmentName ? `📎 ${newMessage.attachmentName}` : "📎 Attachment"),
         lastMessageAt: new Date(),
       },
       { new: true },
