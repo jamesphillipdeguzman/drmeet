@@ -23,6 +23,36 @@ const dashboardState = {
 
 let socket = null;
 let socketInitialized = false;
+const googleAuthState = {
+  popup: null,
+  timeoutId: null,
+  pollId: null,
+  feedbackEl: null,
+  buttonEl: null,
+  inProgress: false,
+};
+
+function clearGoogleAuthLoading(message, isError = false) {
+  if (googleAuthState.timeoutId) {
+    clearTimeout(googleAuthState.timeoutId);
+    googleAuthState.timeoutId = null;
+  }
+  if (googleAuthState.pollId) {
+    clearInterval(googleAuthState.pollId);
+    googleAuthState.pollId = null;
+  }
+  googleAuthState.popup = null;
+  googleAuthState.inProgress = false;
+
+  if (googleAuthState.buttonEl) {
+    googleAuthState.buttonEl.disabled = false;
+    googleAuthState.buttonEl.removeAttribute("aria-busy");
+  }
+  if (googleAuthState.feedbackEl && message) {
+    googleAuthState.feedbackEl.textContent = message;
+    googleAuthState.feedbackEl.className = isError ? "feedback error" : "feedback";
+  }
+}
 
 function resetMessagingSocket() {
   if (socket) {
@@ -868,8 +898,16 @@ function renderThreadDrawer(drawer) {
                   : "Unknown";
                 const displayName = isYou ? "You" : senderName;
 
+                const senderRole = String(sender.role || "").toLowerCase();
+                const roleClass =
+                  senderRole === "patient"
+                    ? "role-patient"
+                    : senderRole === "doctor" || senderRole === "receptionist"
+                      ? "role-staff"
+                      : "role-default";
+
                 return `
-                  <div class="thread-item">
+                  <div class="thread-item ${roleClass}">
                     <div class="thread-item-header">
                       <strong>${displayName}</strong>
                       <small>${msg.createdAt ? formatRelativeTime(msg.createdAt) : ""}</small>
@@ -970,9 +1008,11 @@ function renderLogin() {
     <button id="google-login-btn" type="button" class="btn btn-google" style="margin-top:1rem;">Continue with Google</button>
     <div id="login-feedback"></div>
   `;
-  document.getElementById('google-login-btn').onclick = googleLogin;
+  const googleLoginBtn = document.getElementById('google-login-btn');
   const form = document.getElementById('login-form');
   const feedback = document.getElementById('login-feedback');
+  googleLoginBtn.onclick = () =>
+    googleLogin({ feedbackEl: feedback, buttonEl: googleLoginBtn });
   form.onsubmit = async e => {
     e.preventDefault();
     feedback.textContent = 'Logging in...';
@@ -1025,9 +1065,11 @@ function renderSignup() {
     <button id="google-signup-btn" type="button" class="btn btn-google" style="margin-top:1rem;">Continue with Google</button>
     <div id="signup-feedback"></div>
   `;
-  document.getElementById('google-signup-btn').onclick = googleLogin;
+  const googleSignupBtn = document.getElementById('google-signup-btn');
   const form = document.getElementById('signup-form');
   const feedback = document.getElementById('signup-feedback');
+  googleSignupBtn.onclick = () =>
+    googleLogin({ feedbackEl: feedback, buttonEl: googleSignupBtn });
   form.onsubmit = async e => {
     e.preventDefault();
     feedback.textContent = 'Signing up...';
@@ -1060,17 +1102,51 @@ function renderSignup() {
   };
 }
 
-function googleLogin() {
+function googleLogin({ feedbackEl = null, buttonEl = null } = {}) {
+  if (googleAuthState.inProgress) return;
+  googleAuthState.feedbackEl = feedbackEl;
+  googleAuthState.buttonEl = buttonEl;
+  googleAuthState.inProgress = true;
+
+  if (buttonEl) {
+    buttonEl.disabled = true;
+    buttonEl.setAttribute("aria-busy", "true");
+  }
+  if (feedbackEl) {
+    feedbackEl.textContent = "Opening Google sign-in...";
+    feedbackEl.className = "feedback";
+  }
+
   const popup = window.open(
     `${API_ORIGIN}/auth/google`,
     'googleLogin',
     'width=500,height=600'
   );
+  if (!popup) {
+    clearGoogleAuthLoading("Popup blocked. Allow popups and try again.", true);
+    return;
+  }
+
+  googleAuthState.popup = popup;
+  googleAuthState.timeoutId = setTimeout(() => {
+    try {
+      googleAuthState.popup?.close();
+    } catch (e) {
+      // ignore
+    }
+    clearGoogleAuthLoading("Google login timed out. Please try again.", true);
+  }, 45000);
+  googleAuthState.pollId = setInterval(() => {
+    if (googleAuthState.popup && googleAuthState.popup.closed) {
+      clearGoogleAuthLoading("Google login was closed before completion.", true);
+    }
+  }, 500);
 }
 
 function handleGoogleAuthMessage(event) {
   if (!event.data || event.data.type !== 'GOOGLE_AUTH_SUCCESS') return;
   if (event.data.token) {
+    clearGoogleAuthLoading("Google sign-in successful.");
     resetMessagingSocket();
     localStorage.setItem('token', event.data.token);
     updateAuthNav();
@@ -1312,8 +1388,8 @@ async function renderPatients() {
               <td>${p.phone || ""}</td>
               <td>${formatDateDisplay(p.birthdate) || ""}</td>
               <td>
-                <button onclick="window.editPatient('${p._id}')">Edit</button>
-                <button onclick="window.deletePatient('${p._id
+                <button class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
+                <button class="btn btn-action-delete" onclick="window.deletePatient('${p._id
             }')">Delete</button>
               </td>
             </tr>
@@ -1438,8 +1514,8 @@ async function renderDoctors() {
               <td>${buildDoctorAvailabilityLabel(d)}</td>
               <td>${d.phone || ""}</td>
               <td>
-                <button onclick="window.editDoctor('${d._id}')">Edit</button>
-                <button onclick="window.deleteDoctor('${d._id
+                <button class="btn btn-secondary btn-action-edit" onclick="window.editDoctor('${d._id}')">Edit</button>
+                <button class="btn btn-action-delete" onclick="window.deleteDoctor('${d._id
             }')">Delete</button>
               </td>
             </tr>
@@ -1619,9 +1695,9 @@ async function renderAppointments() {
               <td>${a.time || ""}</td>
               <td>${a.status || ""}</td>
               <td>
-                <button onclick="window.editAppointment('${a._id
+                <button class="btn btn-secondary btn-action-edit" onclick="window.editAppointment('${a._id
             }')">Edit</button>
-                <button onclick="window.deleteAppointment('${a._id
+                <button class="btn btn-action-delete" onclick="window.deleteAppointment('${a._id
             }')">Delete</button>
               </td>
             </tr>
@@ -1784,8 +1860,8 @@ async function renderUsers() {
               <td>${u.role || ""}</td>
               <td>${u.phone || ""}</td>
               <td>
-                <button onclick="window.editUser('${u._id}')">Edit</button>
-                <button onclick="window.deleteUser('${u._id}')">Delete</button>
+                <button class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button>
+                <button class="btn btn-action-delete" onclick="window.deleteUser('${u._id}')">Delete</button>
               </td>
             </tr>
           `

@@ -1,18 +1,13 @@
 import mongoose from 'mongoose';
 
-import Patient from '../models/patient.model.js';
-import Conversation from '../models/conversation.model.js';
-
 import {
     findAllDoctors,
     findDoctorById,
     findDoctorByUserId,
-    findDoctorsByIds,
     createDoctor as createDoctorService,
     updateDoctorById as updateDoctorByIdService,
     deleteDoctorById as deleteDoctorByIdService,
 } from '../services/doctor.service.js';
-import { findAppointmentsByPatient } from '../services/appointment.service.js';
 
 function authUserId(req) {
     const id = req.user?._id || req.user?.id;
@@ -23,53 +18,18 @@ function authRole(req) {
     return String(req.user?.role || '').toLowerCase();
 }
 
-/**
- * Patient-visible doctor Mongo _ids: from appointments and patient–doctor chats.
- */
-async function collectDoctorMongoIdsForPatientUser(uid) {
-    const ids = new Set();
-    const patient = await Patient.findOne({ userId: uid });
-    if (patient) {
-        const appts = await findAppointmentsByPatient(String(patient._id));
-        appts.forEach((a) => {
-            if (a.doctor) ids.add(String(a.doctor));
-        });
-    }
-
-    const convs = await Conversation.find({
-        participants: uid,
-        conversationType: 'patient-doctor',
-    }).populate('participants', 'role');
-
-    for (const c of convs) {
-        const parts = Array.isArray(c.participants) ? c.participants : [];
-        for (const p of parts) {
-            if (String(p._id) === String(uid)) continue;
-            if (String(p.role || '').toLowerCase() !== 'doctor') continue;
-            const doc = await findDoctorByUserId(p._id);
-            if (doc?._id) ids.add(String(doc._id));
-        }
-    }
-
-    return [...ids].filter((id) => mongoose.Types.ObjectId.isValid(String(id)));
-}
-
 async function getScopedDoctors(req) {
     const role = authRole(req);
     const uid = authUserId(req);
 
-    if (role === 'admin' || role === 'receptionist') {
+    if (role === 'admin' || role === 'receptionist' || role === 'patient') {
+        // Read-only doctor discovery for patients.
         return findAllDoctors();
     }
 
     if (role === 'doctor' && uid) {
         const doc = await findDoctorByUserId(uid);
         return doc ? [doc] : [];
-    }
-
-    if (role === 'patient' && uid) {
-        const doctorIds = await collectDoctorMongoIdsForPatientUser(uid);
-        return findDoctorsByIds(doctorIds);
     }
 
     return [];
@@ -81,16 +41,11 @@ async function doctorVisibleToRequester(req, doctorDoc) {
     const uid = authUserId(req);
     const did = String(doctorDoc._id);
 
-    if (role === 'admin' || role === 'receptionist') return true;
+    if (role === 'admin' || role === 'receptionist' || role === 'patient') return true;
 
     if (role === 'doctor' && uid) {
         const mine = await findDoctorByUserId(uid);
         return mine && String(mine._id) === did;
-    }
-
-    if (role === 'patient' && uid) {
-        const allowed = await collectDoctorMongoIdsForPatientUser(uid);
-        return allowed.includes(did);
     }
 
     return false;

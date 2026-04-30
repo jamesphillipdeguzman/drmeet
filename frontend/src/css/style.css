@@ -568,6 +568,23 @@ textarea {
     padding: 0.64rem;
     background: #f8faff;
 }
+.thread-item.role-patient {
+    background: #e8f9ee;
+    border-color: #bde6cb;
+    color: #12482f;
+}
+.thread-item.role-staff {
+    background: #1f3a75;
+    border-color: #27488f;
+    color: #f4f7ff;
+}
+.thread-item.role-staff small,
+.thread-item.role-staff strong {
+    color: #f4f7ff;
+}
+.thread-item.role-default {
+    background: #f8faff;
+}
 .thread-item.email {
     background: #f5f8ff;
 }
@@ -832,4 +849,26 @@ textarea {
     color: var(--slate);
     margin-left: 0.35rem;
     vertical-align: middle;
+}
+
+/* Stronger table action CTAs */
+table td:last-child .btn,
+table td:last-child button {
+    min-width: 92px;
+    min-height: 38px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    padding: 0.5rem 0.85rem;
+}
+.btn-action-edit {
+    border-width: 2px;
+}
+.btn-action-delete {
+    background: linear-gradient(180deg, #e74a5c 0%, #c73548 100%);
+    color: #fff;
+    border: none;
+    box-shadow: 0 4px 14px rgba(199, 53, 72, 0.28);
+}
+.btn-action-delete:hover {
+    background: linear-gradient(180deg, #f05a6d 0%, #b62b3e 100%);
 }

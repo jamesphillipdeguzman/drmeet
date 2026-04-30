@@ -75,7 +75,17 @@ router.get('/google/callback', (req, res, next) => {
         expiresIn: '1h',
       });
 
+      let responded = false;
+      const callbackTimeout = setTimeout(() => {
+        if (responded) return;
+        responded = true;
+        return res.redirect(`${clientOrigin}/#login?oauth=callback_timeout`);
+      }, 10000);
+
       req.session.save(() => {
+        if (responded) return;
+        responded = true;
+        clearTimeout(callbackTimeout);
         res.cookie('drmeet_token', token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
