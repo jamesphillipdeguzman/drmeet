@@ -38,6 +38,11 @@ const userSchema = new mongoose.Schema(
       default: "patient",
       required: true,
     },
+    linkedDoctorId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Doctor",
+      required: false,
+    },
     phone: {
       type: String,
       required: false,

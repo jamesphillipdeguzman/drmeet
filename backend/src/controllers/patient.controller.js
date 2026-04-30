@@ -10,6 +10,7 @@ import {
   findPatientsByIds,
 } from '../services/patient.service.js';
 import { findDoctorByUserId } from '../services/doctor.service.js';
+import User from '../models/user.model.js';
 import {
   findAppointmentsByDoctor,
   findAppointmentsByPatient,
@@ -52,8 +53,21 @@ async function getScopedPatients(req) {
   const role = authRole(req);
   const uid = authUserId(req);
 
-  if (role === 'admin' || role === 'receptionist') {
+  if (role === 'admin') {
     return findAllPatients();
+  }
+
+  if (role === 'receptionist' && uid) {
+    const receptionist = await User.findById(uid).select('linkedDoctorId').lean();
+    const linkedDoctorId = receptionist?.linkedDoctorId
+      ? String(receptionist.linkedDoctorId)
+      : '';
+    if (!linkedDoctorId) return [];
+    const appts = await findAppointmentsByDoctor(linkedDoctorId);
+    const patientIds = [...new Set(appts.map((a) => a.patient).filter(Boolean))]
+      .map((id) => String(id))
+      .filter((id) => mongoose.Types.ObjectId.isValid(id));
+    return findPatientsByIds(patientIds);
   }
 
   if (role === 'patient' && uid) {
@@ -79,7 +93,16 @@ async function patientVisibleToRequester(req, patientDoc) {
   const uid = authUserId(req);
   const pid = String(patientDoc._id);
 
-  if (role === 'admin' || role === 'receptionist') return true;
+  if (role === 'admin') return true;
+
+  if (role === 'receptionist' && uid) {
+    const receptionist = await User.findById(uid).select('linkedDoctorId').lean();
+    const linkedDoctorId = receptionist?.linkedDoctorId
+      ? String(receptionist.linkedDoctorId)
+      : '';
+    if (!linkedDoctorId) return false;
+    return appointmentExistsForDoctorPatient(linkedDoctorId, pid);
+  }
 
   if (role === 'patient' && uid) {
     return String(patientDoc.userId || '') === uid;

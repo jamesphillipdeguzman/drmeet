@@ -1,11 +1,12 @@
 import express from 'express';
-import { hybridAuth } from '../middlewares/auth.middleware.js';
+import { hybridAuth, requireRoles } from '../middlewares/auth.middleware.js';
 import {
   getAllDoctors,
   getDoctorById,
   postDoctor,
   updateDoctor,
   deleteDoctor,
+  inviteReceptionist,
 } from '../controllers/doctor.controller.js';
 import { validateDoctor } from '../middlewares/doctor.validation.middleware.js';
 import { validateMongoIdParam } from '../middlewares/common.middleware.js';
@@ -170,5 +171,6 @@ router.put(
  *        description: An error occurred while deleting the doctor
  */
 router.delete('/:id', hybridAuth, validateMongoIdParam, deleteDoctor);
+router.post('/clinic-staff/invite', hybridAuth, requireRoles(['doctor']), inviteReceptionist);
 
 export default router;

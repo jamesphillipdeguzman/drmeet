@@ -279,3 +279,75 @@ export const deleteDoctor = async (req, res) => {
             .json({ error: 'An error occured while deleting the doctor.' });
     }
 };
+
+/**
+ * @route POST /api/doctors/clinic-staff/invite
+ * @desc Doctor invites a receptionist linked to their clinic
+ */
+export const inviteReceptionist = async (req, res) => {
+    try {
+        const role = authRole(req);
+        const uid = authUserId(req);
+        if (role !== 'doctor') {
+            return res.status(403).json({ error: 'Only doctors can invite clinic staff.' });
+        }
+        const doctor = await findDoctorByUserId(uid);
+        if (!doctor) {
+            return res.status(404).json({ error: 'Doctor profile not found.' });
+        }
+
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        if (!email) {
+            return res.status(400).json({ error: 'Receptionist email is required.' });
+        }
+        const emailRegex = /^\S+@\S+\.\S+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({ error: 'Please provide a valid email address.' });
+        }
+
+        const existing = await User.findOne({ email });
+        if (existing && existing.role !== 'receptionist') {
+            return res
+                .status(400)
+                .json({ error: 'A non-receptionist account already exists for this email.' });
+        }
+
+        const localPart = email.split('@')[0] || 'clinic';
+        const nameParts = localPart
+            .split(/[._-]+/)
+            .map((p) => p.trim())
+            .filter(Boolean);
+        const firstName = nameParts[0] || 'Clinic';
+        const lastName = nameParts.slice(1).join(' ') || 'Receptionist';
+
+        const receptionist = existing
+            ? await User.findByIdAndUpdate(
+                  existing._id,
+                  {
+                      role: 'receptionist',
+                      linkedDoctorId: doctor._id,
+                      firstName: existing.firstName || firstName,
+                      lastName: existing.lastName || lastName,
+                  },
+                  { new: true },
+              )
+            : await User.create({
+                  firstName,
+                  lastName,
+                  email,
+                  role: 'receptionist',
+                  linkedDoctorId: doctor._id,
+              });
+
+        return res.status(existing ? 200 : 201).json({
+            message: existing
+                ? 'Receptionist linked to your clinic successfully.'
+                : 'Receptionist invited successfully.',
+            user: receptionist,
+        });
+    } catch (error) {
+        return res
+            .status(500)
+            .json({ error: error.message || 'Failed to invite receptionist.' });
+    }
+};

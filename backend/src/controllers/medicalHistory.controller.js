@@ -1,5 +1,7 @@
 import Patient from '../models/patient.model.js';
+import User from '../models/user.model.js';
 import { uploadToCloudinary } from '../services/cloudinary.service.js';
+import { findAppointmentsByDoctor } from '../services/appointment.service.js';
 
 function authRole(req) {
   return String(req.user?.role || '').toLowerCase();
@@ -40,6 +42,18 @@ async function resolvePatientForRequest(req, requestedPatientId = '') {
   }
 
   if (requestedPatientId) {
+    if (role === 'receptionist') {
+      const receptionist = await User.findById(userId).select('linkedDoctorId').lean();
+      const linkedDoctorId = receptionist?.linkedDoctorId
+        ? String(receptionist.linkedDoctorId)
+        : '';
+      if (!linkedDoctorId) return null;
+      const appointments = await findAppointmentsByDoctor(linkedDoctorId);
+      const allowedPatientIds = new Set(
+        appointments.map((a) => String(a.patient || '')).filter(Boolean),
+      );
+      if (!allowedPatientIds.has(String(requestedPatientId))) return null;
+    }
     return Patient.findById(requestedPatientId);
   }
 
@@ -93,15 +107,29 @@ export async function getMedicalHistory(req, res) {
     }
 
     if (requestedPatientId) {
-      const patient = await Patient.findById(requestedPatientId).lean();
+      const patient = await resolvePatientForRequest(req, requestedPatientId);
       if (!patient) return res.status(404).json({ error: 'Patient not found.' });
+      const plainPatient = patient.toObject ? patient.toObject() : patient;
       return res.status(200).json({
-        patientId: String(patient._id),
-        medicalHistory: (patient.medicalHistory || []).map(parseHistoryEntry),
+        patientId: String(plainPatient._id),
+        medicalHistory: (plainPatient.medicalHistory || []).map(parseHistoryEntry),
       });
     }
 
-    const patients = await Patient.find().lean();
+    let patients = [];
+    if (role === 'receptionist') {
+      const userId = authUserId(req);
+      const receptionist = await User.findById(userId).select('linkedDoctorId').lean();
+      const linkedDoctorId = receptionist?.linkedDoctorId
+        ? String(receptionist.linkedDoctorId)
+        : '';
+      if (!linkedDoctorId) return res.status(200).json([]);
+      const appointments = await findAppointmentsByDoctor(linkedDoctorId);
+      const scopedPatientIds = [...new Set(appointments.map((a) => a.patient).filter(Boolean))];
+      patients = await Patient.find({ _id: { $in: scopedPatientIds } }).lean();
+    } else {
+      patients = await Patient.find().lean();
+    }
     const rows = patients.map((p) => ({
       patientId: String(p._id),
       firstName: p.firstName || '',

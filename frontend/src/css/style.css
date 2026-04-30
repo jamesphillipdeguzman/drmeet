@@ -1020,6 +1020,16 @@ textarea {
     z-index: 1;
 }
 
+.role-card .role-card-hint {
+    position: relative;
+    z-index: 1;
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.92);
+}
+
 .role-card-doctor {
     background-image: url("../images/doctor-profile.png");
 }

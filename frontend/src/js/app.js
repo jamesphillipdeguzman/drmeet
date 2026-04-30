@@ -97,7 +97,7 @@ function getHashRoute() {
 
 function getSignupRoleFromHash() {
   const hash = window.location.hash || "";
-  const match = hash.match(/role=(doctor|patient)/i);
+  const match = hash.match(/role=(doctor|patient|receptionist)/i);
   return match ? String(match[1]).toLowerCase() : "";
 }
 
@@ -748,6 +748,7 @@ function renderHome() {
       <div class="role-select-grid">
         <button type="button" class="role-card role-card-doctor" id="role-select-doctor">
           <span class="role-card-label">Doctor Profile</span>
+          <span class="role-card-hint">For Doctors and Clinic Staff</span>
         </button>
         <button type="button" class="role-card role-card-patient" id="role-select-patient">
           <span class="role-card-label">Patient Profile</span>
@@ -773,8 +774,8 @@ function renderHome() {
   `;
   document.getElementById("role-select-doctor")?.addEventListener("click", () => {
     if (!isLoggedIn()) {
-      window.location.hash = "#signup?role=doctor";
-      renderSignup();
+      window.location.hash = "#login?role=doctor";
+      renderLogin();
       return;
     }
     window.location.hash = "#doctors";
@@ -1056,25 +1057,29 @@ function isLoggedIn() {
 function updateAuthNav() {
   const loginLink = document.getElementById("login-link");
   const signedIn = isLoggedIn();
+  const role = getCurrentUserRole();
   if (!loginLink) return;
   navLinks.forEach((link) => {
     const href = link.getAttribute("href");
-    const isPublicLink = href === "#home" || href === "#login" || href === "#signup";
-    link.style.display = !signedIn && !isPublicLink ? "none" : "";
+    const isHome = href === "#home";
+    const isSignup = href === "#signup";
+    const isLogin = href === "#login";
+    if (!signedIn) {
+      link.style.display = isHome || isSignup ? "" : "none";
+      return;
+    }
+    if (isLogin) {
+      link.style.display = role === "admin" ? "" : "none";
+      return;
+    }
+    link.style.display = "";
   });
   if (sidebarUserMenu) {
     sidebarUserMenu.style.display = signedIn ? "" : "none";
   }
   if (signedIn) {
-    loginLink.textContent = "Logout";
-    loginLink.onclick = (e) => {
-      e.preventDefault();
-      localStorage.removeItem("token");
-      resetMessagingSocket();
-      updateAuthNav();
-      window.location.hash = "#login";
-      renderLogin();
-    };
+    loginLink.textContent = "Login";
+    loginLink.onclick = null;
   } else {
     loginLink.textContent = "Login";
     loginLink.onclick = null;
@@ -1237,8 +1242,10 @@ function googleLogin({ feedbackEl = null, buttonEl = null } = {}) {
     feedbackEl.className = "feedback";
   }
 
+  const requestedRole = getSignupRoleFromHash();
+  const roleQuery = requestedRole ? `?role=${encodeURIComponent(requestedRole)}` : "";
   const popup = window.open(
-    `${API_ORIGIN}/auth/google`,
+    `${API_ORIGIN}/auth/google${roleQuery}`,
     'googleLogin',
     'width=500,height=600'
   );
@@ -1673,9 +1680,25 @@ async function renderDoctors() {
     const doctors = await res.json();
     const role = getCurrentUserRole();
     const isAdmin = role === "admin";
+    const isDoctor = role === "doctor";
     mainContent.innerHTML = `
       <h2>Doctors</h2>
       ${isAdmin ? '<button onclick="window.showDoctorForm()">Add Doctor</button>' : ""}
+      ${
+        isDoctor
+          ? `<section class="card" style="margin: 1rem 0;">
+              <h3>Clinic Staff</h3>
+              <p class="signup-lead">Invite a receptionist and link them to your clinic.</p>
+              <form id="invite-receptionist-form">
+                <label>Receptionist Email <input type="email" name="email" required placeholder="reception@clinic.com" /></label>
+                <div class="modal-form-actions">
+                  <button type="submit" class="btn btn-secondary btn-action-edit">Invite Receptionist</button>
+                </div>
+              </form>
+              <div id="invite-receptionist-feedback" class="feedback" style="display:none"></div>
+            </section>`
+          : ""
+      }
       <table>
         <thead><tr><th>Name</th><th>Email</th><th>Specialty</th><th>Availability</th><th>Phone</th><th>Receptionist</th><th>Actions</th></tr></thead>
         <tbody>
@@ -1716,6 +1739,32 @@ async function renderDoctors() {
       window.location.hash = "#book";
       renderPatientBooking();
     };
+    document.getElementById("invite-receptionist-form")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const feedback = document.getElementById("invite-receptionist-feedback");
+      const email = String(new FormData(form).get("email") || "").trim();
+      if (!email) return;
+      feedback.style.display = "block";
+      feedback.className = "feedback";
+      feedback.textContent = "Inviting receptionist...";
+      try {
+        const inviteRes = await apiRequest(`${API_BASE}/doctors/clinic-staff/invite`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        if (!inviteRes.ok) {
+          throw new Error(await getApiErrorMessage(inviteRes, "Failed to invite receptionist"));
+        }
+        feedback.className = "feedback success";
+        feedback.textContent = "Receptionist linked successfully.";
+        form.reset();
+      } catch (error) {
+        feedback.className = "feedback error";
+        feedback.textContent = error.message || "Failed to invite receptionist.";
+      }
+    });
   } catch (err) {
     mainContent.innerHTML = `<h2>Doctors</h2><div class="feedback error">${err.message}</div>`;
   }

@@ -36,10 +36,23 @@ function normalizeAmbiguousSignupRole(incoming) {
  */
 router.get(
   '/google',
-  passport.authenticate('google', {
-    scope: ['profile', 'email'],
-    prompt: 'select_account',
-  }),
+  (req, res, next) => {
+    const requestedRole = String(req.query.role || '')
+      .trim()
+      .toLowerCase();
+    const state =
+      requestedRole === 'doctor' ||
+      requestedRole === 'patient' ||
+      requestedRole === 'receptionist'
+        ? JSON.stringify({ role: requestedRole })
+        : undefined;
+    const options = {
+      scope: ['profile', 'email'],
+      prompt: 'select_account',
+      ...(state ? { state } : {}),
+    };
+    return passport.authenticate('google', options)(req, res, next);
+  },
 );
 
 /**
@@ -73,6 +86,7 @@ router.get('/google/callback', (req, res, next) => {
         lastName: user.lastName,
         email: user.email || null,
         role: user.role,
+        linkedDoctorId: user.linkedDoctorId || null,
       };
 
       const token = jwt.sign(payload, process.env.JWT_SECRET, {
@@ -250,6 +264,7 @@ router.post('/login', async (req, res) => {
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
+        linkedDoctorId: user.linkedDoctorId || null,
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' },
@@ -298,6 +313,7 @@ router.post('/signup', validateUserSignup, async (req, res) => {
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
+        linkedDoctorId: user.linkedDoctorId || null,
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' },
