@@ -114,7 +114,7 @@ app.get('/', (req, res) => {
         <h1>Welcome to DrMeet!</h1>
         <p>
           Please login at 
-          <a href="https://drmeeet.netlify.app/" target="_blank">
+          <a href="https://mydrmeet.netlify.app/" target="_blank">
             DrMeet App
           </a>
         </p>

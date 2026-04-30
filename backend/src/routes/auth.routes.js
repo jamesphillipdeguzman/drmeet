@@ -47,7 +47,7 @@ router.get(
  */
 router.get('/google/callback', (req, res, next) => {
   const clientOrigin =
-    process.env.CLIENT_ORIGIN || 'https://drmeeet.netlify.app';
+    process.env.CLIENT_ORIGIN || 'https://mydrmeet.netlify.app';
   const GOOGLE_CALLBACK_TIMEOUT_MS = 10000;
   const SESSION_SAVE_RETRIES = 2;
   const SESSION_SAVE_RETRY_DELAY_MS = 350;
