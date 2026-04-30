@@ -27,7 +27,7 @@ body {
     background: #131c3f;
     color: #d4dcff;
     border-right: 1px solid #2d396f;
-    padding: 0.95rem 0.75rem;
+    padding: 0.95rem 0.75rem 0.95rem max(0.75rem, env(safe-area-inset-left, 0px));
     position: sticky;
     top: 0;
     height: 100vh;
@@ -412,6 +412,32 @@ textarea {
 .thread-drawer-reply textarea {
     width: 100%;
     margin-bottom: 0.5rem;
+}
+
+.thread-quick-hints {
+    margin: 0 0 0.5rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 10px;
+    background: #f0f4ff;
+    border: 1px solid #dbe4fb;
+}
+.thread-quick-hint {
+    margin: 0.2rem 0;
+    font-size: 0.82rem;
+    color: #3a4d7a;
+    line-height: 1.35;
+}
+.thread-quick-hint--sender {
+    font-weight: 600;
+    color: #21478e;
+}
+.thread-quick-hint--recipient {
+    font-weight: 600;
+    color: #15754e;
+}
+
+.sms-feed-loading {
+    border-left: 3px solid #1a79da;
 }
 
 .chat-thread { display: grid; gap: 0.7rem; }

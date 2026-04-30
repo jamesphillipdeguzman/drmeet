@@ -18,6 +18,7 @@ const dashboardState = {
   messages: [],
   websocketActive: false,
   socketReconnecting: false,
+  socketAwaitingFirstConnect: true,
 };
 
 let socket = null;
@@ -36,6 +37,7 @@ function resetMessagingSocket() {
   socketInitialized = false;
   dashboardState.websocketActive = false;
   dashboardState.socketReconnecting = false;
+  dashboardState.socketAwaitingFirstConnect = true;
 }
 
 function buildHeaders(baseHeaders = {}) {
@@ -509,9 +511,9 @@ function setupSocket() {
     transports: ["websocket", "polling"],
     reconnection: true,
     reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 8000,
-    timeout: 20000,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 5000,
+    timeout: 15000,
   });
 
   socket.io.on("reconnect_attempt", () => {
@@ -524,6 +526,7 @@ function setupSocket() {
   socket.on("connect", async () => {
     dashboardState.websocketActive = true;
     dashboardState.socketReconnecting = false;
+    dashboardState.socketAwaitingFirstConnect = false;
     try {
       await loadConversations();
       if (dashboardState.activeConversationId) {
@@ -539,8 +542,15 @@ function setupSocket() {
   socket.on("disconnect", () => {
     dashboardState.websocketActive = false;
     dashboardState.socketReconnecting = true;
+    dashboardState.socketAwaitingFirstConnect = false;
     dashboardState.messages = [];
     persistDashboardState();
+    notifyDashboardSubscribers();
+  });
+
+  socket.on("reconnect", () => {
+    dashboardState.socketReconnecting = false;
+    dashboardState.socketAwaitingFirstConnect = false;
     notifyDashboardSubscribers();
   });
 
@@ -627,10 +637,12 @@ function renderHome() {
         <span class="live-badge ${dashboardState.websocketActive ? "active" : ""}">Live</span>
         <span class="live-status-text">${
           dashboardState.websocketActive
-            ? "WebSocket connected."
+            ? "Live connection active — inbox updates are on."
             : dashboardState.socketReconnecting
-              ? "Reconnecting — thread messages are hidden until the connection is restored."
-              : "Connecting to live updates…"
+              ? "Reconnecting — message list is hidden so you do not see stale content."
+              : dashboardState.socketAwaitingFirstConnect
+                ? "Connecting to live updates…"
+                : "Offline — live updates unavailable."
         }</span>
       </div>
     </section>
@@ -723,8 +735,6 @@ function renderMessageBoard(container) {
     return right - left;
   });
 
-  const selfHint = getCurrentUserDisplayName();
-
   container.innerHTML = sorted.length
     ? sorted
         .map((conv) => {
@@ -749,38 +759,11 @@ function renderMessageBoard(container) {
               <div class="quick-actions">
                 <button type="button" class="btn btn-secondary btn-sm" data-open-thread="${conv._id}">Open thread</button>
               </div>
-              <div class="quick-reply">
-                <textarea id="quick-reply-${conv._id}" data-placeholder-self="1"></textarea>
-                <div class="quick-reply-row">
-                  <button type="button" class="btn btn-primary btn-sm" data-send-message="${conv._id}">Send reply</button>
-                </div>
-              </div>
             </article>
           `;
         })
         .join("")
     : `<div class="feedback">No conversations yet.</div>`;
-
-  container.querySelectorAll("textarea[data-placeholder-self]").forEach((el) => {
-    el.placeholder = `Quick reply to ${selfHint}`;
-  });
-
-  container.querySelectorAll("[data-send-message]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const conversationId = button.getAttribute("data-send-message");
-      const input = document.getElementById(`quick-reply-${conversationId}`);
-      const content = input?.value?.trim();
-      if (!content) return;
-
-      if (String(dashboardState.activeConversationId) !== String(conversationId)) {
-        dashboardState.activeConversationId = String(conversationId);
-        await loadMessages(conversationId);
-      }
-
-      await sendMessage(content);
-      if (input) input.value = "";
-    });
-  });
 
   container.querySelectorAll("[data-open-thread]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -793,7 +776,7 @@ function renderMessageBoard(container) {
 
   container.querySelectorAll(".message-card").forEach((card) => {
     card.addEventListener("click", async (event) => {
-      if (event.target.closest("button, textarea")) return;
+      if (event.target.closest("button")) return;
       const conversationId = card.getAttribute("data-conversation-id");
       if (!conversationId) return;
       dashboardState.activeConversationId = String(conversationId);
@@ -811,6 +794,14 @@ function renderSmsFeed(container) {
 
   if (!dashboardState.activeConversationId) {
     container.innerHTML = containerEmptyState;
+    return;
+  }
+
+  if (dashboardState.socketReconnecting && !dashboardState.websocketActive) {
+    container.innerHTML = `
+      <div class="feedback sms-feed-loading">
+        Reconnecting to live updates — conversation details are hidden to avoid stale data.
+      </div>`;
     return;
   }
 
@@ -892,13 +883,23 @@ function renderThreadDrawer(drawer) {
       }
     </div>
     <div class="thread-drawer-reply">
-      <label class="thread-reply-label" for="thread-quick-reply">Reply in this conversation</label>
-      <textarea id="thread-quick-reply" rows="3"></textarea>
+      <p class="thread-reply-label">Reply in this conversation</p>
+      <div class="thread-quick-hints">
+        <p class="thread-quick-hint thread-quick-hint--sender" data-thread-hint-sender></p>
+        <p class="thread-quick-hint thread-quick-hint--recipient" data-thread-hint-recipient></p>
+      </div>
+      <textarea id="thread-quick-reply" rows="3" placeholder="Type your message…" autocomplete="off"></textarea>
       <button type="button" class="btn btn-primary" id="thread-send-reply">Send message</button>
     </div>
   `;
-  const threadTa = drawer.querySelector("#thread-quick-reply");
-  if (threadTa) threadTa.placeholder = `Quick reply to ${otherName}`;
+  const senderHintEl = drawer.querySelector("[data-thread-hint-sender]");
+  const recipientHintEl = drawer.querySelector("[data-thread-hint-recipient]");
+  if (senderHintEl) {
+    senderHintEl.textContent = `Quick reply to ${getCurrentUserDisplayName()}`;
+  }
+  if (recipientHintEl) {
+    recipientHintEl.textContent = `Quick reply to ${otherName}`;
+  }
 
   drawer.querySelector("#close-thread")?.addEventListener("click", () => {
     drawer.classList.add("hidden");

@@ -11,6 +11,20 @@ import User from '../models/user.model.js';
 
 const router = express.Router();
 
+/**
+ * Design "User" (ambiguous / general account). Stored role must match User schema enum
+ * (no `user` value) — we persist as `patient`.
+ */
+const GENERAL_USER_ROLE_STORED = 'patient';
+
+function normalizeAmbiguousSignupRole(incoming) {
+  const r = String(incoming ?? '')
+    .trim()
+    .toLowerCase();
+  if (r === 'patient') return 'patient';
+  return GENERAL_USER_ROLE_STORED;
+}
+
 /* =========================================================
    GOOGLE OAUTH
 ========================================================= */
@@ -234,7 +248,7 @@ router.post('/signup', validateUserSignup, async (req, res) => {
       password: hashed,
       phone,
       address,
-      role: 'patient',
+      role: normalizeAmbiguousSignupRole(req.body.role),
     });
 
     const token = jwt.sign(

@@ -19,13 +19,16 @@ const receptionistEmails = [
 // ==========================
 // ROLE RESOLVER
 // ==========================
+/** Ambiguous OAuth signups use general "User" intent; stored as patient (schema enum). */
+const GENERAL_OAUTH_ROLE = "patient";
+
 const resolveRole = (email) => {
   const normalizedEmail = email.toLowerCase();
 
   if (adminEmails.includes(normalizedEmail)) return "admin";
   if (receptionistEmails.includes(normalizedEmail)) return "receptionist";
 
-  return "patient";
+  return GENERAL_OAUTH_ROLE;
 };
 
 // ==========================
