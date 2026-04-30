@@ -25,3 +25,9 @@ export const findAppointmentsByDoctor = async (doctorId) =>
 // Find all appointments by a specific patient
 export const findAppointmentsByPatient = async (patientId) =>
   Appointment.find({ patient: patientId });
+
+export const appointmentExistsForDoctorPatient = async (doctorId, patientId) =>
+  Appointment.exists({
+    doctor: String(doctorId),
+    patient: String(patientId),
+  });

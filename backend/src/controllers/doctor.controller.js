@@ -1,19 +1,82 @@
 import mongoose from 'mongoose';
 
+import Patient from '../models/patient.model.js';
+
 import {
     findAllDoctors,
     findDoctorById,
+    findDoctorByUserId,
+    findDoctorsByIds,
     createDoctor as createDoctorService,
     updateDoctorById as updateDoctorByIdService,
     deleteDoctorById as deleteDoctorByIdService,
 } from '../services/doctor.service.js';
+import { findAppointmentsByPatient } from '../services/appointment.service.js';
+
+function authUserId(req) {
+    const id = req.user?._id || req.user?.id;
+    return id ? String(id) : null;
+}
+
+function authRole(req) {
+    return String(req.user?.role || '').toLowerCase();
+}
+
+async function getScopedDoctors(req) {
+    const role = authRole(req);
+    const uid = authUserId(req);
+
+    if (role === 'admin' || role === 'receptionist') {
+        return findAllDoctors();
+    }
+
+    if (role === 'doctor' && uid) {
+        const doc = await findDoctorByUserId(uid);
+        return doc ? [doc] : [];
+    }
+
+    if (role === 'patient' && uid) {
+        const patient = await Patient.findOne({ userId: uid });
+        if (!patient) return [];
+        const appts = await findAppointmentsByPatient(String(patient._id));
+        const doctorIds = [
+            ...new Set(appts.map((a) => a.doctor).filter(Boolean)),
+        ].filter((id) => mongoose.Types.ObjectId.isValid(String(id)));
+        return findDoctorsByIds(doctorIds);
+    }
+
+    return [];
+}
+
+async function doctorVisibleToRequester(req, doctorDoc) {
+    if (!doctorDoc) return false;
+    const role = authRole(req);
+    const uid = authUserId(req);
+    const did = String(doctorDoc._id);
+
+    if (role === 'admin' || role === 'receptionist') return true;
+
+    if (role === 'doctor' && uid) {
+        const mine = await findDoctorByUserId(uid);
+        return mine && String(mine._id) === did;
+    }
+
+    if (role === 'patient' && uid) {
+        const patient = await Patient.findOne({ userId: uid });
+        if (!patient) return false;
+        const appts = await findAppointmentsByPatient(String(patient._id));
+        return appts.some((a) => String(a.doctor) === did);
+    }
+
+    return false;
+}
 /**
  * @route GET /api/doctors
  * @desc Fetch all doctors
  */
 export const getAllDoctors = async (req, res) => {
     try {
-        const doctors = await findAllDoctors();
+        const doctors = await getScopedDoctors(req);
         const normalizedDoctors = doctors.map((doctor) => {
             const plain = doctor.toObject ? doctor.toObject() : doctor;
             const firstSlot = Array.isArray(plain.availability)
@@ -54,6 +117,11 @@ export const getDoctorById = async (req, res) => {
 
         if (!doctor) {
             return res.status(404).json({ error: 'Doctor not found.' });
+        }
+
+        const allowed = await doctorVisibleToRequester(req, doctor);
+        if (!allowed) {
+            return res.status(403).json({ error: 'Forbidden.' });
         }
 
         const plainDoctor = doctor.toObject?.() || doctor;

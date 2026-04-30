@@ -1,8 +1,21 @@
 // doctor.service.js
+import mongoose from "mongoose";
 import Doctor from "../models/doctor.model.js";
 
 // Get all doctors
 export const findAllDoctors = async () => Doctor.find();
+
+export const findDoctorByUserId = async (userId) => {
+  if (!userId || !mongoose.Types.ObjectId.isValid(String(userId))) return null;
+  return Doctor.findOne({ userId });
+};
+
+export const findDoctorsByIds = async (ids) => {
+  if (!Array.isArray(ids) || !ids.length) return [];
+  const valid = ids.filter((id) => mongoose.Types.ObjectId.isValid(String(id)));
+  if (!valid.length) return [];
+  return Doctor.find({ _id: { $in: valid } });
+};
 
 // Find a doctor by their ID
 export const findDoctorById = async (id) => Doctor.findById(id);

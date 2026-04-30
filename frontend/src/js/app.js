@@ -17,10 +17,26 @@ const dashboardState = {
   activeConversationId: "",
   messages: [],
   websocketActive: false,
+  socketReconnecting: false,
 };
 
 let socket = null;
 let socketInitialized = false;
+
+function resetMessagingSocket() {
+  if (socket) {
+    try {
+      socket.removeAllListeners();
+      socket.disconnect();
+    } catch (e) {
+      /* ignore */
+    }
+    socket = null;
+  }
+  socketInitialized = false;
+  dashboardState.websocketActive = false;
+  dashboardState.socketReconnecting = false;
+}
 
 function buildHeaders(baseHeaders = {}) {
   const token = localStorage.getItem("token");
@@ -135,6 +151,7 @@ function setupCommandPalette() {
 function getSearchableCommands() {
   const staticCommands = [
     { id: "home", label: "Go to Home", action: () => navigateTo("#home") },
+    { id: "book", label: "Book a visit (patients)", action: () => navigateTo("#book") },
     { id: "patients", label: "Go to Patients", action: () => navigateTo("#patients") },
     { id: "doctors", label: "Go to Doctors", action: () => navigateTo("#doctors") },
     { id: "appointments", label: "Go to Appointments", action: () => navigateTo("#appointments") },
@@ -191,7 +208,12 @@ function loadDashboardState() {
 }
 
 function persistDashboardState() {
-  localStorage.setItem(DASHBOARD_STATE_KEY, JSON.stringify(dashboardState));
+  const snapshot = {
+    conversations: dashboardState.conversations,
+    activeConversationId: dashboardState.activeConversationId,
+    messages: dashboardState.messages,
+  };
+  localStorage.setItem(DASHBOARD_STATE_KEY, JSON.stringify(snapshot));
 }
 
 function subscribeDashboard(listener) {
@@ -252,6 +274,74 @@ function getCurrentUserId() {
   return payload?._id || payload?.id || null;
 }
 
+function getCurrentUserRole() {
+  const token = localStorage.getItem("token");
+  if (!token) return null;
+  const payload = decodeJwtPayload(token);
+  const role = payload?.role;
+  return role != null ? String(role).toLowerCase() : null;
+}
+
+function getCurrentUserDisplayName() {
+  const token = localStorage.getItem("token");
+  if (!token) return "you";
+  const payload = decodeJwtPayload(token);
+  const name = `${payload?.firstName || ""} ${payload?.lastName || ""}`.trim();
+  if (name) return name;
+  if (payload?.email) return String(payload.email);
+  return "you";
+}
+
+async function resolveDoctorIdForPatientMessaging() {
+  const res = await apiRequest(`${API_BASE}/appointments`);
+  if (res.ok) {
+    const list = await res.json();
+    if (Array.isArray(list) && list.length) {
+      const row = list.find((a) => a.doctor);
+      if (row?.doctor) return String(row.doctor);
+    }
+  }
+  const docRes = await apiRequest(`${API_BASE}/doctors`);
+  if (!docRes.ok) return null;
+  const doctors = await docRes.json();
+  if (Array.isArray(doctors) && doctors[0]?._id) return String(doctors[0]._id);
+  return null;
+}
+
+async function fetchMyPatientRecord() {
+  const res = await apiRequest(`${API_BASE}/patients`);
+  if (!res.ok) return null;
+  const list = await res.json();
+  return Array.isArray(list) && list.length ? list[0] : null;
+}
+
+function doctorMatchesPatientSearch(doctor, q) {
+  const needle = String(q || "").trim().toLowerCase();
+  if (!needle) return true;
+  const blob = [
+    doctor.firstName,
+    doctor.lastName,
+    doctor.title,
+    doctor.specialty,
+    doctor.department,
+    doctor.affiliatedClinics,
+    doctor.bio,
+    doctor.email,
+    doctor.room,
+    buildDoctorAvailabilityLabel(doctor),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return blob.includes(needle);
+}
+
+function formatDoctorDisplayName(d) {
+  if (!d) return "";
+  const t = d.title ? `${d.title} ` : "";
+  return `${t}${d.firstName || ""} ${d.lastName || ""}`.trim();
+}
+
 async function loadConversations() {
   try {
     const res = await apiRequest(`${MESSAGES_API}/conversations`);
@@ -265,11 +355,9 @@ async function loadConversations() {
       await loadMessages(dashboardState.activeConversationId);
     }
 
-    dashboardState.websocketActive = true;
     persistDashboardState();
     notifyDashboardSubscribers();
   } catch (error) {
-    dashboardState.websocketActive = false;
     notifyDashboardSubscribers();
   }
 }
@@ -317,7 +405,6 @@ async function createOrGetConversation(patientId, doctorId) {
   if (!res.ok) {
     const errorText = await res.text();
     console.error("CREATE CONV ERROR:", errorText);
-    alert(`CREATE CONV ERROR: ${errorText}`);
     throw new Error(errorText || "Failed to create conversation");
   }
 
@@ -328,22 +415,24 @@ async function createOrGetConversation(patientId, doctorId) {
 async function sendMessage(text) {
   let conversationId = dashboardState.activeConversationId;
 
-  // ✅ Get patientId from logged-in user (JWT)
-  const patientId = getCurrentUserId();
+  const userId = getCurrentUserId();
+  const role = getCurrentUserRole();
 
-  // ⚠️ TEMP HARD-CODED DOCTOR ID (for testing only)
-  const doctorId = "69ef69286e907b9bd4211fe4";
-
-  // 🚨 Safety check
-  if (!patientId) {
-    throw new Error("No logged-in user (patientId missing)");
+  if (!userId) {
+    throw new Error("You must be logged in to send a message.");
   }
 
   if (!conversationId) {
-    const createdConversationId = await createOrGetConversation(
-      patientId,
-      doctorId
-    );
+    if (role !== "patient") {
+      throw new Error("Select a conversation before sending a message.");
+    }
+    const doctorId = await resolveDoctorIdForPatientMessaging();
+    if (!doctorId) {
+      throw new Error(
+        "No assigned doctor found. Book an appointment first so messaging can be enabled.",
+      );
+    }
+    const createdConversationId = await createOrGetConversation(userId, doctorId);
 
     conversationId = createdConversationId;
     dashboardState.activeConversationId = conversationId;
@@ -417,17 +506,40 @@ function setupSocket() {
   socketInitialized = true;
   socket = window.io(API_ORIGIN, {
     auth: { token },
-    transports: ["websocket"],
+    transports: ["websocket", "polling"],
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 1000,
+    reconnectionDelayMax: 8000,
+    timeout: 20000,
   });
 
-  socket.on("connect", () => {
+  socket.io.on("reconnect_attempt", () => {
+    dashboardState.socketReconnecting = true;
+    dashboardState.messages = [];
+    persistDashboardState();
+    notifyDashboardSubscribers();
+  });
+
+  socket.on("connect", async () => {
     dashboardState.websocketActive = true;
+    dashboardState.socketReconnecting = false;
+    try {
+      await loadConversations();
+      if (dashboardState.activeConversationId) {
+        await loadMessages(dashboardState.activeConversationId);
+      }
+    } catch (e) {
+      /* ignore */
+    }
     persistDashboardState();
     notifyDashboardSubscribers();
   });
 
   socket.on("disconnect", () => {
     dashboardState.websocketActive = false;
+    dashboardState.socketReconnecting = true;
+    dashboardState.messages = [];
     persistDashboardState();
     notifyDashboardSubscribers();
   });
@@ -493,26 +605,40 @@ function renderPage() {
     case "#signup":
       renderSignup();
       break;
+    case "#book":
+      renderPatientBooking();
+      break;
     default:
       renderHome();
   }
 }
 
 function renderHome() {
+  const bookCta =
+    getCurrentUserRole() === "patient"
+      ? `<p class="dashboard-book-teaser"><a href="#book" class="btn btn-primary">Book a visit</a> <span class="dashboard-book-hint">Search for a doctor and request an appointment.</span></p>`
+      : "";
   mainContent.innerHTML = `
     <section class="dashboard-intro card">
       <h1>Welcome to DrMeet</h1>
       <p>Unified Inbox for patient communication. Use the command palette (Ctrl/Cmd+K) to quickly navigate.</p>
+      ${bookCta}
       <div class="inbox-live-row">
         <span class="live-badge ${dashboardState.websocketActive ? "active" : ""}">Live</span>
-        <span>${dashboardState.websocketActive ? "WebSocket active" : "Reconnecting..."}</span>
+        <span class="live-status-text">${
+          dashboardState.websocketActive
+            ? "WebSocket connected."
+            : dashboardState.socketReconnecting
+              ? "Reconnecting — thread messages are hidden until the connection is restored."
+              : "Connecting to live updates…"
+        }</span>
       </div>
     </section>
     <section class="dashboard-grid">
       <article class="card board-card">
         <div class="card-header">
           <h3>Unified Inbox</h3>
-          <button class="btn" id="add-board-message">Add Message</button>
+          <button type="button" class="btn btn-primary" id="add-board-message">Compose message</button>
         </div>
         <div id="message-board-list" class="masonry-grid"></div>
       </article>
@@ -597,6 +723,8 @@ function renderMessageBoard(container) {
     return right - left;
   });
 
+  const selfHint = getCurrentUserDisplayName();
+
   container.innerHTML = sorted.length
     ? sorted
         .map((conv) => {
@@ -619,12 +747,12 @@ function renderMessageBoard(container) {
               </div>
               <p class="message-preview">${lastMsg || "No messages yet"}</p>
               <div class="quick-actions">
-                <button type="button" data-open-thread="${conv._id}">Reply</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-open-thread="${conv._id}">Open thread</button>
               </div>
               <div class="quick-reply">
-                <textarea id="quick-reply-${conv._id}" placeholder="Quick reply to ${otherName}"></textarea>
+                <textarea id="quick-reply-${conv._id}" data-placeholder-self="1"></textarea>
                 <div class="quick-reply-row">
-                  <button type="button" data-send-message="${conv._id}">Send</button>
+                  <button type="button" class="btn btn-primary btn-sm" data-send-message="${conv._id}">Send reply</button>
                 </div>
               </div>
             </article>
@@ -632,6 +760,10 @@ function renderMessageBoard(container) {
         })
         .join("")
     : `<div class="feedback">No conversations yet.</div>`;
+
+  container.querySelectorAll("textarea[data-placeholder-self]").forEach((el) => {
+    el.placeholder = `Quick reply to ${selfHint}`;
+  });
 
   container.querySelectorAll("[data-send-message]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -728,11 +860,13 @@ function renderThreadDrawer(drawer) {
   drawer.innerHTML = `
     <div class="thread-header">
       <h3>${otherName}</h3>
-      <button type="button" id="close-thread">Close</button>
+      <button type="button" class="btn btn-secondary btn-sm" id="close-thread">Close</button>
     </div>
     <div class="thread-list">
       ${
-        threadMessages.length
+        dashboardState.socketReconnecting && !dashboardState.websocketActive
+          ? `<div class="feedback">Reconnecting — messages will reload when the connection is restored.</div>`
+          : threadMessages.length
           ? threadMessages
               .map((msg) => {
                 const sender = msg.senderId || {};
@@ -757,10 +891,32 @@ function renderThreadDrawer(drawer) {
           : `<div class="feedback">No messages yet.</div>`
       }
     </div>
+    <div class="thread-drawer-reply">
+      <label class="thread-reply-label" for="thread-quick-reply">Reply in this conversation</label>
+      <textarea id="thread-quick-reply" rows="3"></textarea>
+      <button type="button" class="btn btn-primary" id="thread-send-reply">Send message</button>
+    </div>
   `;
+  const threadTa = drawer.querySelector("#thread-quick-reply");
+  if (threadTa) threadTa.placeholder = `Quick reply to ${otherName}`;
+
   drawer.querySelector("#close-thread")?.addEventListener("click", () => {
-    dashboardState.activeConversationId = dashboardState.activeConversationId; // keep it
     drawer.classList.add("hidden");
+  });
+
+  drawer.querySelector("#thread-send-reply")?.addEventListener("click", async () => {
+    const input = drawer.querySelector("#thread-quick-reply");
+    const content = input?.value?.trim();
+    if (!content || !conversationId) return;
+    if (String(dashboardState.activeConversationId) !== String(conversationId)) {
+      dashboardState.activeConversationId = String(conversationId);
+    }
+    try {
+      await sendMessage(content);
+      if (input) input.value = "";
+    } catch (err) {
+      alert(err?.message || "Unable to send message");
+    }
   });
 }
 
@@ -777,6 +933,7 @@ function updateAuthNav() {
     loginLink.onclick = (e) => {
       e.preventDefault();
       localStorage.removeItem("token");
+      resetMessagingSocket();
       updateAuthNav();
       window.location.hash = "#login";
       renderLogin();
@@ -795,6 +952,7 @@ function renderLogin() {
     `;
     window.logoutUser = () => {
       localStorage.removeItem("token");
+      resetMessagingSocket();
       updateAuthNav();
       window.location.hash = "#login";
       renderLogin();
@@ -806,9 +964,9 @@ function renderLogin() {
     <form id="login-form">
       <label>Email <input name="email" type="email" required /></label>
       <label>Password <input name="password" type="password" required /></label>
-      <button type="submit">Login</button>
+      <button type="submit" class="btn btn-primary">Sign in</button>
     </form>
-    <button id="google-login-btn" type="button" class="btn" style="background:#ea4335;margin-top:1rem;">Login with Google</button>
+    <button id="google-login-btn" type="button" class="btn btn-google" style="margin-top:1rem;">Continue with Google</button>
     <div id="login-feedback"></div>
   `;
   document.getElementById('google-login-btn').onclick = googleLogin;
@@ -819,7 +977,7 @@ function renderLogin() {
     feedback.textContent = 'Logging in...';
     const creds = Object.fromEntries(new FormData(form));
     try {
-      const res = await fetch(`${API_ORIGIN}/api/login`, {
+      const res = await fetch(`${API_ORIGIN}/auth/login`, {
         method: 'POST',
         credentials: "include",
         headers: { 'Content-Type': 'application/json' },
@@ -828,6 +986,7 @@ function renderLogin() {
       if (!res.ok) throw new Error('Invalid credentials');
       const data = await res.json();
       if (data.token) {
+        resetMessagingSocket();
         localStorage.setItem('token', data.token);
         feedback.textContent = 'Login successful!';
         updateAuthNav();
@@ -851,7 +1010,8 @@ function renderSignup() {
     return;
   }
   mainContent.innerHTML = `
-    <h2>Signup</h2>
+    <h2>Create your patient account</h2>
+    <p class="signup-lead">New accounts are registered as patients so you can book visits and message your care team.</p>
     <form id="signup-form">
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
@@ -859,17 +1019,9 @@ function renderSignup() {
       <label>Password <input name="password" type="password" required /></label>
       <label>Phone <input name="phone" /></label>
       <label>Address <input name="address" /></label>
-      <label>Role
-        <select name="role">
-          <option value="user">User</option>
-          <option value="doctor">Doctor</option>
-          <option value="patient">Patient</option>
-          <option value="admin">Admin</option>
-        </select>
-      </label>
-      <button type="submit">Signup</button>
+      <button type="submit" class="btn btn-primary">Create account</button>
     </form>
-    <button id="google-signup-btn" type="button" class="btn" style="background:#ea4335;margin-top:1rem;">Signup with Google</button>
+    <button id="google-signup-btn" type="button" class="btn btn-google" style="margin-top:1rem;">Continue with Google</button>
     <div id="signup-feedback"></div>
   `;
   document.getElementById('google-signup-btn').onclick = googleLogin;
@@ -880,7 +1032,7 @@ function renderSignup() {
     feedback.textContent = 'Signing up...';
     const user = Object.fromEntries(new FormData(form));
     try {
-      const res = await fetch(`${API_ORIGIN}/api/login/auth/signup`, {
+      const res = await fetch(`${API_ORIGIN}/auth/signup`, {
         method: 'POST',
         credentials: "include",
         headers: { 'Content-Type': 'application/json' },
@@ -889,6 +1041,7 @@ function renderSignup() {
       if (!res.ok) throw new Error('Signup failed');
       const data = await res.json();
       if (data.token) {
+        resetMessagingSocket();
         localStorage.setItem('token', data.token);
         feedback.textContent = 'Signup successful!';
         updateAuthNav();
@@ -917,11 +1070,222 @@ function googleLogin() {
 function handleGoogleAuthMessage(event) {
   if (!event.data || event.data.type !== 'GOOGLE_AUTH_SUCCESS') return;
   if (event.data.token) {
+    resetMessagingSocket();
     localStorage.setItem('token', event.data.token);
     updateAuthNav();
     window.location.hash = '#home';
     renderHome();
   }
+}
+
+async function renderPatientBooking() {
+  if (!isLoggedIn()) {
+    mainContent.innerHTML = `
+      <section class="patient-booking-page">
+        <div class="patient-booking-hero card">
+          <h1>Book a visit</h1>
+          <p class="patient-booking-lead">Sign in to search for a doctor and request an appointment.</p>
+          <div class="patient-booking-cta-row">
+            <a href="#login" class="btn btn-primary">Sign in</a>
+            <a href="#signup" class="btn btn-secondary">Create an account</a>
+          </div>
+        </div>
+      </section>`;
+    return;
+  }
+
+  if (getCurrentUserRole() !== "patient") {
+    mainContent.innerHTML = `
+      <section class="patient-booking-page">
+        <div class="patient-booking-hero card">
+          <h1>Book a visit</h1>
+          <p class="patient-booking-lead">This guided booking flow is for patient accounts.</p>
+          <p class="feedback">Staff can manage doctors and appointments from the sidebar.</p>
+          <a href="#appointments" class="btn btn-secondary">Go to Appointments</a>
+        </div>
+      </section>`;
+    return;
+  }
+
+  mainContent.innerHTML = `
+    <section class="patient-booking-page">
+      <header class="patient-booking-hero card">
+        <h1>Find your doctor</h1>
+        <p class="patient-booking-lead">Search by name, specialty, department, or clinic. When you are ready, pick a time and send a booking request.</p>
+        <div id="patient-profile-banner"></div>
+      </header>
+      <div class="patient-book-toolbar card">
+        <label class="patient-search-label" for="patient-doctor-search">Search doctors</label>
+        <input type="search" id="patient-doctor-search" class="patient-book-search" placeholder="Try cardiology, Dr. Lee, telemedicine, clinic name…" autocomplete="off" />
+        <p class="patient-book-count" id="patient-doctor-count" aria-live="polite"></p>
+      </div>
+      <div id="patient-doctor-grid" class="patient-doctor-grid"></div>
+      <div id="patient-booking-drawer" class="patient-booking-drawer hidden" role="dialog" aria-modal="true" aria-labelledby="patient-booking-doctor-title">
+        <div class="patient-booking-drawer-backdrop" id="patient-booking-backdrop"></div>
+        <div class="patient-booking-drawer-inner card">
+          <div class="patient-booking-drawer-head">
+            <h2 id="patient-booking-doctor-title">Book appointment</h2>
+            <button type="button" class="btn btn-secondary btn-sm" id="patient-booking-close">Close</button>
+          </div>
+          <form id="patient-booking-form">
+            <input type="hidden" name="doctorId" id="patient-booking-doctor-id" value="" />
+            <label>Preferred date <input name="date" type="date" required /></label>
+            <label>Preferred time <input name="time" type="time" required /></label>
+            <label>Reason or notes (optional) <textarea name="notes" rows="3" placeholder="Briefly describe what you need"></textarea></label>
+            <div class="patient-booking-actions">
+              <button type="submit" class="btn btn-primary">Request appointment</button>
+              <button type="button" class="btn btn-secondary" id="patient-booking-cancel">Cancel</button>
+            </div>
+          </form>
+          <div id="patient-booking-feedback" class="feedback" style="display:none;margin-top:1rem;"></div>
+        </div>
+      </div>
+    </section>`;
+
+  const profileBanner = document.getElementById("patient-profile-banner");
+  const myPatient = await fetchMyPatientRecord();
+  if (!myPatient) {
+    profileBanner.innerHTML = `
+      <div class="feedback patient-profile-missing">
+        Add your patient details once so we can book visits for you.
+        <a href="#patients" class="btn btn-primary btn-sm">Complete my profile</a>
+      </div>`;
+  } else {
+    profileBanner.innerHTML = `<p class="patient-profile-ok"><strong>Profile on file:</strong> ${myPatient.firstName} ${myPatient.lastName}</p>`;
+  }
+
+  const grid = document.getElementById("patient-doctor-grid");
+  const searchInput = document.getElementById("patient-doctor-search");
+  const countEl = document.getElementById("patient-doctor-count");
+  const drawer = document.getElementById("patient-booking-drawer");
+  const feedbackEl = document.getElementById("patient-booking-feedback");
+  const bookingForm = document.getElementById("patient-booking-form");
+
+  grid.innerHTML = '<div class="feedback">Loading doctors…</div>';
+  let doctors = [];
+  try {
+    const res = await apiRequest(`${API_BASE}/doctors`);
+    if (!res.ok) throw new Error("Could not load doctors.");
+    doctors = await res.json();
+    if (!Array.isArray(doctors)) doctors = [];
+  } catch (e) {
+    grid.innerHTML = `<div class="feedback error">${e.message || "Failed to load doctors."}</div>`;
+    return;
+  }
+
+  function renderDoctorCards(list) {
+    countEl.textContent = list.length
+      ? `${list.length} doctor${list.length === 1 ? "" : "s"} match your search`
+      : "No doctors match your search.";
+    if (!list.length) {
+      grid.innerHTML =
+        '<div class="feedback">Try another name, specialty, or keyword—or clear the search to see everyone.</div>';
+      return;
+    }
+    grid.innerHTML = list
+      .map((d) => {
+        const name = formatDoctorDisplayName(d);
+        const spec = d.specialty || "Specialty not listed";
+        const dept = d.department
+          ? `<p class="doctor-pick-meta">${d.department}</p>`
+          : "";
+        const clinic = d.affiliatedClinics
+          ? `<p class="doctor-pick-clinic">${d.affiliatedClinics}</p>`
+          : "";
+        const avail = buildDoctorAvailabilityLabel(d);
+        return `
+          <article class="doctor-pick-card">
+            <h3 class="doctor-pick-name">${name}</h3>
+            <p class="doctor-pick-specialty">${spec}</p>
+            ${dept}
+            ${clinic}
+            <p class="doctor-pick-avail">${avail}</p>
+            <button type="button" class="btn btn-primary btn-sm doctor-pick-book" data-book-doctor="${d._id}">Book with this doctor</button>
+          </article>`;
+      })
+      .join("");
+  }
+
+  function applyFilter() {
+    const q = searchInput.value;
+    const filtered = doctors.filter((d) => doctorMatchesPatientSearch(d, q));
+    renderDoctorCards(filtered);
+  }
+
+  searchInput.addEventListener("input", applyFilter);
+  applyFilter();
+
+  function openDrawer(doctorId) {
+    if (!myPatient) {
+      window.location.hash = "#patients";
+      return;
+    }
+    const d = doctors.find((x) => String(x._id) === String(doctorId));
+    const displayName = formatDoctorDisplayName(d) || "your doctor";
+    document.getElementById("patient-booking-doctor-title").textContent = `Book with ${displayName}`;
+    feedbackEl.style.display = "none";
+    feedbackEl.textContent = "";
+    bookingForm.reset();
+    document.getElementById("patient-booking-doctor-id").value = doctorId;
+    drawer.classList.remove("hidden");
+  }
+
+  function closeDrawer() {
+    drawer.classList.add("hidden");
+  }
+
+  grid.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-book-doctor]");
+    if (!btn) return;
+    openDrawer(btn.getAttribute("data-book-doctor"));
+  });
+
+  document.getElementById("patient-booking-close").onclick = closeDrawer;
+  document.getElementById("patient-booking-cancel").onclick = closeDrawer;
+  document.getElementById("patient-booking-backdrop").onclick = closeDrawer;
+
+  bookingForm.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!myPatient) {
+      window.location.hash = "#patients";
+      return;
+    }
+    const doctorId = document.getElementById("patient-booking-doctor-id").value;
+    const fd = new FormData(bookingForm);
+    const date = fd.get("date");
+    const time = fd.get("time");
+    const notes = String(fd.get("notes") || "").trim();
+    feedbackEl.style.display = "none";
+    try {
+      const res = await apiRequest(`${API_BASE}/appointments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          doctor: doctorId,
+          date,
+          time,
+          notes,
+          status: "pending",
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(await getApiErrorMessage(res, "Booking failed"));
+      }
+      feedbackEl.className = "feedback success";
+      feedbackEl.style.display = "block";
+      feedbackEl.textContent =
+        "Request sent. You will see it under Appointments—we will follow up soon.";
+      setTimeout(() => {
+        closeDrawer();
+        window.location.hash = "#appointments";
+        renderAppointments();
+      }, 1400);
+    } catch (err) {
+      feedbackEl.className = "feedback error";
+      feedbackEl.style.display = "block";
+      feedbackEl.textContent = err.message || "Something went wrong.";
+    }
+  };
 }
 
 // --- Patients ---

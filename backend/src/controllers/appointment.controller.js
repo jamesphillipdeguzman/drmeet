@@ -1,19 +1,77 @@
 import mongoose from 'mongoose';
 
+import Patient from '../models/patient.model.js';
+
 import {
     findAllAppointments,
     findAppointmentById,
+    findAppointmentsByPatient,
+    findAppointmentsByDoctor,
     createAppointment as createAppointmentService,
     updateAppointmentById as updateAppointmentByIdService,
     deleteAppointmentById as deleteAppointmentByIdService,
 } from '../services/appointment.service.js';
+import { findDoctorByUserId } from '../services/doctor.service.js';
+
+function authUserId(req) {
+    const id = req.user?._id || req.user?.id;
+    return id ? String(id) : null;
+}
+
+function authRole(req) {
+    return String(req.user?.role || '').toLowerCase();
+}
+
+async function getScopedAppointments(req) {
+    const role = authRole(req);
+    const uid = authUserId(req);
+
+    if (role === 'admin' || role === 'receptionist') {
+        return findAllAppointments();
+    }
+
+    if (role === 'patient' && uid) {
+        const patient = await Patient.findOne({ userId: uid });
+        if (!patient) return [];
+        return findAppointmentsByPatient(String(patient._id));
+    }
+
+    if (role === 'doctor' && uid) {
+        const doctor = await findDoctorByUserId(uid);
+        if (!doctor) return [];
+        return findAppointmentsByDoctor(String(doctor._id));
+    }
+
+    return [];
+}
+
+async function appointmentVisibleToRequester(req, appt) {
+    if (!appt) return false;
+    const role = authRole(req);
+    const uid = authUserId(req);
+
+    if (role === 'admin' || role === 'receptionist') return true;
+
+    if (role === 'patient' && uid) {
+        const patient = await Patient.findOne({ userId: uid });
+        return patient && String(appt.patient) === String(patient._id);
+    }
+
+    if (role === 'doctor' && uid) {
+        const doctor = await findDoctorByUserId(uid);
+        return doctor && String(appt.doctor) === String(doctor._id);
+    }
+
+    return false;
+}
+
 /**
  * @route GET /api/appointments
  * @desc Fetch all appointments
  */
 export const getAllAppointments = async (req, res) => {
     try {
-        const appointments = await findAllAppointments();
+        const appointments = await getScopedAppointments(req);
         console.log('[APPOINTMENT]✅ GET /api/appointments was called.');
         return res.status(200).json(appointments);
     } catch (error) {
@@ -39,6 +97,10 @@ export const getAppointmentById = async (req, res) => {
         if (!appointment) {
             return res.status(404).json({ error: 'Appointment not found.' });
         }
+        const allowed = await appointmentVisibleToRequester(req, appointment);
+        if (!allowed) {
+            return res.status(403).json({ error: 'Forbidden.' });
+        }
         console.log(`[APPOINTMENT]✅ GET /api/appointments/${id} was called`);
         return res.status(200).json(appointment);
     } catch (error) {
@@ -59,6 +121,19 @@ export const postAppointment = async (req, res) => {
             ...req.body,
             reason: req.body.reason || req.body.notes || '',
         };
+
+        const role = authRole(req);
+        const uid = authUserId(req);
+        if (role === 'patient' && uid) {
+            const patient = await Patient.findOne({ userId: uid });
+            if (!patient) {
+                return res.status(400).json({
+                    error: 'Create your patient profile before booking an appointment.',
+                });
+            }
+            appointmentData.patient = String(patient._id);
+        }
+
         const newAppointment = await createAppointmentService(appointmentData);
         if (!newAppointment) {
             return res.status(400).json({ error: 'Failed to create appointment.' });
@@ -90,6 +165,15 @@ export const updateAppointment = async (req, res) => {
     }
 
     try {
+        const existing = await findAppointmentById(id);
+        if (!existing) {
+            return res.status(404).json({ error: 'Appointment not found. ' });
+        }
+        const canEdit = await appointmentVisibleToRequester(req, existing);
+        if (!canEdit) {
+            return res.status(403).json({ error: 'Forbidden.' });
+        }
+
         const updatedAppointment = await updateAppointmentByIdService(id, updates);
         if (!updatedAppointment) {
             return res.status(404).json({ error: 'Appointment not found. ' });
@@ -115,6 +199,15 @@ export const deleteAppointment = async (req, res) => {
         return res.status(400).json({ error: 'Invalid appointment ID format.' });
     }
     try {
+        const existing = await findAppointmentById(id);
+        if (!existing) {
+            return res.status(404).json({ error: 'Appointment not found.' });
+        }
+        const canDelete = await appointmentVisibleToRequester(req, existing);
+        if (!canDelete) {
+            return res.status(403).json({ error: 'Forbidden.' });
+        }
+
         const deletedAppointment = await deleteAppointmentByIdService(id);
         if (!deletedAppointment) {
             return res.status(404).json({ error: 'Appointment not found.' });

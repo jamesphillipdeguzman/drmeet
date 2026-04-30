@@ -23,7 +23,7 @@ export const components = {
                 },
                 role: {
                     type: 'string',
-                    enum: ['admin', 'user'],
+                    enum: ['admin', 'doctor', 'patient', 'receptionist'],
                     description: 'User role for access control',
                 },
                 phone: {

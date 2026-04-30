@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import Conversation from "../models/conversation.model.js";
 import Message from "../models/message.model.js";
+import {
+  buildUserConversationsQuery,
+  userMayAccessConversationType,
+} from "../utils/conversationAccess.js";
 
 function getUserId(req) {
   const raw = req?.user?.id || req?.user?._id;
@@ -122,7 +126,7 @@ export const getUserConversations = async (req, res) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-    const filter = isAdmin(req) ? {} : { participants: userId };
+    const filter = isAdmin(req) ? {} : buildUserConversationsQuery(req.user);
 
     const conversations = await Conversation.find(filter)
       .sort({ lastMessageAt: -1, updatedAt: -1 })
@@ -145,12 +149,18 @@ export const getMessagesByConversation = async (req, res) => {
     assertValidObjectId(conversationId);
 
     // Strict security: if user isn't participant -> 403.
+    let conversation = null;
     if (!isAdmin(req)) {
-      const conversation = await assertUserIsParticipantOrAdmin({
+      conversation = await assertUserIsParticipantOrAdmin({
         req,
         conversationId,
       });
       if (!conversation) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      if (
+        !userMayAccessConversationType(req.user?.role, conversation.conversationType)
+      ) {
         return res.status(403).json({ error: "Forbidden" });
       }
     } else {
@@ -209,6 +219,11 @@ export const sendMessage = async (req, res) => {
       if (!conversation) {
         return res.status(403).json({ error: "Forbidden" });
       }
+      if (
+        !userMayAccessConversationType(req.user?.role, conversation.conversationType)
+      ) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
     }
 
     const newMessage = await Message.create({
@@ -256,6 +271,11 @@ export const markMessagesAsRead = async (req, res) => {
         conversationId,
       });
       if (!conversation) return res.status(403).json({ error: "Forbidden" });
+      if (
+        !userMayAccessConversationType(req.user?.role, conversation.conversationType)
+      ) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
     } else {
       const exists = await Conversation.exists({ _id: conversationId });
       if (!exists) return res.status(404).json({ error: "Not found" });

@@ -5,6 +5,13 @@ import Patient from "../models/patient.model.js";
 // Get all patients
 export const findAllPatients = async () => Patient.find();
 
+export const findPatientsByUserId = async (userId) => Patient.find({ userId });
+
+export const findPatientsByIds = async (ids) => {
+  if (!Array.isArray(ids) || !ids.length) return [];
+  return Patient.find({ _id: { $in: ids } });
+};
+
 // Find a patient by their ID
 export const findPatientById = async (id) => Patient.findById(id);
 

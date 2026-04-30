@@ -194,6 +194,8 @@ router.post('/login', async (req, res) => {
         _id: user._id,
         email: user.email,
         role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' },
@@ -215,8 +217,7 @@ router.post('/login', async (req, res) => {
  */
 router.post('/signup', validateUserSignup, async (req, res) => {
   try {
-    const { firstName, lastName, email, password, phone, address, role } =
-      req.body;
+    const { firstName, lastName, email, password, phone, address } = req.body;
 
     const exists = await User.findOne({ email });
 
@@ -233,7 +234,7 @@ router.post('/signup', validateUserSignup, async (req, res) => {
       password: hashed,
       phone,
       address,
-      role: role || 'user',
+      role: 'patient',
     });
 
     const token = jwt.sign(
@@ -241,6 +242,8 @@ router.post('/signup', validateUserSignup, async (req, res) => {
         _id: user._id,
         email: user.email,
         role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' },

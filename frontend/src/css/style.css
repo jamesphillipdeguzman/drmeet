@@ -44,6 +44,9 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
+    padding-inline-end: max(0.55rem, env(safe-area-inset-right, 0px));
+    padding-inline-start: max(0, env(safe-area-inset-left, 0px));
+    gap: 0.5rem;
 }
 
 .nav-brand {
@@ -57,6 +60,14 @@ body {
     background: transparent;
     border: 1px solid #5f71bf;
     color: #c7d3ff;
+    flex-shrink: 0;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    padding: 0.45rem 0.55rem;
+    margin-inline-end: max(0.15rem, env(safe-area-inset-right, 0px));
+    border-radius: 10px;
+    font-size: 1.25rem;
+    line-height: 1;
 }
 
 .nav-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
@@ -188,6 +199,49 @@ button:hover,
 button:active,
 .btn:active {
     transform: translateY(0);
+}
+
+.btn.btn-primary {
+    background: linear-gradient(180deg, #1f75ea 0%, #1663d6 100%);
+    color: #fff;
+    border: none;
+    box-shadow: 0 4px 14px rgba(22, 99, 214, 0.32);
+}
+
+.btn.btn-primary:hover {
+    background: linear-gradient(180deg, #2a80f0 0%, #1456c4 100%);
+}
+
+.btn.btn-secondary,
+.btn.ghost.btn-secondary {
+    background: #fff;
+    color: #1e3f8a;
+    border: 2px solid #c5d4f5;
+    box-shadow: none;
+}
+
+.btn.btn-secondary:hover,
+.btn.ghost.btn-secondary:hover {
+    background: #f3f7ff;
+    color: #152a5c;
+    border-color: #9eb6e8;
+    box-shadow: 0 4px 10px rgba(30, 63, 138, 0.12);
+}
+
+.btn.btn-sm {
+    padding: 0.32rem 0.72rem;
+    font-size: 0.8rem;
+}
+
+.btn.btn-google {
+    background: #ea4335;
+    color: #fff;
+    border: none;
+}
+
+.btn.btn-google:hover {
+    background: #d33426;
+    box-shadow: 0 6px 14px rgba(211, 52, 38, 0.28);
 }
 
 form {
@@ -329,10 +383,35 @@ textarea {
 .message-card:hover .quick-actions { opacity: 1; }
 .quick-actions button {
     background: #fff;
-    color: #27366d;
-    border: 1px solid #cad4ef;
-    padding: 0.26rem 0.5rem;
-    font-size: 0.75rem;
+    color: #1e3f8a;
+    border: 2px solid #cad4ef;
+    padding: 0.3rem 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.inbox-live-row .live-status-text {
+    font-size: 0.9rem;
+    color: #3d4d75;
+}
+
+.thread-drawer-reply {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e2e9f7;
+}
+
+.thread-reply-label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #2a3b6d;
+    margin-bottom: 0.35rem;
+}
+
+.thread-drawer-reply textarea {
+    width: 100%;
+    margin-bottom: 0.5rem;
 }
 
 .chat-thread { display: grid; gap: 0.7rem; }
@@ -553,4 +632,178 @@ textarea {
         width: 100%;
         margin: 0.8rem auto 2rem;
     }
+}
+
+/* Patient booking (search + pick doctor) */
+.nav-link.nav-link-patient {
+    background: rgba(94, 196, 164, 0.16);
+    border: 1px solid rgba(120, 210, 180, 0.35);
+}
+.nav-link.nav-link-patient:hover,
+.nav-link.nav-link-patient.active {
+    background: rgba(121, 200, 168, 0.32);
+    color: #fff;
+}
+
+.patient-booking-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.patient-booking-hero h1 {
+    margin-top: 0;
+}
+.patient-booking-lead {
+    color: var(--slate);
+    line-height: 1.55;
+    max-width: 40rem;
+    margin: 0;
+}
+.patient-book-toolbar .patient-book-search {
+    width: 100%;
+    max-width: 32rem;
+    padding: 0.65rem 0.85rem;
+    border: 1px solid #c9dafc;
+    border-radius: 12px;
+    font-size: 1rem;
+    background: #f8fbff;
+}
+.patient-book-toolbar .patient-book-search:focus {
+    outline: none;
+    border-color: #5d92ec;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(93, 146, 236, 0.18);
+}
+.patient-doctor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+}
+.doctor-pick-card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 1.1rem;
+    background: var(--surface);
+    box-shadow: 0 6px 20px rgba(18, 34, 77, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+.doctor-pick-name {
+    margin: 0;
+    color: var(--indigo);
+    font-size: 1.06rem;
+}
+.doctor-pick-specialty {
+    font-weight: 600;
+    color: #2d4a8a;
+    margin: 0;
+}
+.doctor-pick-meta,
+.doctor-pick-clinic {
+    font-size: 0.88rem;
+    color: var(--slate);
+    margin: 0;
+}
+.doctor-pick-avail {
+    font-size: 0.82rem;
+    color: #5568a0;
+    margin: 0.5rem 0 0.65rem;
+    line-height: 1.45;
+    flex-grow: 1;
+}
+.doctor-pick-card .doctor-pick-book {
+    align-self: flex-start;
+    margin-top: auto;
+}
+
+.patient-booking-drawer {
+    position: fixed;
+    inset: 0;
+    z-index: 220;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+.patient-booking-drawer.hidden {
+    display: none;
+}
+.patient-booking-drawer-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(12, 22, 45, 0.5);
+}
+.patient-booking-drawer-inner {
+    position: relative;
+    width: min(480px, 100%);
+    margin: 0;
+    border-radius: 18px 18px 0 0;
+    max-height: min(88vh, 640px);
+    overflow-y: auto;
+    z-index: 1;
+    border: 1px solid var(--line);
+    border-bottom: none;
+}
+.patient-booking-drawer-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+.patient-booking-drawer-head h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--indigo);
+}
+.patient-booking-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+.patient-booking-cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+.patient-profile-missing {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+.patient-profile-ok {
+    margin: 0.75rem 0 0;
+    color: #21478e;
+}
+.patient-search-label {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #2a3b6d;
+    display: block;
+    margin-bottom: 0.35rem;
+}
+.patient-book-count {
+    font-size: 0.88rem;
+    color: var(--slate);
+    margin: 0.5rem 0 0;
+}
+
+.signup-lead {
+    color: var(--slate);
+    max-width: 42rem;
+    line-height: 1.5;
+    margin-top: 0;
+}
+.dashboard-book-teaser {
+    margin: 0.75rem 0 0;
+}
+.dashboard-book-hint {
+    font-size: 0.9rem;
+    color: var(--slate);
+    margin-left: 0.35rem;
+    vertical-align: middle;
 }

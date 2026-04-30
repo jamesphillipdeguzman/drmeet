@@ -10,6 +10,10 @@ import connectDB from './src/db/mongoose.js';
 import { app } from './app.js';
 import Conversation from './src/models/conversation.model.js';
 import Message from './src/models/message.model.js';
+import {
+  buildUserConversationsQuery,
+  userMayAccessConversationType,
+} from './src/utils/conversationAccess.js';
 
 // Define PORT from environment variables
 const PORT = process.env.PORT || 3001;
@@ -54,7 +58,8 @@ const startServer = async () => {
         return;
       }
 
-      const filter = role === 'admin' ? {} : { participants: userId };
+      const filter =
+        role === 'admin' ? {} : buildUserConversationsQuery(socket.user);
 
       const conversations = await Conversation.find(filter).select('_id');
       conversations.forEach((c) => socket.join(String(c._id)));
@@ -75,6 +80,14 @@ const startServer = async () => {
             : await Conversation.findOne({ _id: conversationId, participants: userId });
 
           if (!conversation) {
+            if (ack) return ack({ error: 'Forbidden' });
+            return;
+          }
+
+          if (
+            role !== 'admin' &&
+            !userMayAccessConversationType(role, conversation.conversationType)
+          ) {
             if (ack) return ack({ error: 'Forbidden' });
             return;
           }
