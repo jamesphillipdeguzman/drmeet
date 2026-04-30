@@ -22,6 +22,8 @@ export async function createPrescription(data) {
     dosage: String(data.dosage || ''),
     instructions: String(data.instructions || ''),
     status: String(data.status || 'active'),
+    secure_url: String(data.secure_url || ''),
+    public_id: String(data.public_id || ''),
     createdBy: String(data.createdBy || ''),
     updatedBy: String(data.updatedBy || data.createdBy || ''),
     createdAt: now,
@@ -60,6 +62,8 @@ export async function updatePrescriptionById(id, updates = {}) {
     dosage: updates.dosage,
     instructions: updates.instructions,
     status: updates.status,
+    secure_url: updates.secure_url,
+    public_id: updates.public_id,
     updatedBy: updates.updatedBy,
     updatedAt: new Date(),
   };

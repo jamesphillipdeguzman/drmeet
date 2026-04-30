@@ -7,6 +7,7 @@ import {
 } from '../services/prescription.service.js';
 import Patient from '../models/patient.model.js';
 import { findDoctorByUserId } from '../services/doctor.service.js';
+import { uploadToCloudinary } from '../services/cloudinary.service.js';
 
 function authRole(req) {
   return String(req.user?.role || '').toLowerCase();
@@ -50,9 +51,18 @@ export async function postPrescription(req, res) {
         .json({ error: 'patientId, doctorId, and medication are required.' });
     }
 
+    let upload = { secure_url: '', public_id: '' };
+    if (body.fileData) {
+      upload = await uploadToCloudinary(body.fileData, {
+        folder: 'drmeet/prescriptions',
+      });
+    }
+
     const created = await createPrescription({
       ...body,
       doctorId,
+      secure_url: upload.secure_url,
+      public_id: upload.public_id,
       createdBy: userId,
       updatedBy: userId,
     });
@@ -84,8 +94,15 @@ export async function getPrescription(req, res) {
 
 export async function putPrescription(req, res) {
   try {
+    let upload = {};
+    if (req.body?.fileData) {
+      upload = await uploadToCloudinary(req.body.fileData, {
+        folder: 'drmeet/prescriptions',
+      });
+    }
     const updated = await updatePrescriptionById(req.params.id, {
       ...req.body,
+      ...upload,
       updatedBy: authUserId(req),
     });
     if (!updated) return res.status(404).json({ error: 'Prescription not found.' });

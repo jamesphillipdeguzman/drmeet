@@ -8,6 +8,6 @@ import {
 const router = express.Router();
 
 router.get('/', hybridAuth, requireRoles(['patient', 'doctor', 'receptionist', 'admin']), getMedicalHistory);
-router.post('/', hybridAuth, requireRoles(['patient', 'doctor', 'receptionist']), uploadMedicalHistory);
+router.post('/', hybridAuth, requireRoles(['patient', 'doctor']), uploadMedicalHistory);
 
 export default router;

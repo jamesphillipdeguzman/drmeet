@@ -11,8 +11,13 @@ const commandPalette = document.getElementById("command-palette");
 const commandInput = document.getElementById("command-input");
 const commandResults = document.getElementById("command-results");
 const commandPaletteTrigger = document.getElementById("command-palette-trigger");
-const API_BASE = "https://drmeet-wqws.onrender.com/api";
-const API_ORIGIN = API_BASE.replace("/api", "");
+const isLocalHost =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1";
+const API_ORIGIN = isLocalHost
+  ? "http://localhost:3001"
+  : "https://drmeet-api.onrender.com";
+const API_BASE = `${API_ORIGIN}/api`;
 const DASHBOARD_STATE_KEY = "drmeet-dashboard-state";
 const MESSAGES_API = `${API_BASE}/messages`;
 const dashboardSubscribers = [];

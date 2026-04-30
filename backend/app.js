@@ -23,8 +23,9 @@ const app = express();
 app.set('trust proxy', 1);
 
 const isProduction = process.env.NODE_ENV === 'production';
-const clientOrigin =
-  process.env.CLIENT_ORIGIN || 'https://drmeeet.netlify.app';
+const defaultClientOrigin = 'https://mydrmeet.netlify.app';
+const envClientOrigin = process.env.CLIENT_ORIGIN || defaultClientOrigin;
+const allowedOrigins = [defaultClientOrigin, envClientOrigin].filter(Boolean);
 const mongoUri = process.env.MONGO_URI;
 
 console.log('ENV:', {
@@ -38,7 +39,12 @@ console.log('ENV:', {
 // ========================
 app.use(
   cors({
-    origin: clientOrigin,
+    origin(origin, callback) {
+      // Allow server-to-server / curl / same-origin requests with no Origin header.
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      return callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
