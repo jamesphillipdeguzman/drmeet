@@ -40,7 +40,7 @@ async function sendEmailSafe({ to, subject, html }) {
   const resend = getResendClient();
   if (!resend) {
     console.warn("[EMAIL] RESEND_API_KEY missing. Skipping email send.");
-    return;
+    return { sent: false, error: "RESEND_API_KEY missing" };
   }
   try {
     await resend.emails.send({
@@ -49,8 +49,10 @@ async function sendEmailSafe({ to, subject, html }) {
       subject,
       html,
     });
+    return { sent: true };
   } catch (error) {
     console.error("[EMAIL] Failed to send via Resend:", error?.message || error);
+    return { sent: false, error: error?.message || "Failed to send email" };
   }
 }
 
@@ -66,7 +68,7 @@ export async function sendDoctorWelcomeEmail({ email, title, firstName, lastName
       <p>You can also add and link receptionists from your Doctors tab to help coordinate your clinic workflow.</p>
     `,
   });
-  await sendEmailSafe({
+  return sendEmailSafe({
     to: email,
     subject: `Welcome ${displayName} to DrMeet`,
     html,
@@ -83,7 +85,7 @@ export async function sendPatientWelcomeEmail({ email, firstName }) {
       <p>We are glad to have you with us.</p>
     `,
   });
-  await sendEmailSafe({
+  return sendEmailSafe({
     to: email,
     subject: "Welcome to DrMeet",
     html,
@@ -102,7 +104,7 @@ export async function sendReceptionistInviteEmail({ email, doctorName }) {
     ctaLabel: "Open DrMeet Login",
     ctaHref: `${APP_URL}/#login`,
   });
-  await sendEmailSafe({
+  return sendEmailSafe({
     to: email,
     subject: "You're invited to DrMeet clinic staff",
     html,

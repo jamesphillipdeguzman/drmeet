@@ -304,6 +304,18 @@ export const postPatient = async (req, res) => {
     }
 
     const newPatient = await createPatientService(patientData);
+    if (newPatient.userId) {
+      await User.findByIdAndUpdate(
+        newPatient.userId,
+        {
+          firstName: newPatient.firstName || '',
+          lastName: newPatient.lastName || '',
+          email: newPatient.email || '',
+          phone: newPatient.phone || '',
+        },
+        { new: true },
+      );
+    }
 
     return res.status(201).json(newPatient);
   } catch (error) {
@@ -367,6 +379,19 @@ export const updatePatient = async (req, res) => {
     const updatedPatient = await updatePatientByIdService(id, updates);
     if (!updatedPatient) {
       return res.status(404).json({ error: 'Patient not found. ' });
+    }
+    const linkedUserId = updatedPatient.userId || existing.userId;
+    if (linkedUserId) {
+      await User.findByIdAndUpdate(
+        linkedUserId,
+        {
+          firstName: updatedPatient.firstName || '',
+          lastName: updatedPatient.lastName || '',
+          email: updatedPatient.email || '',
+          phone: updatedPatient.phone || '',
+        },
+        { new: true },
+      );
     }
     console.log(`[PATIENT]✅ PUT /api/patients/${id} was called`);
 

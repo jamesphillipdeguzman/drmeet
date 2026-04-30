@@ -1068,7 +1068,7 @@ function renderHome() {
       : "";
   mainContent.innerHTML = `
     <section class="dashboard-hero">
-      <h1>Welcome to DrMeet</h1>
+      <h1 class="home-hero-title">Welcome to DrMeet</h1>
       <p>Connected care coordination for patients, doctors, and clinic teams. Use the command palette (Ctrl/Cmd+K) to navigate quickly.</p>
       ${bookCta}
       <div class="inbox-live-row">
@@ -1086,21 +1086,32 @@ function renderHome() {
     </section>
     <section class="why-drmeet card">
       <div>
-        <h3>Why Choose DrMeet</h3>
+        <h3 class="home-section-title">Why Choose DrMeet</h3>
         <p>DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates.</p>
         <p>Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.</p>
       </div>
       <img class="why-drmeet-media" src="images/drmeet-pic1.png" alt="DrMeet technology in action" />
     </section>
-    <section class="role-select card">
-      <h3>Select Your Profile to Continue</h3>
+    <section class="role-select card role-select-highlight">
+      <h3 class="home-cta-title">Please select your profile type below</h3>
       <div class="role-select-grid">
         <button type="button" class="role-card role-card-doctor" id="role-select-doctor">
-          <span class="role-card-label">Doctor Profile</span>
-          <span class="role-card-hint">For Doctors and Clinic Staff</span>
+          <span class="role-card-label">I am a Provider</span>
+          <span class="role-card-hint">Register as a Doctor to manage your practice.
+            <span class="info-tooltip-trigger" tabindex="0">
+              <img src="images/info-i.svg" alt="Info" class="info-tooltip-icon" />
+              <span class="info-tooltip-bubble">Register as a Doctor to manage your practice.</span>
+            </span>
+          </span>
         </button>
         <button type="button" class="role-card role-card-patient" id="role-select-patient">
-          <span class="role-card-label">Patient Profile</span>
+          <span class="role-card-label">I am a Patient</span>
+          <span class="role-card-hint">Create an account to find care and book appointments.
+            <span class="info-tooltip-trigger" tabindex="0">
+              <img src="images/info-i.svg" alt="Info" class="info-tooltip-icon" />
+              <span class="info-tooltip-bubble">Create an account to find care and book appointments.</span>
+            </span>
+          </span>
         </button>
       </div>
     </section>
@@ -1424,10 +1435,12 @@ function renderThreadDrawer(drawer) {
       <p class="thread-reply-label">Reply in this conversation</p>
       <p class="thread-quick-hint thread-quick-hint--recipient" data-thread-hint-recipient></p>
       <textarea id="thread-quick-reply" rows="3" placeholder="Type your message…" autocomplete="off"></textarea>
-      <label style="margin:0.5rem 0;">Attach screenshot or document
-        <input id="thread-quick-file" type="file" accept="image/*,.pdf,.doc,.docx,.txt" />
-      </label>
-      <button type="button" class="btn btn-primary" id="thread-send-reply">Send message</button>
+      <div class="thread-attachment-row">
+        <label style="margin:0;">Attach screenshot or document
+          <input id="thread-quick-file" type="file" accept="image/*,.pdf,.doc,.docx,.txt" />
+        </label>
+        <button type="button" class="btn btn-primary" id="thread-send-reply">Send message</button>
+      </div>
     </div>
   `;
   const recipientHintEl = drawer.querySelector("[data-thread-hint-recipient]");
@@ -2952,7 +2965,7 @@ async function renderUsers() {
       <button class="cta-primary" onclick="window.showUserForm()">Add User</button>
       <hr class="section-divider" />
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Specialty</th><th>Phone</th><th>Actions</th></tr></thead>
         <tbody>
           ${users
         .map(
@@ -2961,6 +2974,7 @@ async function renderUsers() {
               <td>${u.title ? `${u.title} ` : ""}${u.firstName} ${u.lastName}</td>
               <td>${u.email || ""}</td>
               <td>${u.role || ""}</td>
+              <td>${u.specialty || "—"}</td>
               <td>${u.phone || ""}</td>
               <td>
                 <button class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button>

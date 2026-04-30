@@ -12,6 +12,7 @@ import {
 } from '../controllers/patient.controller.js';
 import {
   validatePatient,
+  validatePatientUpdate,
 } from '../middlewares/patient.validation.middleware.js';
 
 import { validateMongoIdParam } from '../middlewares/common.middleware.js';
@@ -157,7 +158,7 @@ router.put(
   '/:id',
   hybridAuth,
   validateMongoIdParam,
-  validatePatient,
+  validatePatientUpdate,
   updatePatient,
 );
 

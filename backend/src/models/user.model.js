@@ -49,6 +49,11 @@ const userSchema = new mongoose.Schema(
       ref: "Doctor",
       required: false,
     },
+    specialty: {
+      type: String,
+      required: false,
+      default: "",
+    },
     phone: {
       type: String,
       required: false,

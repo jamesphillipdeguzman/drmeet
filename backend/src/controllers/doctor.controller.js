@@ -207,6 +207,20 @@ export const postDoctor = async (req, res) => {
         }
 
         const newDoctor = await createDoctorService(doctorData);
+        if (newDoctor.userId) {
+            await User.findByIdAndUpdate(
+                newDoctor.userId,
+                {
+                    firstName: newDoctor.firstName || '',
+                    lastName: newDoctor.lastName || '',
+                    email: newDoctor.email || '',
+                    phone: newDoctor.phone || '',
+                    specialty: newDoctor.specialty || '',
+                    ...(newDoctor.title ? { title: newDoctor.title } : {}),
+                },
+                { new: true },
+            );
+        }
 
         console.log(`[DOCTOR] CREATED: ${newDoctor._id}`);
 
@@ -267,6 +281,20 @@ export const updateDoctor = async (req, res) => {
         if (!updatedDoctor) {
             return res.status(404).json({ error: 'Doctor not found. ' });
         }
+        if (updatedDoctor.userId) {
+            await User.findByIdAndUpdate(
+                updatedDoctor.userId,
+                {
+                    firstName: updatedDoctor.firstName || '',
+                    lastName: updatedDoctor.lastName || '',
+                    email: updatedDoctor.email || '',
+                    phone: updatedDoctor.phone || '',
+                    specialty: updatedDoctor.specialty || '',
+                    ...(updatedDoctor.title ? { title: updatedDoctor.title } : {}),
+                },
+                { new: true },
+            );
+        }
         console.log(`[DOCTOR]✅ PUT /api/doctors/${id} was called`);
 
         return res.status(200).json(updatedDoctor);
@@ -274,7 +302,7 @@ export const updateDoctor = async (req, res) => {
         console.log(`Error updating the doctor with ${id}:`, error);
         return res
             .status(500)
-            .json({ error: 'An error occured while updating the doctor.' });
+            .json({ error: error.message || 'An error occured while updating the doctor.' });
     }
 };
 
@@ -377,10 +405,15 @@ export const inviteReceptionist = async (req, res) => {
                   role: 'receptionist',
                   linkedDoctorId: doctor._id,
               });
-        await sendReceptionistInviteEmail({
+        const inviteResult = await sendReceptionistInviteEmail({
             email,
             doctorName: `${doctor.firstName || ''} ${doctor.lastName || ''}`.trim() || 'Your doctor',
         });
+        if (!inviteResult?.sent) {
+            return res.status(502).json({
+                error: 'Receptionist account was linked, but invite email could not be sent. Please verify mail settings.',
+            });
+        }
 
         return res.status(existing ? 200 : 201).json({
             message: existing

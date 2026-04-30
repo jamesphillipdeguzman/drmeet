@@ -41,6 +41,7 @@ export async function syncRoleProfilesForUser(user, options = {}) {
         lastName: user.lastName || existingDoctor.lastName,
         email: user.email || existingDoctor.email,
         phone: user.phone || existingDoctor.phone,
+        specialty: String(options.specialty || existingDoctor.specialty || '').trim(),
         ...(title ? { title } : {}),
       });
     }
