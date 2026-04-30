@@ -44,6 +44,19 @@ const googleAuthState = {
   inProgress: false,
 };
 let sidebarClockIntervalId = null;
+const DOCTOR_SPECIALTIES = [
+  "Family Medicine","Fam Med","General Practice","GP","Internal Medicine","IM","Internist","Pediatrics","Pedia","Emergency Medicine","ER","Geriatric Medicine","Geriatrics",
+  "Cardiology","Cardio","Endocrinology, Diabetes & Metabolism","Endocrinology","Gastroenterology","GI","Hepatology","Liver Specialist","Infectious Diseases","ID",
+  "Nephrology","Kidney Specialist","Pulmonology","Pulmo","Rheumatology","Rheuma","Allergy & Immunology","Allergist","Hematology","Hema","Medical Oncology","Onco","Clinical Pharmacology",
+  "General Surgery","GS","Colorectal Surgery","Hepatobiliary & Pancreatic Surgery","HPB Surgery","Breast Surgery","Minimally Invasive / Laparoscopic Surgery","MIS",
+  "Orthopedic Surgery","Ortho","Neurosurgery","Neuro Surgery","Cardiothoracic Surgery","CTS","Vascular Surgery","Plastic & Reconstructive Surgery","Plastic Surgery","Hand Surgery","Urology","Uro",
+  "Obstetrics and Gynecology","OB-GYN","OB","Maternal-Fetal Medicine","High-Risk Pregnancy","Reproductive Endocrinology & Infertility","Fertility Specialist","Gynecologic Oncology","Gyne Onco","Urogynecology",
+  "Neonatology","NICU","Pediatric Cardiology","Pediatric Pulmonology","Pediatric Nephrology","Pediatric Gastroenterology","Pediatric Endocrinology","Pediatric Hematology-Oncology","Pedia Onco","Pediatric Infectious Diseases","Pediatric Neurology","Developmental & Behavioral Pediatrics","Dev Peds",
+  "Neurology","Neuro","Psychiatry","Psych","Child & Adolescent Psychiatry","Addiction Medicine","Ophthalmology","Eye Specialist","Otolaryngology – Head and Neck Surgery","ENT",
+  "Dermatology","Derma","Cosmetic Dermatology / Aesthetic Medicine","Aesthetic","Radiology","Diagnostic Radiology","Interventional Radiology","IR","Pathology","Lab Medicine","Nuclear Medicine","Anesthesiology","Anesthesia",
+  "Physical Medicine & Rehabilitation","Physiatry","Rehab Med","Pain Medicine","Pain Management","Palliative Medicine","Hospice Care","Occupational Medicine","Occ Med","Sports Medicine","Lifestyle Medicine","Preventive Medicine",
+  "Physical Therapy","PT","Occupational Therapy","OT","Speech-Language Pathology","Speech Therapy","Clinical Psychology","Nutrition & Dietetics","Dietitian","Respiratory Therapy","RT"
+];
 
 function normalizeFetchErrorMessage(err, fallbackMessage) {
   const message = String(err?.message || "");
@@ -782,7 +795,14 @@ function renderPage() {
   }
 }
 
+function setPageTone(kind) {
+  if (!mainContent) return;
+  mainContent.classList.remove("page-tone-patients", "page-tone-doctors", "page-tone-appointments", "page-tone-users");
+  if (kind) mainContent.classList.add(`page-tone-${kind}`);
+}
+
 function renderPrivacy() {
+  setPageTone("");
   mainContent.innerHTML = `
     <section class="card">
       <h2>Privacy Policy</h2>
@@ -794,6 +814,7 @@ function renderPrivacy() {
 }
 
 function renderHome() {
+  setPageTone("");
   const signedIn = isLoggedIn();
   const bookCta =
     getCurrentUserRole() === "patient"
@@ -1162,7 +1183,7 @@ function updateAuthNav() {
       return;
     }
     if (isLogin) {
-      link.style.display = role === "admin" ? "" : "none";
+      link.style.display = "none";
       return;
     }
     link.style.display = "";
@@ -1188,6 +1209,7 @@ function updateAuthNav() {
 }
 
 function renderLogin() {
+  setPageTone("");
   if (isLoggedIn()) {
     mainContent.innerHTML = `
       <div class="feedback success">You are logged in.</div>
@@ -1266,6 +1288,7 @@ function renderLogin() {
 }
 
 function renderSignup() {
+  setPageTone("");
   if (isLoggedIn()) {
     mainContent.innerHTML = `<div class="feedback success">You are already logged in.</div>`;
     return;
@@ -1297,7 +1320,10 @@ function renderSignup() {
       <label>Address <input name="address" /></label>
       ${
         selectedRole === "doctor"
-          ? `<label>Specialty <input name="specialty" required placeholder="e.g. Cardiology" /></label>`
+          ? `<label>Specialty <input name="specialty" list="doctor-specialties-signup" required placeholder="e.g. Cardiology" /></label>
+             <datalist id="doctor-specialties-signup">
+               ${[...new Set(DOCTOR_SPECIALTIES)].map((s) => `<option value="${s}"></option>`).join("")}
+             </datalist>`
           : ""
       }
       <button type="submit" class="btn btn-primary">Create account</button>
@@ -1422,6 +1448,7 @@ function handleGoogleAuthMessage(event) {
 }
 
 async function renderPatientBooking() {
+  setPageTone("");
   if (!isLoggedIn()) {
     mainContent.innerHTML = `
       <section class="patient-booking-page">
@@ -1645,14 +1672,15 @@ async function renderPatientBooking() {
 
 // --- Patients ---
 async function renderPatients() {
+  setPageTone("patients");
   mainContent.innerHTML =
-    '<h2>Patients</h2><div class="feedback">Loading...</div>';
+    '<h2 class="page-title page-title-patients">Patients</h2><div class="feedback">Loading...</div>';
   try {
     const res = await apiRequest(`${API_BASE}/patients`);
     if (!res.ok) throw new Error("Failed to fetch patients");
     const patients = await res.json();
     mainContent.innerHTML = `
-      <h2>Patients</h2>
+      <h2 class="page-title page-title-patients">Patients</h2>
       <button onclick="window.showPatientForm()">Add Patient</button>
       <div class="list-filters">
         <input type="search" id="patient-filter-name" placeholder="Filter by name" />
@@ -1737,6 +1765,9 @@ function showPatientForm(editId = null) {
       </label>
       <label>Address <input name="address" /></label>
       <label>Notes <textarea name="notes" placeholder="Medical notes or reminders"></textarea></label>
+      <label>Medical History
+        <textarea name="medicalHistory" placeholder="One item per line"></textarea>
+      </label>
       <div class="modal-form-actions">
         <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
         <button type="button" class="btn btn-action-delete" onclick="window.closePatientForm()">Cancel</button>
@@ -1762,11 +1793,16 @@ function showPatientForm(editId = null) {
         form.gender.value = data.gender || "";
         form.address.value = data.address || "";
         form.notes.value = data.notes || "";
+        form.medicalHistory.value = Array.isArray(data.medicalHistory) ? data.medicalHistory.join("\n") : "";
       });
   }
   form.onsubmit = async (e) => {
     e.preventDefault();
     const patient = Object.fromEntries(new FormData(form));
+    patient.medicalHistory = String(patient.medicalHistory || "")
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean);
     try {
       const res = await apiRequest(
         `${API_BASE}/patients${editId ? "/" + editId : ""}`,
@@ -1803,8 +1839,9 @@ async function deletePatient(id) {
 
 // --- Doctors ---
 async function renderDoctors() {
+  setPageTone("doctors");
   mainContent.innerHTML =
-    '<h2>Doctors</h2><div class="feedback">Loading...</div>';
+    '<h2 class="page-title page-title-doctors">Doctors</h2><div class="feedback">Loading...</div>';
   try {
     const res = await apiRequest(`${API_BASE}/doctors`);
     if (!res.ok) throw new Error("Failed to fetch doctors");
@@ -1813,7 +1850,7 @@ async function renderDoctors() {
     const isAdmin = role === "admin";
     const isDoctor = role === "doctor";
     mainContent.innerHTML = `
-      <h2>Doctors</h2>
+      <h2 class="page-title page-title-doctors">Doctors</h2>
       ${isAdmin ? '<button onclick="window.showDoctorForm()">Add Doctor</button>' : ""}
       ${
         isDoctor
@@ -1862,7 +1899,7 @@ async function renderDoctors() {
               </td>
               <td>
                 ${
-                  isAdmin
+                  isAdmin || isDoctor
                     ? `<button class="btn btn-secondary btn-action-edit" onclick="window.editDoctor('${d._id}')">Edit</button>
                 <button class="btn btn-action-delete" onclick="window.deleteDoctor('${d._id}')">Delete</button>`
                     : `<button class="btn btn-primary btn-action-edit" onclick="window.bookDoctorFromDoctorsTab()">Book an Appointment</button>`
@@ -1949,7 +1986,10 @@ function showDoctorForm(editId = null) {
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
-      <label>Specialty <input name="specialty" required /></label>
+      <label>Specialty <input name="specialty" list="doctor-specialties" required /></label>
+      <datalist id="doctor-specialties">
+        ${[...new Set(DOCTOR_SPECIALTIES)].map((s) => `<option value="${s}"></option>`).join("")}
+      </datalist>
       <label>Bio <textarea name="bio" placeholder="Short profile"></textarea></label>
       <label>Availability Rules (one per line)
         <textarea name="availabilityText" placeholder="Monday - Friday 10:00-15:00&#10;Saturday 09:00-12:00"></textarea>
@@ -2070,8 +2110,9 @@ async function deleteDoctor(id) {
 
 // --- Appointments ---
 async function renderAppointments() {
+  setPageTone("appointments");
   mainContent.innerHTML =
-    '<h2>Appointments</h2><div class="feedback">Loading...</div>';
+    '<h2 class="page-title page-title-appointments">Appointments</h2><div class="feedback">Loading...</div>';
   try {
     const [res, doctorRes, patientRes] = await Promise.all([
       apiRequest(`${API_BASE}/appointments`),
@@ -2095,7 +2136,7 @@ async function renderAppointments() {
       ])
     );
     mainContent.innerHTML = `
-      <h2>Appointments</h2>
+      <h2 class="page-title page-title-appointments">Appointments</h2>
       <button onclick="window.showAppointmentForm()">Add Appointment</button>
       <div class="list-filters">
         <input type="search" id="appt-filter-doctor" placeholder="Filter by doctor" />
@@ -2292,8 +2333,9 @@ async function deleteAppointment(id) {
 
 // --- Users ---
 async function renderUsers() {
+  setPageTone("users");
   mainContent.innerHTML =
-    '<h2>Users</h2><div class="feedback">Loading...</div>';
+    '<h2 class="page-title page-title-users">Users</h2><div class="feedback">Loading...</div>';
   try {
     const role = getCurrentUserRole();
     const currentUserId = getCurrentUserId();
@@ -2309,7 +2351,7 @@ async function renderUsers() {
       users = await res.json();
     }
     mainContent.innerHTML = `
-      <h2>Users</h2>
+      <h2 class="page-title page-title-users">Users</h2>
       <button onclick="window.showUserForm()">Add User</button>
       <table>
         <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>Actions</th></tr></thead>
@@ -2369,7 +2411,10 @@ function showUserForm(editId = null) {
           <option value="admin">Admin</option>
         </select>
       </label>
-      <label>Specialty <input name="specialty" placeholder="Used when role is doctor" /></label>
+      <label>Specialty <input name="specialty" list="doctor-specialties-user" placeholder="Used when role is doctor" /></label>
+      <datalist id="doctor-specialties-user">
+        ${[...new Set(DOCTOR_SPECIALTIES)].map((s) => `<option value="${s}"></option>`).join("")}
+      </datalist>
       <label>Phone <input name="phone" /></label>
       <label>Address <input name="address" /></label>
       <div class="modal-form-actions">

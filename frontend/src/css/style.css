@@ -208,6 +208,16 @@ footer {
     font-weight: 600;
 }
 
+.page-title {
+    display: inline-block;
+    padding: 0.35rem 0.7rem;
+    border-radius: 10px;
+}
+.page-title-patients { background: #e9f7ff; color: #1c4f78; }
+.page-title-doctors { background: #f3edff; color: #4f3c84; }
+.page-title-appointments { background: #eaf8ee; color: #245e3e; }
+.page-title-users { background: #fff3e8; color: #7c4c1c; }
+
 h1, h2, h3 { color: var(--indigo); margin-top: 0; }
 
 h2 {

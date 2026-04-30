@@ -76,13 +76,8 @@ async function getScopedPatients(req) {
   }
 
   if (role === 'doctor' && uid) {
-    const doctor = await findDoctorByUserId(uid);
-    if (!doctor) return [];
-    const appts = await findAppointmentsByDoctor(String(doctor._id));
-    const patientIds = [
-      ...new Set(appts.map((a) => a.patient).filter(Boolean)),
-    ].filter((id) => mongoose.Types.ObjectId.isValid(String(id)));
-    return findPatientsByIds(patientIds);
+    // Doctors manage patient records from the Patients tab.
+    return findAllPatients();
   }
 
   return [];

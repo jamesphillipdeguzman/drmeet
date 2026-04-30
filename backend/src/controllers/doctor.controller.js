@@ -225,9 +225,8 @@ export const postDoctor = async (req, res) => {
  * @desc Update a doctor by ID
  */
 export const updateDoctor = async (req, res) => {
-    if (!isAdmin(req)) {
-        return res.status(403).json({ error: 'Only admins can update doctors.' });
-    }
+    const role = authRole(req);
+    const uid = authUserId(req);
     const cleanedBody = sanitizeInput(req.body || {});
     const { id } = req.params;
     const updates = {
@@ -239,6 +238,14 @@ export const updateDoctor = async (req, res) => {
     }
 
     try {
+        if (role === 'doctor') {
+            const mine = await findDoctorByUserId(uid);
+            if (!mine || String(mine._id) !== String(id)) {
+                return res.status(403).json({ error: 'Only your profile can be updated.' });
+            }
+        } else if (!isAdmin(req)) {
+            return res.status(403).json({ error: 'Only admins can update doctors.' });
+        }
         const updatedDoctor = await updateDoctorByIdService(id, updates);
         if (!updatedDoctor) {
             return res.status(404).json({ error: 'Doctor not found. ' });
@@ -259,14 +266,21 @@ export const updateDoctor = async (req, res) => {
  * @desc Delete a doctor by ID
  */
 export const deleteDoctor = async (req, res) => {
-    if (!isAdmin(req)) {
-        return res.status(403).json({ error: 'Only admins can delete doctors.' });
-    }
+    const role = authRole(req);
+    const uid = authUserId(req);
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid doctor ID format.' });
     }
     try {
+        if (role === 'doctor') {
+            const mine = await findDoctorByUserId(uid);
+            if (!mine || String(mine._id) !== String(id)) {
+                return res.status(403).json({ error: 'Only your profile can be deleted.' });
+            }
+        } else if (!isAdmin(req)) {
+            return res.status(403).json({ error: 'Only admins can delete doctors.' });
+        }
         const deletedDoctor = await deleteDoctorByIdService(id);
         if (!deletedDoctor) {
             return res.status(404).json({ error: 'Doctor not found.' });
