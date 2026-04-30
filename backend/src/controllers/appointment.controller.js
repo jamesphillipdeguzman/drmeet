@@ -3,10 +3,10 @@ import mongoose from 'mongoose';
 import Patient from '../models/patient.model.js';
 
 import {
-    findAllAppointments,
+    findAllAppointmentsWithPatientMeta,
     findAppointmentById,
     findAppointmentsByPatient,
-    findAppointmentsByDoctor,
+    findAppointmentsByDoctorForRoleScope,
     createAppointment as createAppointmentService,
     updateAppointmentById as updateAppointmentByIdService,
     deleteAppointmentById as deleteAppointmentByIdService,
@@ -26,8 +26,14 @@ async function getScopedAppointments(req) {
     const role = authRole(req);
     const uid = authUserId(req);
 
-    if (role === 'admin' || role === 'receptionist') {
-        return findAllAppointments();
+    if (role === 'admin') {
+        return findAllAppointmentsWithPatientMeta();
+    }
+
+    if (role === 'receptionist') {
+        const linkedDoctorId = req.user?.linkedDoctorId;
+        if (!linkedDoctorId) return [];
+        return findAppointmentsByDoctorForRoleScope(String(linkedDoctorId));
     }
 
     if (role === 'patient' && uid) {
@@ -39,7 +45,7 @@ async function getScopedAppointments(req) {
     if (role === 'doctor' && uid) {
         const doctor = await findDoctorByUserId(uid);
         if (!doctor) return [];
-        return findAppointmentsByDoctor(String(doctor._id));
+        return findAppointmentsByDoctorForRoleScope(String(doctor._id));
     }
 
     return [];
@@ -50,7 +56,12 @@ async function appointmentVisibleToRequester(req, appt) {
     const role = authRole(req);
     const uid = authUserId(req);
 
-    if (role === 'admin' || role === 'receptionist') return true;
+    if (role === 'admin') return true;
+
+    if (role === 'receptionist') {
+        const linkedDoctorId = req.user?.linkedDoctorId;
+        return Boolean(linkedDoctorId) && String(appt.doctor) === String(linkedDoctorId);
+    }
 
     if (role === 'patient' && uid) {
         const patient = await Patient.findOne({ userId: uid });

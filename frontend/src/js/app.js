@@ -560,6 +560,23 @@ async function resolveDoctorIdForPatientMessaging() {
   return null;
 }
 
+async function resolvePatientMessageRecipient(patient) {
+  if (patient?.userId) return String(patient.userId);
+  const email = String(patient?.email || "").trim().toLowerCase();
+  if (!email) return null;
+  try {
+    const usersRes = await apiRequest(`${API_BASE}/users`);
+    if (!usersRes.ok) return null;
+    const users = await usersRes.json();
+    const match = Array.isArray(users)
+      ? users.find((u) => String(u.email || "").trim().toLowerCase() === email)
+      : null;
+    return match?._id ? String(match._id) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
 async function fetchMyPatientRecord() {
   const res = await apiRequest(`${API_BASE}/patients`);
   if (!res.ok) return null;
@@ -630,6 +647,60 @@ function enforcePhoneInputs(scope = document) {
       const cleaned = String(input.value || "").replace(/\D+/g, "").slice(0, 11);
       input.value = cleaned;
     });
+  });
+}
+
+function addInlineTooltips(scope = document) {
+  scope.querySelectorAll("[data-tooltip]").forEach((node) => {
+    if (node.querySelector(".info-tooltip-trigger")) return;
+    const content = String(node.getAttribute("data-tooltip") || "").trim();
+    if (!content) return;
+    const trigger = document.createElement("span");
+    trigger.className = "info-tooltip-trigger";
+    trigger.tabIndex = 0;
+    trigger.innerHTML = `
+      <img src="images/info-i.svg" alt="Info" class="info-tooltip-icon" />
+      <span class="info-tooltip-bubble">${escapeHtml(content)}</span>
+    `;
+    node.appendChild(trigger);
+  });
+}
+
+function attachClearButtons(scope = document) {
+  const fields = scope.querySelectorAll(
+    'input[type="text"], input[type="email"], input[type="search"], input[type="password"], input[type="date"], input[type="time"], textarea, select'
+  );
+  fields.forEach((field) => {
+    if (field.closest(".field-input-wrap")) return;
+    const wrap = document.createElement("span");
+    wrap.className = "field-input-wrap";
+    field.parentNode.insertBefore(wrap, field);
+    wrap.appendChild(field);
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "field-clear-btn";
+    clearBtn.setAttribute("aria-label", `Clear ${field.name || "field"}`);
+    clearBtn.textContent = "×";
+    wrap.appendChild(clearBtn);
+
+    const syncVisibility = () => {
+      const hasValue = String(field.value || "").trim().length > 0;
+      clearBtn.classList.toggle("visible", hasValue);
+    };
+    clearBtn.addEventListener("click", () => {
+      if (field.tagName === "SELECT") {
+        field.selectedIndex = 0;
+      } else {
+        field.value = "";
+      }
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+      syncVisibility();
+      field.focus();
+    });
+    field.addEventListener("input", syncVisibility);
+    field.addEventListener("change", syncVisibility);
+    syncVisibility();
   });
 }
 
@@ -1457,7 +1528,7 @@ function renderLogin() {
     <h2>Login</h2>
     <form id="login-form">
       <label>Email <input name="email" type="email" required /></label>
-      <label>Password <input name="password" type="password" required /></label>
+      <label><span class="label-text-row" data-tooltip="Use at least 8 characters with uppercase, number, and special character.">Create Password</span><input name="password" type="password" required /></label>
       <button type="submit" class="btn btn-primary">Sign in</button>
     </form>
     <button id="google-login-btn" type="button" class="btn btn-google" style="margin-top:1rem;">Continue with Google</button>
@@ -1556,7 +1627,7 @@ function renderSignup() {
       <label>Address <input name="address" /></label>
       ${
         selectedRole === "doctor"
-          ? `<label>Specialty <input name="specialty" list="doctor-specialties-signup" required placeholder="e.g. Cardiology" /></label>
+          ? `<label><span class="label-text-row" data-tooltip="Set the primary board-certified specialty used for profile matching.">Primary Specialty</span><input name="specialty" list="doctor-specialties-signup" required placeholder="e.g. Cardiology" /></label>
              <datalist id="doctor-specialties-signup">
                ${[...new Set(DOCTOR_SPECIALTIES)].map((s) => `<option value="${s}"></option>`).join("")}
              </datalist>`
@@ -1568,6 +1639,7 @@ function renderSignup() {
     <div id="signup-feedback"></div>
   `;
   const form = document.getElementById('signup-form');
+  addInlineTooltips(form);
   enforcePhoneInputs(form);
   const feedback = document.getElementById('signup-feedback');
   const oauthSuccessToken = consumeOauthSuccessTokenFromHash();
@@ -1793,10 +1865,25 @@ async function renderPatientBooking() {
         '<div class="feedback">Try another name, specialty, or keyword—or clear the search to see everyone.</div>';
       return;
     }
-    grid.innerHTML = list
-      .map((d) => {
+    const grouped = list.reduce((acc, doctor) => {
+      const specialtyKey = String(doctor.specialty || "General").trim() || "General";
+      if (!acc[specialtyKey]) acc[specialtyKey] = [];
+      acc[specialtyKey].push(doctor);
+      return acc;
+    }, {});
+    grid.innerHTML = Object.entries(grouped)
+      .filter(([, items]) => Array.isArray(items) && items.length)
+      .map(([specialtyKey, items]) => `
+        <section class="doctor-specialty-group">
+          <h3 class="doctor-specialty-heading">${escapeHtml(specialtyKey)}</h3>
+          <div class="patient-doctor-grid">
+            ${items.map((d) => {
         const name = formatDoctorDisplayName(d);
         const spec = d.specialty || "Specialty not listed";
+        const subSpec = String(d.subSpecialization || d.subSpecialty || "").trim();
+        const subSpecBadge = subSpec
+          ? `<span class="pill-tag" style="margin-left:0;">${escapeHtml(subSpec)}</span>`
+          : "";
         const dept = d.department
           ? `<p class="doctor-pick-meta">${d.department}</p>`
           : "";
@@ -1817,6 +1904,7 @@ async function renderPatientBooking() {
           <article class="doctor-pick-card">
             <h3 class="doctor-pick-name">${name}</h3>
             <p class="doctor-pick-specialty">${spec}</p>
+            ${subSpecBadge}
             ${dept}
             ${clinic}
             ${receptionistName}
@@ -1825,7 +1913,10 @@ async function renderPatientBooking() {
             <p class="doctor-pick-avail">${avail}</p>
             <button type="button" class="btn btn-primary btn-sm doctor-pick-book" data-book-doctor="${d._id}">Book with this doctor</button>
           </article>`;
-      })
+      }).join("")}
+          </div>
+        </section>`
+      )
       .join("");
   }
 
@@ -2062,8 +2153,9 @@ async function renderPatients() {
     };
     window.sendPatientDocumentFromDoctor = async (patientId) => {
       const patient = patients.find((p) => String(p._id) === String(patientId));
-      if (!patient?.userId) {
-        showToast("This patient has no linked login account for messaging.", "error");
+      const recipientId = await resolvePatientMessageRecipient(patient);
+      if (!recipientId) {
+        showToast("Patient must have a linked app account or matching user email to receive documents.", "error");
         return;
       }
       const fileInput = document.createElement("input");
@@ -2074,7 +2166,7 @@ async function renderPatients() {
         if (!file) return;
         try {
           await sendDocumentMessage({
-            patientId: String(patient.userId),
+            patientId: String(recipientId),
             doctorId: String(getCurrentUserId()),
             text: "Document from your doctor.",
             file,
@@ -2130,7 +2222,7 @@ function showPatientForm(editId = null, familyMode = false) {
       <label>Medical History
         <textarea name="medicalHistory" placeholder="One item per line"></textarea>
       </label>
-      <label>Attach Document
+      <label><span class="label-text-row" data-tooltip="Accepted formats: PDF, DOCX, JPG, PNG, HEIC. Max size: 10MB.">Upload Records</span>
         <input name="documentFile" type="file" accept="image/*,.pdf,.doc,.docx,.txt" />
       </label>
       <div class="modal-form-actions">
@@ -2143,6 +2235,8 @@ function showPatientForm(editId = null, familyMode = false) {
     modal.style.display = "none";
   };
   const form = document.getElementById("patient-form");
+  addInlineTooltips(form);
+  attachClearButtons(form);
   enforcePhoneInputs(form);
   if (canAttachExisting) {
     const searchInput = document.getElementById("patient-existing-search");
@@ -2316,38 +2410,55 @@ async function renderDoctors() {
         <input type="search" id="doctor-filter-receptionist" placeholder="Filter by receptionist" />
         <input type="search" id="doctor-filter-clinic" placeholder="Filter by clinic" />
       </div>`}
-      <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Specialty</th><th>Clinic</th><th>Availability</th><th>Phone</th><th>Receptionist</th><th>Actions</th></tr></thead>
-        <tbody id="doctors-table-body"></tbody>
-      </table>
+      <div id="doctors-specialty-groups"></div>
       <div id="doctor-form-modal" style="display:none"></div>
     `;
-    const bodyEl = document.getElementById("doctors-table-body");
+    const groupsEl = document.getElementById("doctors-specialty-groups");
     const renderRows = (list) => {
-      bodyEl.innerHTML = list
+      const grouped = list.reduce((acc, d) => {
+        const specialty = String(d.specialty || "General").trim() || "General";
+        if (!acc[specialty]) acc[specialty] = [];
+        acc[specialty].push(d);
+        return acc;
+      }, {});
+      groupsEl.innerHTML = Object.entries(grouped)
+        .filter(([, items]) => Array.isArray(items) && items.length)
         .map(
-          (d) => `
-            <tr>
-              <td>${d.photoUrl ? `<img src="${escapeHtml(d.photoUrl)}" alt="Doctor avatar" class="doctor-avatar" />` : `<span class="doctor-avatar"></span>`}${d.firstName} ${d.lastName}</td>
-              <td>${d.email || ""}</td>
-              <td>${d.specialty || ""}</td>
-              <td>${d.affiliatedClinics || "—"}</td>
-              <td>${buildDoctorAvailabilityLabel(d)}</td>
-              <td>${d.phone || ""}</td>
-              <td>
-                <div>${d.receptionistName || "—"}</div>
-                <div>${d.receptionistPhone || ""}</div>
-                <div>${d.receptionistEmail || ""}</div>
-              </td>
-              <td>
-                ${
-                  isAdmin || isDoctor
-                    ? `<button class="btn btn-secondary btn-action-edit" onclick="window.editDoctor('${d._id}')">Edit</button>
-                <button class="btn btn-action-delete" onclick="window.deleteDoctor('${d._id}')">Delete</button>`
-                    : `<button class="btn btn-primary btn-action-edit" onclick="window.bookDoctorFromDoctorsTab()">Book an Appointment</button>`
-                }
-              </td>
-            </tr>
+          ([specialty, items]) => `
+            <section class="doctor-specialty-group">
+              <h3 class="doctor-specialty-heading">${escapeHtml(specialty)}</h3>
+              <table>
+                <thead><tr><th>Name</th><th>Email</th><th>Clinic</th><th>Availability</th><th>Phone</th><th>Receptionist</th><th>Actions</th></tr></thead>
+                <tbody>
+                  ${items
+                    .map(
+                      (d) => `
+                        <tr>
+                          <td>${d.photoUrl ? `<img src="${escapeHtml(d.photoUrl)}" alt="Doctor avatar" class="doctor-avatar" />` : `<span class="doctor-avatar"></span>`}${d.firstName} ${d.lastName}${d.subSpecialization || d.subSpecialty ? `<span class="pill-tag">${escapeHtml(d.subSpecialization || d.subSpecialty)}</span>` : ""}</td>
+                          <td>${d.email || ""}</td>
+                          <td>${d.affiliatedClinics || "—"}</td>
+                          <td>${buildDoctorAvailabilityLabel(d)}</td>
+                          <td>${d.phone || ""}</td>
+                          <td>
+                            <div>${d.receptionistName || "—"}</div>
+                            <div>${d.receptionistPhone || ""}</div>
+                            <div>${d.receptionistEmail || ""}</div>
+                          </td>
+                          <td>
+                            ${
+                              isAdmin || isDoctor
+                                ? `<button class="btn btn-secondary btn-action-edit" onclick="window.editDoctor('${d._id}')">Edit</button>
+                            <button class="btn btn-action-delete" onclick="window.deleteDoctor('${d._id}')">Delete</button>`
+                                : `<button class="btn btn-primary btn-action-edit" onclick="window.bookDoctorFromDoctorsTab()">Book an Appointment</button>`
+                            }
+                          </td>
+                        </tr>
+                      `
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </section>
           `
         )
         .join("");
@@ -2453,7 +2564,7 @@ function showDoctorForm(editId = null) {
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
-      <label>Specialty <input name="specialty" list="doctor-specialties" required /></label>
+      <label><span class="label-text-row" data-tooltip="Set the primary board-certified specialty used for grouping and scheduling.">Primary Specialty</span><input name="specialty" list="doctor-specialties" required /></label>
       <datalist id="doctor-specialties">
         ${[...new Set(DOCTOR_SPECIALTIES)].map((s) => `<option value="${s}"></option>`).join("")}
       </datalist>
@@ -2488,6 +2599,8 @@ function showDoctorForm(editId = null) {
     modal.style.display = "none";
   };
   const form = document.getElementById("doctor-form");
+  addInlineTooltips(form);
+  attachClearButtons(form);
   enforcePhoneInputs(form);
   if (editId) {
     apiRequest(`${API_BASE}/doctors/${editId}`)
@@ -2625,7 +2738,7 @@ async function renderAppointments() {
       <button class="cta-primary" onclick="window.showAppointmentForm()">Add Appointment</button>
       <hr class="section-divider" />
       <div class="list-filters">
-        <input type="search" id="appt-filter-doctor" placeholder="Filter by doctor" />
+        ${getCurrentUserRole() === "receptionist" ? "" : '<input type="search" id="appt-filter-doctor" placeholder="Filter by doctor" />'}
         <input type="search" id="appt-filter-patient" placeholder="Filter by patient" />
         <input type="search" id="appt-filter-date" placeholder="Filter by date (YYYY-MM-DD)" />
         <input type="search" id="appt-filter-time" placeholder="Filter by time" />
@@ -2642,9 +2755,9 @@ async function renderAppointments() {
       bodyEl.innerHTML = list
         .map(
           (a) => `
-            <tr>
+            <tr class="${String(a.status || "").toLowerCase() === "cancelled" ? "row-cancelled" : ""}">
               <td>${doctorLookup.get(String(a.doctor?._id || a.doctor)) || a.doctor || ""}</td>
-              <td>${patientLookup.get(String(a.patient?._id || a.patient)) || a.patient || ""}</td>
+              <td>${a.patientId?.name || patientLookup.get(String(a.patient?._id || a.patient)) || "Unknown Patient"}${a.patientId?.title ? ` (${a.patientId.title})` : ""}</td>
               <td>${formatDateDisplay(a.date) || ""}</td>
               <td>${a.time || ""}</td>
               <td>${a.status || ""}</td>
@@ -2763,6 +2876,7 @@ async function showAppointmentForm(editId = null) {
     modal.style.display = "none";
   };
   const form = document.getElementById("appointment-form");
+  attachClearButtons(form);
   if (editId) {
     try {
       const res = await apiRequest(`${API_BASE}/appointments/${editId}`);
@@ -2914,6 +3028,7 @@ function showUserForm(editId = null) {
     modal.style.display = "none";
   };
   const form = document.getElementById("user-form");
+  attachClearButtons(form);
   enforcePhoneInputs(form);
   const specialtyWrap = form.querySelector("#user-specialty-wrap");
   const roleSelect = form.querySelector('select[name="role"]');

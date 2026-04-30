@@ -310,6 +310,7 @@ footer {
     display: inline-block;
     padding: 0.35rem 0.7rem;
     border-radius: 10px;
+    width: 100%;
 }
 .page-title-patients { background: #e9f7ff; color: #1c4f78; }
 .page-title-doctors { background: #f3edff; color: #4f3c84; }
@@ -516,6 +517,118 @@ textarea {
     background: #fff;
     border: 1px solid #dbe7ff;
     box-shadow: 0 20px 36px rgba(16, 42, 95, 0.24);
+}
+
+#patient-form-modal form h3,
+#doctor-form-modal form h3,
+#appointment-form-modal form h3,
+#user-form-modal form h3 {
+    margin: -1.3rem -1.3rem 1rem;
+    padding: 0.85rem 1.3rem;
+    border-bottom: 1px solid #dbe7ff;
+    background: #f2f6ff;
+    color: #21478e;
+    border-radius: 14px 14px 0 0;
+}
+
+.label-text-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.field-input-wrap {
+    position: relative;
+    display: block;
+}
+
+.field-input-wrap input,
+.field-input-wrap select,
+.field-input-wrap textarea {
+    padding-right: 2rem;
+}
+
+.field-clear-btn {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    border-radius: 999px;
+    width: 1.1rem;
+    height: 1.1rem;
+    line-height: 1;
+    padding: 0;
+    background: rgba(83, 95, 130, 0.18);
+    color: rgba(26, 37, 65, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: none;
+}
+
+.field-clear-btn.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.field-clear-btn:hover {
+    background: rgba(83, 95, 130, 0.25);
+    transform: translateY(-50%);
+}
+
+.info-tooltip-trigger {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.25rem;
+}
+
+.info-tooltip-icon {
+    width: 14px;
+    height: 14px;
+    opacity: 0.8;
+}
+
+.info-tooltip-bubble {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    transform: translateX(-50%);
+    min-width: 220px;
+    max-width: 280px;
+    padding: 0.45rem 0.55rem;
+    border-radius: 8px;
+    background: #1a243b;
+    border: 1px solid #3d4f77;
+    color: #f0f5ff;
+    font-size: 0.74rem;
+    line-height: 1.35;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.14s ease;
+    z-index: 4;
+}
+
+.info-tooltip-trigger:hover .info-tooltip-bubble,
+.info-tooltip-trigger:focus-within .info-tooltip-bubble {
+    opacity: 1;
+}
+
+.doctor-specialty-group {
+    margin-bottom: 1rem;
+}
+
+.doctor-specialty-heading {
+    margin-bottom: 0.5rem;
+    padding: 0.45rem 0.7rem;
+    border-radius: 10px;
+    background: #eef3ff;
+    color: #23488c;
+}
+
+.row-cancelled {
+    opacity: 0.65;
+    color: #6f7890;
 }
 
 .modal-form-actions {
@@ -985,6 +1098,41 @@ body.theme-dark textarea {
     background: #0e1a31;
     color: #dbe7ff;
     border-color: #2e456f;
+}
+body.theme-dark .list-filters input,
+body.theme-dark .list-filters select {
+    background: #fff;
+    color: #000;
+}
+body.theme-dark .list-filters input::placeholder {
+    color: #56607a;
+}
+body.theme-dark .card-header h3,
+body.theme-dark .message-preview,
+body.theme-dark .thread-item,
+body.theme-dark .status-row,
+body.theme-dark .inbox-live-row .live-status-text {
+    color: #000;
+}
+body.theme-dark .message-card,
+body.theme-dark .chat-bubble,
+body.theme-dark .thread-item.role-default,
+body.theme-dark .thread-item.email,
+body.theme-dark .thread-item.sms {
+    background: #f2f5ff;
+    color: #000;
+}
+body.theme-dark .nav-link:hover,
+body.theme-dark .nav-link.active {
+    color: #000;
+}
+body.theme-dark .field-clear-btn {
+    background: rgba(255, 255, 255, 0.35);
+    color: #000;
+}
+body.theme-dark .nav-link.nav-link-patient:hover,
+body.theme-dark .nav-link.nav-link-patient.active {
+    color: #000;
 }
 
 /* Patient booking (search + pick doctor) */

@@ -3,7 +3,8 @@ import mongoose from "mongoose";
 import Doctor from "../models/doctor.model.js";
 
 // Get all doctors
-export const findAllDoctors = async () => Doctor.find();
+export const findAllDoctors = async () =>
+  Doctor.find().sort({ specialty: 1, lastName: 1 });
 
 export const findDoctorByUserId = async (userId) => {
   if (!userId || !mongoose.Types.ObjectId.isValid(String(userId))) return null;

@@ -142,7 +142,6 @@ router.put(
   '/:id',
   hybridAuth,
   validateMongoIdParam,
-  validateDoctor,
   updateDoctor,
 );
 
