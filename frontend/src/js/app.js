@@ -6,6 +6,7 @@ const sidebarToggle = document.getElementById("sidebar-toggle");
 const sidebarUserTrigger = document.getElementById("sidebar-user-trigger");
 const sidebarUserPopover = document.getElementById("sidebar-user-popover");
 const sidebarLogoutBtn = document.getElementById("sidebar-logout-btn");
+const sidebarUserMenu = document.querySelector(".sidebar-user-menu");
 const commandPalette = document.getElementById("command-palette");
 const commandInput = document.getElementById("command-input");
 const commandResults = document.getElementById("command-results");
@@ -34,6 +35,14 @@ const googleAuthState = {
   buttonEl: null,
   inProgress: false,
 };
+
+function normalizeFetchErrorMessage(err, fallbackMessage) {
+  const message = String(err?.message || "");
+  if (message.toLowerCase().includes("failed to fetch") || err instanceof TypeError) {
+    return "Unable to reach the server right now. Please check your connection and try again.";
+  }
+  return message || fallbackMessage;
+}
 
 function clearGoogleAuthLoading(message, isError = false) {
   if (googleAuthState.timeoutId) {
@@ -1001,8 +1010,17 @@ function isLoggedIn() {
 
 function updateAuthNav() {
   const loginLink = document.getElementById("login-link");
+  const signedIn = isLoggedIn();
   if (!loginLink) return;
-  if (isLoggedIn()) {
+  navLinks.forEach((link) => {
+    const href = link.getAttribute("href");
+    const isPublicLink = href === "#home" || href === "#login" || href === "#signup";
+    link.style.display = !signedIn && !isPublicLink ? "none" : "";
+  });
+  if (sidebarUserMenu) {
+    sidebarUserMenu.style.display = signedIn ? "" : "none";
+  }
+  if (signedIn) {
     loginLink.textContent = "Logout";
     loginLink.onclick = (e) => {
       e.preventDefault();
@@ -1080,7 +1098,7 @@ function renderLogin() {
         throw new Error('No token received');
       }
     } catch (err) {
-      feedback.textContent = err.message;
+      feedback.textContent = normalizeFetchErrorMessage(err, "Login failed.");
       feedback.className = 'feedback error';
     }
   };
@@ -1143,7 +1161,7 @@ function renderSignup() {
         throw new Error('No token received');
       }
     } catch (err) {
-      feedback.textContent = err.message;
+      feedback.textContent = normalizeFetchErrorMessage(err, "Signup failed.");
       feedback.className = 'feedback error';
     }
   };
@@ -1185,7 +1203,11 @@ function googleLogin({ feedbackEl = null, buttonEl = null } = {}) {
   }, 45000);
   googleAuthState.pollId = setInterval(() => {
     if (googleAuthState.popup && googleAuthState.popup.closed) {
-      clearGoogleAuthLoading("Google login was closed before completion.", true);
+      setTimeout(() => {
+        if (googleAuthState.inProgress) {
+          clearGoogleAuthLoading("Google sign-in was closed before completion.", true);
+        }
+      }, 1000);
     }
   }, 500);
 }
