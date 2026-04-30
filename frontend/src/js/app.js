@@ -54,6 +54,25 @@ function clearGoogleAuthLoading(message, isError = false) {
   }
 }
 
+function consumeOauthErrorFromHash() {
+  const hash = window.location.hash || "";
+  const match = hash.match(/oauth=([a-z_]+)/i);
+  if (!match) return null;
+  if (hash.startsWith("#login?")) {
+    window.history.replaceState(null, "", "#login");
+  } else if (hash.startsWith("#signup?")) {
+    window.history.replaceState(null, "", "#signup");
+  }
+  const code = String(match[1] || "").toLowerCase();
+  const messages = {
+    missing_code: "Google login could not be completed. Please try again.",
+    failed: "Google login failed. Please try again.",
+    session_error: "Google login failed while creating your session. Please try again.",
+    callback_timeout: "Google login timed out. Please try again.",
+  };
+  return messages[code] || "Google login failed. Please try again.";
+}
+
 function resetMessagingSocket() {
   if (socket) {
     try {
@@ -312,16 +331,6 @@ function getCurrentUserRole() {
   const payload = decodeJwtPayload(token);
   const role = payload?.role;
   return role != null ? String(role).toLowerCase() : null;
-}
-
-function getCurrentUserDisplayName() {
-  const token = localStorage.getItem("token");
-  if (!token) return "you";
-  const payload = decodeJwtPayload(token);
-  const name = `${payload?.firstName || ""} ${payload?.lastName || ""}`.trim();
-  if (name) return name;
-  if (payload?.email) return String(payload.email);
-  return "you";
 }
 
 async function resolveDoctorIdForPatientMessaging() {
@@ -669,9 +678,9 @@ function renderHome() {
           dashboardState.websocketActive
             ? "Live connection active — inbox updates are on."
             : dashboardState.socketReconnecting
-              ? "Reconnecting — message list is hidden so you do not see stale content."
+              ? "Connecting... live updates can take up to 30 seconds to resume."
               : dashboardState.socketAwaitingFirstConnect
-                ? "Connecting to live updates…"
+                ? "Connecting... preparing live updates."
                 : "Offline — live updates unavailable."
         }</span>
       </div>
@@ -830,7 +839,7 @@ function renderSmsFeed(container) {
   if (dashboardState.socketReconnecting && !dashboardState.websocketActive) {
     container.innerHTML = `
       <div class="feedback sms-feed-loading">
-        Reconnecting to live updates — conversation details are hidden to avoid stale data.
+        Connecting... live updates are restoring (this can take up to 30 seconds).
       </div>`;
     return;
   }
@@ -886,7 +895,7 @@ function renderThreadDrawer(drawer) {
     <div class="thread-list">
       ${
         dashboardState.socketReconnecting && !dashboardState.websocketActive
-          ? `<div class="feedback">Reconnecting — messages will reload when the connection is restored.</div>`
+          ? `<div class="feedback">Connecting... messages reload automatically when live sync returns.</div>`
           : threadMessages.length
           ? threadMessages
               .map((msg) => {
@@ -922,19 +931,12 @@ function renderThreadDrawer(drawer) {
     </div>
     <div class="thread-drawer-reply">
       <p class="thread-reply-label">Reply in this conversation</p>
-      <div class="thread-quick-hints">
-        <p class="thread-quick-hint thread-quick-hint--sender" data-thread-hint-sender></p>
-        <p class="thread-quick-hint thread-quick-hint--recipient" data-thread-hint-recipient></p>
-      </div>
+      <p class="thread-quick-hint thread-quick-hint--recipient" data-thread-hint-recipient></p>
       <textarea id="thread-quick-reply" rows="3" placeholder="Type your message…" autocomplete="off"></textarea>
       <button type="button" class="btn btn-primary" id="thread-send-reply">Send message</button>
     </div>
   `;
-  const senderHintEl = drawer.querySelector("[data-thread-hint-sender]");
   const recipientHintEl = drawer.querySelector("[data-thread-hint-recipient]");
-  if (senderHintEl) {
-    senderHintEl.textContent = `Quick reply to ${getCurrentUserDisplayName()}`;
-  }
   if (recipientHintEl) {
     recipientHintEl.textContent = `Quick reply to ${otherName}`;
   }
@@ -1011,6 +1013,12 @@ function renderLogin() {
   const googleLoginBtn = document.getElementById('google-login-btn');
   const form = document.getElementById('login-form');
   const feedback = document.getElementById('login-feedback');
+  const oauthError = consumeOauthErrorFromHash();
+  if (oauthError) {
+    clearGoogleAuthLoading(oauthError, true);
+    feedback.textContent = oauthError;
+    feedback.className = "feedback error";
+  }
   googleLoginBtn.onclick = () =>
     googleLogin({ feedbackEl: feedback, buttonEl: googleLoginBtn });
   form.onsubmit = async e => {
@@ -1068,6 +1076,12 @@ function renderSignup() {
   const googleSignupBtn = document.getElementById('google-signup-btn');
   const form = document.getElementById('signup-form');
   const feedback = document.getElementById('signup-feedback');
+  const oauthError = consumeOauthErrorFromHash();
+  if (oauthError) {
+    clearGoogleAuthLoading(oauthError, true);
+    feedback.textContent = oauthError;
+    feedback.className = "feedback error";
+  }
   googleSignupBtn.onclick = () =>
     googleLogin({ feedbackEl: feedback, buttonEl: googleSignupBtn });
   form.onsubmit = async e => {
@@ -1144,14 +1158,18 @@ function googleLogin({ feedbackEl = null, buttonEl = null } = {}) {
 }
 
 function handleGoogleAuthMessage(event) {
-  if (!event.data || event.data.type !== 'GOOGLE_AUTH_SUCCESS') return;
-  if (event.data.token) {
+  if (!event.data) return;
+  if (event.data.type === 'GOOGLE_AUTH_SUCCESS' && event.data.token) {
     clearGoogleAuthLoading("Google sign-in successful.");
     resetMessagingSocket();
     localStorage.setItem('token', event.data.token);
     updateAuthNav();
     window.location.hash = '#home';
     renderHome();
+    return;
+  }
+  if (event.data.type === 'GOOGLE_AUTH_FAILURE') {
+    clearGoogleAuthLoading(event.data.message || "Google sign-in failed.", true);
   }
 }
 

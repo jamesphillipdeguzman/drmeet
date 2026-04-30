@@ -173,6 +173,13 @@ export const updateAppointment = async (req, res) => {
         if (!canEdit) {
             return res.status(403).json({ error: 'Forbidden.' });
         }
+        const role = authRole(req);
+        if (role === 'patient') {
+            // Patients can update schedule/status notes for their own appointment,
+            // but cannot reassign doctor/patient ownership.
+            delete updates.patient;
+            delete updates.doctor;
+        }
 
         const updatedAppointment = await updateAppointmentByIdService(id, updates);
         if (!updatedAppointment) {

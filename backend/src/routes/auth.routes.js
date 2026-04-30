@@ -48,6 +48,9 @@ router.get(
 router.get('/google/callback', (req, res, next) => {
   const clientOrigin =
     process.env.CLIENT_ORIGIN || 'https://drmeeet.netlify.app';
+  const GOOGLE_CALLBACK_TIMEOUT_MS = 10000;
+  const SESSION_SAVE_RETRIES = 2;
+  const SESSION_SAVE_RETRY_DELAY_MS = 350;
 
   if (!req.query || (!req.query.code && !req.query.error)) {
     return res.redirect(`${clientOrigin}/#login?oauth=missing_code`);
@@ -80,9 +83,9 @@ router.get('/google/callback', (req, res, next) => {
         if (responded) return;
         responded = true;
         return res.redirect(`${clientOrigin}/#login?oauth=callback_timeout`);
-      }, 10000);
+      }, GOOGLE_CALLBACK_TIMEOUT_MS);
 
-      req.session.save(() => {
+      const finishSuccess = () => {
         if (responded) return;
         responded = true;
         clearTimeout(callbackTimeout);
@@ -111,7 +114,33 @@ router.get('/google/callback', (req, res, next) => {
             </body>
           </html>
         `);
-      });
+      };
+
+      const finishFailure = (reason = 'session_error') => {
+        if (responded) return;
+        responded = true;
+        clearTimeout(callbackTimeout);
+        return res.redirect(`${clientOrigin}/#login?oauth=${reason}`);
+      };
+
+      const saveSessionWithRetry = (attempt = 0) => {
+        req.session.save((saveErr) => {
+          if (!saveErr) {
+            finishSuccess();
+            return;
+          }
+          if (attempt >= SESSION_SAVE_RETRIES) {
+            finishFailure('session_error');
+            return;
+          }
+          setTimeout(
+            () => saveSessionWithRetry(attempt + 1),
+            SESSION_SAVE_RETRY_DELAY_MS,
+          );
+        });
+      };
+
+      saveSessionWithRetry();
     });
   })(req, res, next);
 });

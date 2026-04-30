@@ -8,6 +8,9 @@ import {
     updateDoctorById as updateDoctorByIdService,
     deleteDoctorById as deleteDoctorByIdService,
 } from '../services/doctor.service.js';
+import User from '../models/user.model.js';
+import Patient from '../models/patient.model.js';
+import { findAppointmentsByPatient } from '../services/appointment.service.js';
 
 function authUserId(req) {
     const id = req.user?._id || req.user?.id;
@@ -23,8 +26,24 @@ async function getScopedDoctors(req) {
     const uid = authUserId(req);
 
     if (role === 'admin' || role === 'receptionist' || role === 'patient') {
-        // Read-only doctor discovery for patients.
-        return findAllDoctors();
+        // Read-only doctor discovery for patients/staff.
+        const doctors = await findAllDoctors();
+        if (doctors.length) return doctors;
+
+        // Fallback: some deployments have doctor users but missing doctor profile docs.
+        const users = await User.find({ role: 'doctor' }).lean();
+        return users.map((u) => ({
+            _id: u._id,
+            userId: u._id,
+            firstName: u.firstName || '',
+            lastName: u.lastName || '',
+            email: u.email || '',
+            phone: u.phone || '',
+            specialty: '',
+            affiliatedClinics: '',
+            availability: [],
+            availabilityText: '',
+        }));
     }
 
     if (role === 'doctor' && uid) {
@@ -41,7 +60,18 @@ async function doctorVisibleToRequester(req, doctorDoc) {
     const uid = authUserId(req);
     const did = String(doctorDoc._id);
 
-    if (role === 'admin' || role === 'receptionist' || role === 'patient') return true;
+    if (role === 'admin' || role === 'receptionist') return true;
+
+    if (role === 'patient' && uid) {
+        const patient = await Patient.findOne({ userId: uid }).lean();
+        if (!patient) return true;
+        const appointments = await findAppointmentsByPatient(String(patient._id));
+        const assignedDoctorIds = new Set(
+            appointments.map((a) => String(a.doctor)).filter(Boolean),
+        );
+        // Allow assigned doctors and discovery fallback docs (user-backed doctor cards).
+        return assignedDoctorIds.has(did) || String(doctorDoc.userId || '') === did;
+    }
 
     if (role === 'doctor' && uid) {
         const mine = await findDoctorByUserId(uid);
