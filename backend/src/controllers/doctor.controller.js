@@ -33,7 +33,7 @@ async function getScopedDoctors(req) {
     const role = authRole(req);
     const uid = authUserId(req);
 
-    if (role === 'admin' || role === 'receptionist' || role === 'patient') {
+    if (role === 'admin' || role === 'patient') {
         // Read-only doctor discovery for patients/staff.
         const doctors = await findAllDoctors();
         if (doctors.length) return doctors;
@@ -56,6 +56,21 @@ async function getScopedDoctors(req) {
             availabilityText: '',
         }));
     }
+    if (role === 'receptionist' && uid) {
+        const receptionist = await User.findById(uid)
+            .select('linkedDoctorId receptionistType')
+            .lean();
+        const type = String(receptionist?.receptionistType || '').toLowerCase();
+        const linkedDoctorId = receptionist?.linkedDoctorId
+            ? String(receptionist.linkedDoctorId)
+            : '';
+        if (type === 'small_clinic') {
+            if (!linkedDoctorId) return [];
+            const linkedDoctor = await findDoctorById(linkedDoctorId);
+            return linkedDoctor ? [linkedDoctor] : [];
+        }
+        return findAllDoctors();
+    }
 
     if (role === 'doctor' && uid) {
         const doc = await findDoctorByUserId(uid);
@@ -71,7 +86,19 @@ async function doctorVisibleToRequester(req, doctorDoc) {
     const uid = authUserId(req);
     const did = String(doctorDoc._id);
 
-    if (role === 'admin' || role === 'receptionist') return true;
+    if (role === 'admin') return true;
+
+    if (role === 'receptionist' && uid) {
+        const receptionist = await User.findById(uid)
+            .select('linkedDoctorId receptionistType')
+            .lean();
+        const type = String(receptionist?.receptionistType || '').toLowerCase();
+        if (type === 'small_clinic') {
+            return Boolean(receptionist?.linkedDoctorId)
+                && String(receptionist.linkedDoctorId) === did;
+        }
+        return true;
+    }
 
     if (role === 'patient' && uid) {
         const patient = await Patient.findOne({ userId: uid }).lean();

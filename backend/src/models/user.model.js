@@ -54,6 +54,12 @@ const userSchema = new mongoose.Schema(
       required: false,
       default: "",
     },
+    receptionistType: {
+      type: String,
+      enum: ["", "small_clinic", "hospital"],
+      default: "",
+      required: false,
+    },
     phone: {
       type: String,
       required: false,

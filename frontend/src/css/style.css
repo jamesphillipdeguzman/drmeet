@@ -99,18 +99,28 @@ body {
 }
 
 .sidebar-user-popover {
-    margin-top: 0.45rem;
+    margin-top: 0.2rem;
     padding: 0.45rem;
     border-radius: 10px;
     border: 1px solid #4f62aa;
     background: #1a2756;
+    width: 100%;
 }
 
 .sidebar-account-meta {
-    font-size: 0.82rem;
+    font-size: 0.9rem;
     color: #d4ddff;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.35rem;
     line-height: 1.4;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.sidebar-account-meta strong {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .icon-button {
@@ -858,6 +868,19 @@ textarea {
     font-size: 0.82rem;
     margin-bottom: 0.45rem;
 }
+.status-pill {
+    display: inline-block;
+    padding: 0.16rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: capitalize;
+    border: 1px solid transparent;
+}
+.status-pending { background: #fff8dd; color: #7b5b06; border-color: #f0d56b; }
+.status-confirmed { background: #e5f8ec; color: #0f6a44; border-color: #86d6b1; }
+.status-cancelled { background: #ffebee; color: #9f2d3f; border-color: #f0a8b6; }
+.status-completed { background: #e6f0ff; color: #1b4f9e; border-color: #9fbaf1; }
 .read-receipt {
     margin-left: auto;
     color: #9ca8c3;
@@ -1140,6 +1163,15 @@ body.theme-dark .thread-item.email,
 body.theme-dark .thread-item.sms {
     background: #f2f5ff;
     color: #000;
+}
+body.theme-dark .board-card,
+body.theme-dark .sms-card {
+    background: #f7fbff;
+    color: #0f172a;
+}
+body.theme-dark #message-board-list,
+body.theme-dark #sms-feed-list {
+    color: #0f172a;
 }
 body.theme-dark .nav-link:hover,
 body.theme-dark .nav-link.active {

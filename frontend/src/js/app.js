@@ -237,26 +237,13 @@ function setupShellInteractions() {
   sidebarToggle.addEventListener("click", () => {
     sidebar.classList.toggle("collapsed");
   });
-  sidebarUserTrigger?.addEventListener("click", (event) => {
-    event.stopPropagation();
-    sidebarUserPopover?.classList.toggle("hidden");
-  });
-  document.addEventListener("click", (event) => {
-    if (!sidebarUserPopover || !sidebarUserTrigger) return;
-    if (
-      !sidebarUserPopover.classList.contains("hidden") &&
-      !sidebarUserPopover.contains(event.target) &&
-      !sidebarUserTrigger.contains(event.target)
-    ) {
-      sidebarUserPopover.classList.add("hidden");
-    }
-  });
+  sidebarUserTrigger?.addEventListener("click", () => {});
   sidebarLogoutBtn?.addEventListener("click", () => {
     localStorage.removeItem("token");
     localStorage.removeItem(USER_CACHE_KEY);
     resetMessagingSocket();
     updateAuthNav();
-    if (sidebarUserPopover) sidebarUserPopover.classList.add("hidden");
+    if (sidebarUserPopover) sidebarUserPopover.classList.remove("hidden");
     window.location.hash = "#login";
     renderLogin();
   });
@@ -487,9 +474,68 @@ function cacheCurrentUserProfile() {
       lastName: payload?.lastName || "",
       role: payload?.role || "",
       linkedDoctorId: payload?.linkedDoctorId || "",
+      receptionistType: payload?.receptionistType || "",
       cachedAt: Date.now(),
     }),
   );
+}
+
+function getCurrentReceptionistType() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
+    return String(cached?.receptionistType || "").toLowerCase();
+  } catch (error) {
+    return "";
+  }
+}
+
+async function refreshCurrentUserCacheFromApi() {
+  const id = getCurrentUserId();
+  if (!id) return;
+  try {
+    const res = await apiRequest(`${API_BASE}/users/${id}`);
+    if (!res.ok) return;
+    const user = await res.json();
+    localStorage.setItem(
+      USER_CACHE_KEY,
+      JSON.stringify({
+        _id: user?._id || id,
+        firstName: user?.firstName || "",
+        lastName: user?.lastName || "",
+        role: user?.role || "",
+        linkedDoctorId: user?.linkedDoctorId || "",
+        receptionistType: user?.receptionistType || "",
+        cachedAt: Date.now(),
+      }),
+    );
+  } catch (error) {
+    // non-blocking
+  }
+}
+
+function rowsToCsv(rows = []) {
+  if (!Array.isArray(rows) || !rows.length) return "";
+  const headers = Object.keys(rows[0]);
+  const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const body = rows
+    .map((row) => headers.map((h) => escape(row[h])).join(","))
+    .join("\n");
+  return `${headers.join(",")}\n${body}`;
+}
+
+function downloadCsv(filename, rows = []) {
+  const csv = rowsToCsv(rows);
+  if (!csv) {
+    showToast("No rows to export.", "error");
+    return;
+  }
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function applyTheme(theme) {
@@ -535,7 +581,7 @@ function updateSidebarAccountInfo() {
   if (sidebarAvatarName) sidebarAvatarName.textContent = signedIn ? roleLabel : "My Account";
   if (sidebarAccountMeta) {
     sidebarAccountMeta.innerHTML = signedIn
-      ? `<strong>${fullName || "User"}</strong><br>${dateText}<br>${timeText}`
+      ? `<strong>${fullName || "User"}</strong>`
       : "Not signed in";
   }
 }
@@ -561,17 +607,12 @@ async function resolveDoctorIdForPatientMessaging() {
 }
 
 async function resolvePatientMessageRecipient(patient) {
-  if (patient?.userId) return String(patient.userId);
-  const email = String(patient?.email || "").trim().toLowerCase();
-  if (!email) return null;
+  if (!patient?._id) return null;
   try {
-    const usersRes = await apiRequest(`${API_BASE}/users`);
-    if (!usersRes.ok) return null;
-    const users = await usersRes.json();
-    const match = Array.isArray(users)
-      ? users.find((u) => String(u.email || "").trim().toLowerCase() === email)
-      : null;
-    return match?._id ? String(match._id) : null;
+    const res = await apiRequest(`${API_BASE}/patients/${patient._id}/messaging-recipient`);
+    if (!res.ok) return null;
+    const payload = await res.json();
+    return payload?.recipientUserId ? String(payload.recipientUserId) : null;
   } catch (error) {
     return null;
   }
@@ -1136,6 +1177,41 @@ function renderHome() {
         : ""
     }
   `;
+  if (signedIn && getCurrentUserRole() === "admin") {
+    const host = document.createElement("section");
+    host.className = "card";
+    host.innerHTML = `
+      <div class="card-header">
+        <h3>System Diagnostics</h3>
+        <button type="button" class="btn btn-secondary btn-sm" id="export-diagnostics-csv">Export CSV</button>
+      </div>
+      <div id="diagnostics-status" class="feedback">Loading diagnostics...</div>
+    `;
+    mainContent.appendChild(host);
+    apiRequest(`${API_BASE}/system/diagnostics`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await getApiErrorMessage(res, "Diagnostics unavailable"));
+        return res.json();
+      })
+      .then((payload) => {
+        const checks = Array.isArray(payload?.checks) ? payload.checks : [];
+        const container = document.getElementById("diagnostics-status");
+        if (!container) return;
+        container.className = "feedback";
+        container.innerHTML = checks
+          .map((c) => `<div class="status-row"><span class="status-pill status-${c.status}">${c.status}</span><strong>${escapeHtml(c.label || c.key)}</strong><span>${escapeHtml(c.details || "")}</span></div>`)
+          .join("");
+        document.getElementById("export-diagnostics-csv")?.addEventListener("click", () => {
+          downloadCsv(`diagnostics-${Date.now()}.csv`, checks);
+        });
+      })
+      .catch((err) => {
+        const container = document.getElementById("diagnostics-status");
+        if (!container) return;
+        container.className = "feedback error";
+        container.textContent = err.message || "Unable to load diagnostics.";
+      });
+  }
   document.getElementById("role-select-doctor")?.addEventListener("click", () => {
     if (!isLoggedIn()) {
       window.location.hash = "#signup?role=doctor";
@@ -1502,6 +1578,12 @@ function updateAuthNav() {
   if (sidebarUserMenu) {
     sidebarUserMenu.style.display = signedIn ? "" : "none";
   }
+  if (sidebarUserPopover) {
+    sidebarUserPopover.classList.remove("hidden");
+  }
+  if (sidebarUserTrigger) {
+    sidebarUserTrigger.style.display = signedIn ? "none" : "";
+  }
   updateSidebarAccountInfo();
   if (sidebarClockIntervalId) {
     clearInterval(sidebarClockIntervalId);
@@ -1509,6 +1591,7 @@ function updateAuthNav() {
   }
   if (signedIn) {
     cacheCurrentUserProfile();
+    refreshCurrentUserCacheFromApi();
     sidebarClockIntervalId = setInterval(updateSidebarAccountInfo, 1000);
   }
   if (signedIn) {
@@ -2044,12 +2127,14 @@ async function renderPatients() {
         canReceptionistSendDocs = false;
       }
     }
+    const isAdminUser = role === "admin";
     mainContent.innerHTML = `
       <h2 class="page-title page-title-patients">Patients</h2>
       <div>
         <button class="cta-primary" onclick="window.showPatientForm()">Add Patient</button>
         ${isPatient ? '<button class="cta-primary" onclick="window.showFamilyMemberForm()">Register Family Member</button>' : ""}
         ${isPatient ? '<button class="cta-primary" onclick="window.sendMyDocumentToClinic()">Send Document to Clinic</button>' : ""}
+        ${isAdminUser ? '<button class="cta-primary btn-secondary" id="export-patients-csv">Export CSV</button>' : ""}
       </div>
       ${isPatient && patients.length ? `
       <div class="list-filters">
@@ -2126,6 +2211,17 @@ async function renderPatients() {
       renderRows(picked);
     });
     renderRows(patients);
+    document.getElementById("export-patients-csv")?.addEventListener("click", () => {
+      downloadCsv(
+        `patients-${Date.now()}.csv`,
+        patients.map((p) => ({
+          name: `${p.firstName || ""} ${p.lastName || ""}`.trim(),
+          email: p.email || "",
+          phone: p.phone || "",
+          dob: formatDateForInput(p.birthdate),
+        }))
+      );
+    });
     window.showPatientForm = showPatientForm;
     window.showFamilyMemberForm = () => showPatientForm(null, true);
     window.editPatient = editPatient;
@@ -2387,6 +2483,9 @@ async function renderDoctors() {
     const role = getCurrentUserRole();
     const isAdmin = role === "admin";
     const isDoctor = role === "doctor";
+    const isReceptionist = role === "receptionist";
+    const receptionistType = getCurrentReceptionistType();
+    const hideDoctorFilters = isDoctor || (isReceptionist && receptionistType === "small_clinic");
     const currentUserId = getCurrentUserId();
     const doctors = isDoctor
       ? allDoctors.filter((d) => String(d.userId || "") === String(currentUserId || ""))
@@ -2394,6 +2493,7 @@ async function renderDoctors() {
     mainContent.innerHTML = `
       <h2 class="page-title page-title-doctors">Doctors</h2>
       ${isAdmin ? '<button class="cta-primary" onclick="window.showDoctorForm()">Add Doctor</button>' : ""}
+      ${isAdmin ? '<button class="cta-primary btn-secondary" id="export-doctors-csv">Export CSV</button>' : ""}
       ${
         isDoctor
           ? `<section class="card" style="margin: 1rem 0;">
@@ -2414,7 +2514,7 @@ async function renderDoctors() {
           : ""
       }
       <hr class="section-divider" />
-      ${isDoctor ? "" : `<div class="list-filters">
+      ${hideDoctorFilters ? "" : `<div class="list-filters">
         <input type="search" id="doctor-filter-name" placeholder="Filter by name" />
         <input type="search" id="doctor-filter-email" placeholder="Filter by email" />
         <input type="search" id="doctor-filter-specialty" placeholder="Filter by specialty" />
@@ -2504,12 +2604,24 @@ async function renderDoctors() {
       });
       renderRows(filtered);
     };
-    if (!isDoctor) {
+    if (!hideDoctorFilters) {
       ["doctor-filter-name", "doctor-filter-email", "doctor-filter-specialty", "doctor-filter-availability", "doctor-filter-phone", "doctor-filter-receptionist", "doctor-filter-clinic"].forEach((id) => {
         document.getElementById(id)?.addEventListener("input", applyDoctorFilters);
       });
     }
     renderRows(doctors);
+    document.getElementById("export-doctors-csv")?.addEventListener("click", () => {
+      downloadCsv(
+        `doctors-${Date.now()}.csv`,
+        doctors.map((d) => ({
+          name: `${d.firstName || ""} ${d.lastName || ""}`.trim(),
+          email: d.email || "",
+          specialty: d.specialty || "",
+          clinic: d.affiliatedClinics || "",
+          receptionist: d.receptionistName || "",
+        }))
+      );
+    });
     window.showDoctorForm = showDoctorForm;
     window.editDoctor = editDoctor;
     window.deleteDoctor = deleteDoctor;
@@ -2749,6 +2861,7 @@ async function renderAppointments() {
     mainContent.innerHTML = `
       <h2 class="page-title page-title-appointments">Appointments</h2>
       <button class="cta-primary" onclick="window.showAppointmentForm()">Add Appointment</button>
+      ${getCurrentUserRole() === "admin" ? '<button class="cta-primary btn-secondary" id="export-appointments-csv">Export CSV</button>' : ""}
       <hr class="section-divider" />
       <div class="list-filters">
         ${getCurrentUserRole() === "receptionist" ? "" : '<input type="search" id="appt-filter-doctor" placeholder="Filter by doctor" />'}
@@ -2773,7 +2886,7 @@ async function renderAppointments() {
               <td>${a.patientId?.name || patientLookup.get(String(a.patient?._id || a.patient)) || "Unknown Patient"}${a.patientId?.title ? ` (${a.patientId.title})` : ""}</td>
               <td>${formatDateDisplay(a.date) || ""}</td>
               <td>${a.time || ""}</td>
-              <td>${a.status || ""}</td>
+              <td><span class="status-pill status-${String(a.status || "pending").toLowerCase()}">${a.status || ""}</span></td>
               <td>
                 <button class="btn btn-secondary btn-action-edit" onclick="window.editAppointment('${a._id
             }')">Edit</button>
@@ -2811,6 +2924,18 @@ async function renderAppointments() {
       document.getElementById(id)?.addEventListener("input", applyAppointmentFilters);
     });
     renderRows(appointments);
+    document.getElementById("export-appointments-csv")?.addEventListener("click", () => {
+      downloadCsv(
+        `appointments-${Date.now()}.csv`,
+        appointments.map((a) => ({
+          doctor: doctorLookup.get(String(a.doctor?._id || a.doctor)) || a.doctor || "",
+          patient: a.patientId?.name || patientLookup.get(String(a.patient?._id || a.patient)) || "Unknown Patient",
+          date: formatDateForInput(a.date),
+          time: a.time || "",
+          status: a.status || "",
+        }))
+      );
+    });
     window.showAppointmentForm = showAppointmentForm;
     window.editAppointment = editAppointment;
     window.deleteAppointment = deleteAppointment;
@@ -2965,7 +3090,7 @@ async function renderUsers() {
       <button class="cta-primary" onclick="window.showUserForm()">Add User</button>
       <hr class="section-divider" />
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Specialty</th><th>Phone</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Receptionist Type</th><th>Specialty</th><th>Phone</th><th>Actions</th></tr></thead>
         <tbody>
           ${users
         .map(
@@ -2974,6 +3099,7 @@ async function renderUsers() {
               <td>${u.title ? `${u.title} ` : ""}${u.firstName} ${u.lastName}</td>
               <td>${u.email || ""}</td>
               <td>${u.role || ""}</td>
+              <td>${u.receptionistType === "small_clinic" ? "Small Clinic" : u.receptionistType === "hospital" ? "Hospital" : "—"}</td>
               <td>${u.specialty || "—"}</td>
               <td>${u.phone || ""}</td>
               <td>
@@ -3023,6 +3149,13 @@ function showUserForm(editId = null) {
           <option value="admin">Admin</option>
         </select>
       </label>
+      <label id="user-receptionist-type-wrap">Receptionist Type
+        <select name="receptionistType">
+          <option value="">Select type</option>
+          <option value="small_clinic">Small Clinic</option>
+          <option value="hospital">Hospital</option>
+        </select>
+      </label>
       <label id="user-specialty-wrap">Specialty <input name="specialty" list="doctor-specialties-user" placeholder="Used when role is doctor" /></label>
       <datalist id="doctor-specialties-user">
         ${[...new Set(DOCTOR_SPECIALTIES)].map((s) => `<option value="${s}"></option>`).join("")}
@@ -3045,10 +3178,13 @@ function showUserForm(editId = null) {
   attachClearButtons(form);
   enforcePhoneInputs(form);
   const specialtyWrap = form.querySelector("#user-specialty-wrap");
+  const receptionistTypeWrap = form.querySelector("#user-receptionist-type-wrap");
   const roleSelect = form.querySelector('select[name="role"]');
   const syncSpecialtyVisibility = () => {
     const isDoctorRole = String(roleSelect?.value || "").toLowerCase() === "doctor";
+    const isReceptionistRole = String(roleSelect?.value || "").toLowerCase() === "receptionist";
     specialtyWrap.style.display = isDoctorRole ? "" : "none";
+    receptionistTypeWrap.style.display = isReceptionistRole ? "" : "none";
   };
   roleSelect?.addEventListener("change", syncSpecialtyVisibility);
   if (editId) {
@@ -3060,6 +3196,7 @@ function showUserForm(editId = null) {
         form.email.value = data.email || "";
         form.title.value = data.title || "";
         form.role.value = data.role || "patient";
+        form.receptionistType.value = data.receptionistType || "";
         form.specialty.value = data.specialty || "";
         form.phone.value = data.phone || "";
         form.address.value = data.address || "";

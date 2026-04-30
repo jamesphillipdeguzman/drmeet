@@ -9,6 +9,7 @@ import {
   deletePatient,
   searchPatients,
   attachExistingPatientToCareTeam,
+  getPatientMessagingRecipient,
 } from '../controllers/patient.controller.js';
 import {
   validatePatient,
@@ -189,5 +190,6 @@ router.put(
  */
 router.delete('/:id', hybridAuth, validateMongoIdParam, deletePatient);
 router.post('/:id/attach', hybridAuth, validateMongoIdParam, attachExistingPatientToCareTeam);
+router.get('/:id/messaging-recipient', hybridAuth, validateMongoIdParam, getPatientMessagingRecipient);
 
 export default router;

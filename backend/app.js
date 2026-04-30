@@ -11,6 +11,7 @@ import userRoutes from './src/routes/user.routes.js';
 import messageRoutes from './src/routes/message.routes.js';
 import prescriptionRoutes from './src/routes/prescription.routes.js';
 import medicalHistoryRoutes from './src/routes/medicalHistory.routes.js';
+import systemRoutes from './src/routes/system.routes.js';
 
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './src/docs/swagger.js';
@@ -54,8 +55,8 @@ app.use(
 // ========================
 // BODY PARSERS
 // ========================
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // ========================
 // SESSION
@@ -137,6 +138,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/medical-history', medicalHistoryRoutes);
+app.use('/api/system', systemRoutes);
 
 // ========================
 export { app };

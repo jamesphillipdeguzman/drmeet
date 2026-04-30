@@ -494,3 +494,31 @@ export const attachExistingPatientToCareTeam = async (req, res) => {
     return res.status(500).json({ error: 'Failed to attach existing patient.' });
   }
 };
+
+export const getPatientMessagingRecipient = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid patient ID format.' });
+    }
+    const patient = await findPatientById(id);
+    if (!patient) return res.status(404).json({ error: 'Patient not found.' });
+    const allowed = await patientVisibleToRequester(req, patient);
+    if (!allowed) return res.status(403).json({ error: 'Forbidden.' });
+
+    if (patient.userId) {
+      return res.status(200).json({ recipientUserId: String(patient.userId) });
+    }
+    const email = String(patient.email || '').trim().toLowerCase();
+    if (!email) {
+      return res.status(404).json({ error: 'No linked account or patient email found.' });
+    }
+    const user = await User.findOne({ email }).select('_id').lean();
+    if (!user?._id) {
+      return res.status(404).json({ error: 'No user account found for this patient email.' });
+    }
+    return res.status(200).json({ recipientUserId: String(user._id) });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to resolve patient messaging recipient.' });
+  }
+};
