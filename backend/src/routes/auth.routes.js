@@ -116,14 +116,18 @@ router.get('/google/callback', (req, res, next) => {
           <html>
             <body>
               <script>
+                const tokenValue = ${JSON.stringify(token)};
+                const clientOriginValue = ${JSON.stringify(clientOrigin)};
                 if (window.opener) {
-                  window.opener.postMessage(
-                    { type: 'GOOGLE_AUTH_SUCCESS', token: ${JSON.stringify(token)} },
-                    ${JSON.stringify(clientOrigin)}
-                  );
+                  try {
+                    window.opener.postMessage(
+                      { type: 'GOOGLE_AUTH_SUCCESS', token: tokenValue },
+                      '*'
+                    );
+                  } catch (e) {}
                   window.close();
                 } else {
-                  window.location.href = ${JSON.stringify(clientOrigin)};
+                  window.location.href = clientOriginValue + '/#login?oauth=success&token=' + encodeURIComponent(tokenValue);
                 }
               </script>
             </body>

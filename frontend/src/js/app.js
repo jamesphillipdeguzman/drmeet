@@ -90,6 +90,17 @@ function consumeOauthErrorFromHash() {
   return messages[code] || "Google login failed. Please try again.";
 }
 
+function consumeOauthSuccessTokenFromHash() {
+  const hash = window.location.hash || "";
+  const tokenMatch = hash.match(/(?:^|[?&])token=([^&]+)/i);
+  if (!tokenMatch) return null;
+  const token = decodeURIComponent(tokenMatch[1] || "");
+  if (!token) return null;
+  const route = hash.startsWith("#signup?") ? "#signup" : "#login";
+  window.history.replaceState(null, "", route);
+  return token;
+}
+
 function getHashRoute() {
   const hash = window.location.hash || "#home";
   return hash.split("?")[0] || "#home";
@@ -1114,6 +1125,16 @@ function renderLogin() {
   const googleLoginBtn = document.getElementById('google-login-btn');
   const form = document.getElementById('login-form');
   const feedback = document.getElementById('login-feedback');
+  const oauthSuccessToken = consumeOauthSuccessTokenFromHash();
+  if (oauthSuccessToken) {
+    clearGoogleAuthLoading("Google sign-in successful.");
+    resetMessagingSocket();
+    localStorage.setItem('token', oauthSuccessToken);
+    updateAuthNav();
+    window.location.hash = '#home';
+    renderHome();
+    return;
+  }
   const oauthError = consumeOauthErrorFromHash();
   if (oauthError) {
     clearGoogleAuthLoading(oauthError, true);
@@ -1186,6 +1207,16 @@ function renderSignup() {
   const googleSignupBtn = document.getElementById('google-signup-btn');
   const form = document.getElementById('signup-form');
   const feedback = document.getElementById('signup-feedback');
+  const oauthSuccessToken = consumeOauthSuccessTokenFromHash();
+  if (oauthSuccessToken) {
+    clearGoogleAuthLoading("Google sign-in successful.");
+    resetMessagingSocket();
+    localStorage.setItem('token', oauthSuccessToken);
+    updateAuthNav();
+    window.location.hash = '#home';
+    renderHome();
+    return;
+  }
   const oauthError = consumeOauthErrorFromHash();
   if (oauthError) {
     clearGoogleAuthLoading(oauthError, true);
