@@ -64,6 +64,18 @@ const doctorSchema = new mongoose.Schema(
       required: true,
     },
     phone: { type: String },
+    receptionistName: {
+      type: String,
+      default: "",
+    },
+    receptionistEmail: {
+      type: String,
+      default: "",
+    },
+    receptionistPhone: {
+      type: String,
+      default: "",
+    },
     address: {
       type: String,
       default: "",

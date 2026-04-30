@@ -13,6 +13,10 @@ export const validateDoctor = [
     body('specialty')
         .notEmpty()
         .withMessage('specialty is required.'),
+    body('receptionistEmail')
+        .optional({ checkFalsy: true })
+        .isEmail()
+        .withMessage('Receptionist email must be valid.'),
     (req, res, next) => {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {

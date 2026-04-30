@@ -1287,6 +1287,15 @@ async function renderPatientBooking() {
         const clinic = d.affiliatedClinics
           ? `<p class="doctor-pick-clinic">${d.affiliatedClinics}</p>`
           : "";
+        const receptionistName = d.receptionistName
+          ? `<p class="doctor-pick-reception">Receptionist: ${d.receptionistName}</p>`
+          : "";
+        const receptionistPhone = d.receptionistPhone
+          ? `<p class="doctor-pick-reception">Contact: ${d.receptionistPhone}</p>`
+          : "";
+        const receptionistEmail = d.receptionistEmail
+          ? `<p class="doctor-pick-reception">Email: ${d.receptionistEmail}</p>`
+          : "";
         const avail = buildDoctorAvailabilityLabel(d);
         return `
           <article class="doctor-pick-card">
@@ -1294,6 +1303,9 @@ async function renderPatientBooking() {
             <p class="doctor-pick-specialty">${spec}</p>
             ${dept}
             ${clinic}
+            ${receptionistName}
+            ${receptionistPhone}
+            ${receptionistEmail}
             <p class="doctor-pick-avail">${avail}</p>
             <button type="button" class="btn btn-primary btn-sm doctor-pick-book" data-book-doctor="${d._id}">Book with this doctor</button>
           </article>`;
@@ -1391,13 +1403,11 @@ async function renderPatients() {
     const res = await apiRequest(`${API_BASE}/patients`);
     if (!res.ok) throw new Error("Failed to fetch patients");
     const patients = await res.json();
-    const role = getCurrentUserRole();
-    const actionHeader = role === "patient" ? "Action" : "Actions";
     mainContent.innerHTML = `
       <h2>Patients</h2>
       <button onclick="window.showPatientForm()">Add Patient</button>
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>${actionHeader}</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Actions</th></tr></thead>
         <tbody>
           ${patients
         .map(
@@ -1408,12 +1418,8 @@ async function renderPatients() {
               <td>${p.phone || ""}</td>
               <td>${formatDateDisplay(p.birthdate) || ""}</td>
               <td>
-                ${
-                  role === "patient"
-                    ? `<button class="btn btn-primary btn-action-edit" onclick="window.bookAppointmentFromPatientProfile()">Book an Appointment</button>`
-                    : `<button class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
-                <button class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>`
-                }
+                <button class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
+                <button class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>
               </td>
             </tr>
           `
@@ -1426,10 +1432,6 @@ async function renderPatients() {
     window.showPatientForm = showPatientForm;
     window.editPatient = editPatient;
     window.deletePatient = deletePatient;
-    window.bookAppointmentFromPatientProfile = () => {
-      window.location.hash = "#book";
-      renderPatientBooking();
-    };
   } catch (err) {
     mainContent.innerHTML = `<h2>Patients</h2><div class="feedback error">${err.message}</div>`;
   }
@@ -1528,11 +1530,13 @@ async function renderDoctors() {
     const res = await apiRequest(`${API_BASE}/doctors`);
     if (!res.ok) throw new Error("Failed to fetch doctors");
     const doctors = await res.json();
+    const role = getCurrentUserRole();
+    const isAdmin = role === "admin";
     mainContent.innerHTML = `
       <h2>Doctors</h2>
-      <button onclick="window.showDoctorForm()">Add Doctor</button>
+      ${isAdmin ? '<button onclick="window.showDoctorForm()">Add Doctor</button>' : ""}
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Specialty</th><th>Availability</th><th>Phone</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Specialty</th><th>Availability</th><th>Phone</th><th>Receptionist</th><th>Actions</th></tr></thead>
         <tbody>
           ${doctors
         .map(
@@ -1544,9 +1548,17 @@ async function renderDoctors() {
               <td>${buildDoctorAvailabilityLabel(d)}</td>
               <td>${d.phone || ""}</td>
               <td>
-                <button class="btn btn-secondary btn-action-edit" onclick="window.editDoctor('${d._id}')">Edit</button>
-                <button class="btn btn-action-delete" onclick="window.deleteDoctor('${d._id
-            }')">Delete</button>
+                <div>${d.receptionistName || "—"}</div>
+                <div>${d.receptionistPhone || ""}</div>
+                <div>${d.receptionistEmail || ""}</div>
+              </td>
+              <td>
+                ${
+                  isAdmin
+                    ? `<button class="btn btn-secondary btn-action-edit" onclick="window.editDoctor('${d._id}')">Edit</button>
+                <button class="btn btn-action-delete" onclick="window.deleteDoctor('${d._id}')">Delete</button>`
+                    : `<button class="btn btn-primary btn-action-edit" onclick="window.bookDoctorFromDoctorsTab()">Book an Appointment</button>`
+                }
               </td>
             </tr>
           `
@@ -1559,6 +1571,10 @@ async function renderDoctors() {
     window.showDoctorForm = showDoctorForm;
     window.editDoctor = editDoctor;
     window.deleteDoctor = deleteDoctor;
+    window.bookDoctorFromDoctorsTab = () => {
+      window.location.hash = "#book";
+      renderPatientBooking();
+    };
   } catch (err) {
     mainContent.innerHTML = `<h2>Doctors</h2><div class="feedback error">${err.message}</div>`;
   }
@@ -1581,6 +1597,9 @@ function showDoctorForm(editId = null) {
       <label>Room <input name="room" placeholder="e.g. Room 204" /></label>
       <label>Affiliated Hospitals / Clinics <input name="affiliatedClinics" placeholder="Clinic A, Hospital B" /></label>
       <label>Phone <input name="phone" /></label>
+      <label>Receptionist Name <input name="receptionistName" placeholder="Front desk contact name" /></label>
+      <label>Receptionist Phone <input name="receptionistPhone" placeholder="Reception contact number" /></label>
+      <label>Receptionist Email <input name="receptionistEmail" type="email" placeholder="reception@clinic.com" /></label>
       <label>Address <input name="address" /></label>
       <div class="modal-form-actions">
         <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
@@ -1619,6 +1638,9 @@ function showDoctorForm(editId = null) {
         form.affiliatedClinics.value =
           data.affiliatedClinics || "";
         form.phone.value = data.phone || "";
+        form.receptionistName.value = data.receptionistName || "";
+        form.receptionistPhone.value = data.receptionistPhone || "";
+        form.receptionistEmail.value = data.receptionistEmail || "";
         form.address.value = data.address || "";
       });
   }

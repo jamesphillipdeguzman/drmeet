@@ -761,6 +761,11 @@ textarea {
     color: var(--slate);
     margin: 0;
 }
+.doctor-pick-reception {
+    font-size: 0.84rem;
+    color: #2f4f8f;
+    margin: 0.1rem 0;
+}
 .doctor-pick-avail {
     font-size: 0.82rem;
     color: #5568a0;

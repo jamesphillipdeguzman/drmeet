@@ -21,6 +21,10 @@ function authRole(req) {
     return String(req.user?.role || '').toLowerCase();
 }
 
+function isAdmin(req) {
+    return authRole(req) === 'admin';
+}
+
 async function getScopedDoctors(req) {
     const role = authRole(req);
     const uid = authUserId(req);
@@ -39,6 +43,9 @@ async function getScopedDoctors(req) {
             lastName: u.lastName || '',
             email: u.email || '',
             phone: u.phone || '',
+            receptionistName: '',
+            receptionistEmail: '',
+            receptionistPhone: '',
             specialty: '',
             affiliatedClinics: '',
             availability: [],
@@ -153,6 +160,9 @@ export const getDoctorById = async (req, res) => {
  * @desc Create a new doctor
  */
 export const postDoctor = async (req, res) => {
+    if (!isAdmin(req)) {
+        return res.status(403).json({ error: 'Only admins can create doctors.' });
+    }
     try {
         const body = req.body;
 
@@ -213,6 +223,9 @@ export const postDoctor = async (req, res) => {
  * @desc Update a doctor by ID
  */
 export const updateDoctor = async (req, res) => {
+    if (!isAdmin(req)) {
+        return res.status(403).json({ error: 'Only admins can update doctors.' });
+    }
     const { id } = req.params;
     const updates = {
         ...req.body,
@@ -243,6 +256,9 @@ export const updateDoctor = async (req, res) => {
  * @desc Delete a doctor by ID
  */
 export const deleteDoctor = async (req, res) => {
+    if (!isAdmin(req)) {
+        return res.status(403).json({ error: 'Only admins can delete doctors.' });
+    }
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid doctor ID format.' });
