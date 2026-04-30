@@ -1391,11 +1391,13 @@ async function renderPatients() {
     const res = await apiRequest(`${API_BASE}/patients`);
     if (!res.ok) throw new Error("Failed to fetch patients");
     const patients = await res.json();
+    const role = getCurrentUserRole();
+    const actionHeader = role === "patient" ? "Action" : "Actions";
     mainContent.innerHTML = `
       <h2>Patients</h2>
       <button onclick="window.showPatientForm()">Add Patient</button>
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>${actionHeader}</th></tr></thead>
         <tbody>
           ${patients
         .map(
@@ -1406,9 +1408,12 @@ async function renderPatients() {
               <td>${p.phone || ""}</td>
               <td>${formatDateDisplay(p.birthdate) || ""}</td>
               <td>
-                <button class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
-                <button class="btn btn-action-delete" onclick="window.deletePatient('${p._id
-            }')">Delete</button>
+                ${
+                  role === "patient"
+                    ? `<button class="btn btn-primary btn-action-edit" onclick="window.bookAppointmentFromPatientProfile()">Book an Appointment</button>`
+                    : `<button class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
+                <button class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>`
+                }
               </td>
             </tr>
           `
@@ -1421,6 +1426,10 @@ async function renderPatients() {
     window.showPatientForm = showPatientForm;
     window.editPatient = editPatient;
     window.deletePatient = deletePatient;
+    window.bookAppointmentFromPatientProfile = () => {
+      window.location.hash = "#book";
+      renderPatientBooking();
+    };
   } catch (err) {
     mainContent.innerHTML = `<h2>Patients</h2><div class="feedback error">${err.message}</div>`;
   }
@@ -1447,14 +1456,17 @@ function showPatientForm(editId = null) {
       </label>
       <label>Address <input name="address" /></label>
       <label>Notes <textarea name="notes" placeholder="Medical notes or reminders"></textarea></label>
-      <div style="margin-top:1rem;">
-        <button type="submit">${editId ? "Update" : "Add"}</button>
-        <button type="button" onclick="window.closePatientForm()">Cancel</button>
+      <div class="modal-form-actions">
+        <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
+        <button type="button" class="btn btn-action-delete" onclick="window.closePatientForm()">Cancel</button>
       </div>
     </form>
   `;
   window.closePatientForm = () => {
     modal.style.display = "none";
+  };
+  modal.onclick = (event) => {
+    if (event.target === modal) window.closePatientForm();
   };
   const form = document.getElementById("patient-form");
   if (editId) {
@@ -1570,14 +1582,17 @@ function showDoctorForm(editId = null) {
       <label>Affiliated Hospitals / Clinics <input name="affiliatedClinics" placeholder="Clinic A, Hospital B" /></label>
       <label>Phone <input name="phone" /></label>
       <label>Address <input name="address" /></label>
-      <div style="margin-top:1rem;">
-        <button type="submit">${editId ? "Update" : "Add"}</button>
-        <button type="button" onclick="window.closeDoctorForm()">Cancel</button>
+      <div class="modal-form-actions">
+        <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
+        <button type="button" class="btn btn-action-delete" onclick="window.closeDoctorForm()">Cancel</button>
       </div>
     </form>
   `;
   window.closeDoctorForm = () => {
     modal.style.display = "none";
+  };
+  modal.onclick = (event) => {
+    if (event.target === modal) window.closeDoctorForm();
   };
   const form = document.getElementById("doctor-form");
   if (editId) {
@@ -1794,14 +1809,17 @@ async function showAppointmentForm(editId = null) {
         </select>
       </label>
       <label>Notes <textarea name="notes"></textarea></label>
-      <div style="margin-top:1rem;">
-        <button type="submit">${editId ? "Update" : "Add"}</button>
-        <button type="button" onclick="window.closeAppointmentForm()">Cancel</button>
+      <div class="modal-form-actions">
+        <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
+        <button type="button" class="btn btn-action-delete" onclick="window.closeAppointmentForm()">Cancel</button>
       </div>
     </form>
   `;
   window.closeAppointmentForm = () => {
     modal.style.display = "none";
+  };
+  modal.onclick = (event) => {
+    if (event.target === modal) window.closeAppointmentForm();
   };
   const form = document.getElementById("appointment-form");
   if (editId) {
@@ -1860,9 +1878,19 @@ async function renderUsers() {
   mainContent.innerHTML =
     '<h2>Users</h2><div class="feedback">Loading...</div>';
   try {
-    const res = await apiRequest(`${API_BASE}/users`);
-    if (!res.ok) throw new Error("Failed to fetch users");
-    const users = await res.json();
+    const role = getCurrentUserRole();
+    const currentUserId = getCurrentUserId();
+    let users = [];
+    if (role === "patient" && currentUserId) {
+      const ownRes = await apiRequest(`${API_BASE}/users/${currentUserId}`);
+      if (!ownRes.ok) throw new Error("Failed to fetch active profile");
+      const ownUser = await ownRes.json();
+      users = ownUser ? [ownUser] : [];
+    } else {
+      const res = await apiRequest(`${API_BASE}/users`);
+      if (!res.ok) throw new Error("Failed to fetch users");
+      users = await res.json();
+    }
     mainContent.innerHTML = `
       <h2>Users</h2>
       <button onclick="window.showUserForm()">Add User</button>
@@ -1916,14 +1944,17 @@ function showUserForm(editId = null) {
       </label>
       <label>Phone <input name="phone" /></label>
       <label>Address <input name="address" /></label>
-      <div style="margin-top:1rem;">
-        <button type="submit">${editId ? "Update" : "Add"}</button>
-        <button type="button" onclick="window.closeUserForm()">Cancel</button>
+      <div class="modal-form-actions">
+        <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
+        <button type="button" class="btn btn-action-delete" onclick="window.closeUserForm()">Cancel</button>
       </div>
     </form>
   `;
   window.closeUserForm = () => {
     modal.style.display = "none";
+  };
+  modal.onclick = (event) => {
+    if (event.target === modal) window.closeUserForm();
   };
   const form = document.getElementById("user-form");
   if (editId) {

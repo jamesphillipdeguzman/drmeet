@@ -312,6 +312,18 @@ textarea {
     box-shadow: 0 20px 36px rgba(16, 42, 95, 0.24);
 }
 
+.modal-form-actions {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+}
+
+.modal-form-actions .btn {
+    min-width: 124px;
+    min-height: 42px;
+}
+
 .feedback {
     margin: 0.8rem 0;
     padding: 0.72rem 0.88rem;

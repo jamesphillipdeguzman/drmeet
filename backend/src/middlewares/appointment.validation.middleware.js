@@ -5,8 +5,14 @@ export const validateAppointment = [
         .notEmpty()
         .withMessage('Doctor ID is required.'),
     body('patient')
-        .notEmpty()
-        .withMessage('Patient ID is required.'),
+        .optional()
+        .custom((value, { req }) => {
+            const role = String(req.user?.role || '').toLowerCase();
+            // Patient bookings derive patient id from authenticated profile in controller.
+            if (role === 'patient') return true;
+            if (!value) throw new Error('Patient ID is required.');
+            return true;
+        }),
     body('date')
         .notEmpty()
         .withMessage('Appointment date is required.'),
