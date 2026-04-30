@@ -160,14 +160,87 @@ body {
 
 .topbar {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     padding: 1rem 1.3rem 0;
+}
+.topbar-nav-tools {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    font-size: 0.86rem;
+}
+.breadcrumbs a {
+    text-decoration: none;
+    color: #2752a6;
+    font-weight: 600;
+}
+.breadcrumbs a:hover {
+    text-decoration: underline;
 }
 
 .btn.ghost {
     background: #fff;
     color: var(--indigo);
     border: 1px solid #cfd8f0;
+}
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 260;
+    background: rgba(12, 22, 45, 0.54);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+.toast-host {
+    position: fixed;
+    right: 14px;
+    bottom: 74px;
+    z-index: 400;
+    display: grid;
+    gap: 0.5rem;
+    max-width: min(340px, 90vw);
+}
+.toast-item {
+    border-radius: 10px;
+    padding: 0.68rem 0.8rem;
+    border: 1px solid transparent;
+    box-shadow: 0 8px 20px rgba(9, 24, 58, 0.18);
+    font-size: 0.88rem;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast-item.success {
+    background: #e9f9ef;
+    color: #0f6a44;
+    border-color: #96dfbf;
+}
+.toast-item.error {
+    background: #ffedf0;
+    color: #9e2235;
+    border-color: #efb2bc;
+}
+.toast-item.fade-out {
+    opacity: 0;
+    transform: translateY(6px);
+}
+.doctor-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #ccd9f6;
+    margin-right: 0.45rem;
+    vertical-align: middle;
+    background: #e8efff;
 }
 
 main#main-content {
@@ -253,17 +326,18 @@ table thead th {
     background: #f0f5ff;
     color: #21478e;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
 
 table th,
 table td {
-    padding: 0.78rem 0.9rem;
+    padding: 0.62rem 0.72rem;
     border-bottom: 1px solid #ebf1ff;
     text-align: left;
     vertical-align: middle;
+    font-size: 0.87rem;
 }
 
 table tbody tr:hover {
@@ -717,6 +791,28 @@ textarea {
     align-items: center;
     margin-bottom: 0.35rem;
 }
+.thread-attachment-wrap {
+    margin-top: 0.5rem;
+}
+.thread-attachment-image {
+    max-width: 220px;
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid #cfdcf8;
+    display: block;
+    margin-bottom: 0.35rem;
+}
+.pill-tag {
+    display: inline-block;
+    margin-left: 0.4rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 999px;
+    background: #e9f3ff;
+    border: 1px solid #c7dbff;
+    color: #1f4f9b;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
 
 .command-palette {
     position: fixed;
@@ -1106,11 +1202,11 @@ textarea {
 /* Stronger table action CTAs */
 table td:last-child .btn,
 table td:last-child button {
-    min-width: 108px;
-    min-height: 42px;
-    font-size: 0.95rem;
+    min-width: 94px;
+    min-height: 36px;
+    font-size: 0.82rem;
     font-weight: 700;
-    padding: 0.6rem 1rem;
+    padding: 0.45rem 0.72rem;
 }
 .btn-action-edit {
     border-width: 2px;

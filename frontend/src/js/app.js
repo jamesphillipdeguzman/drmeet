@@ -329,6 +329,35 @@ function navigateTo(hash) {
   renderPage();
 }
 
+function renderTopbarBreadcrumbs() {
+  const container = document.getElementById("topbar-nav-tools");
+  if (!container) return;
+  const route = getHashRoute();
+  const pages = [
+    { hash: "#home", label: "Home" },
+    { hash: "#book", label: "Book" },
+    { hash: "#patients", label: "Patients" },
+    { hash: "#doctors", label: "Doctors" },
+    { hash: "#appointments", label: "Appointments" },
+    { hash: "#users", label: "Users" },
+  ];
+  const crumbs = pages
+    .map((page) => {
+      const isActive = page.hash === route;
+      return isActive
+        ? `<span>${page.label}</span>`
+        : `<a href="${page.hash}">${page.label}</a>`;
+    })
+    .join(" / ");
+  container.innerHTML = `
+    <button type="button" class="btn btn-secondary btn-sm" id="topbar-back-btn">Back</button>
+    <nav class="breadcrumbs">${crumbs}</nav>
+  `;
+  container.querySelector("#topbar-back-btn")?.addEventListener("click", () => {
+    window.history.back();
+  });
+}
+
 function loadDashboardState() {
   try {
     const parsed = JSON.parse(localStorage.getItem(DASHBOARD_STATE_KEY) || "{}");
@@ -495,6 +524,25 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function showToast(message, type = "success") {
+  const hostId = "global-toast-host";
+  let host = document.getElementById(hostId);
+  if (!host) {
+    host = document.createElement("div");
+    host.id = hostId;
+    host.className = "toast-host";
+    document.body.appendChild(host);
+  }
+  const toast = document.createElement("div");
+  toast.className = `toast-item ${type === "error" ? "error" : "success"}`;
+  toast.textContent = String(message || "");
+  host.appendChild(toast);
+  setTimeout(() => {
+    toast.classList.add("fade-out");
+    setTimeout(() => toast.remove(), 280);
+  }, 2800);
 }
 
 function fileToDataUrl(file) {
@@ -803,6 +851,7 @@ function setupSocket() {
 function renderPage() {
   const route = getHashRoute();
   setActiveNav(route);
+  renderTopbarBreadcrumbs();
   switch (route) {
     case "#privacy":
       renderPrivacy();
@@ -955,7 +1004,7 @@ function showComposeMessageModal(onSubmit) {
   const modal = document.createElement("div");
   modal.className = "modal-overlay";
   modal.innerHTML = `
-    <div class="card" style="max-width:520px;margin:8vh auto;padding:1rem;">
+    <div class="card" style="max-width:520px;width:100%;padding:1rem;">
       <h3>Compose message</h3>
       <form id="compose-message-form">
         <label>Message
@@ -1008,8 +1057,9 @@ function mountDashboardWidgets() {
           dashboardState.messages = [];
         }
         await sendMessage(note);
+        showToast("Message sent.");
       } catch (err) {
-        alert(err?.message || "Unable to send message");
+        showToast(err?.message || "Unable to send message", "error");
       }
     });
   });
@@ -1186,7 +1236,15 @@ function renderThreadDrawer(drawer) {
                       : "role-default";
 
                 const attachmentMarkup = msg.attachmentUrl
-                  ? `<p><a href="${escapeHtml(msg.attachmentUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(msg.attachmentName || "Open attachment")}</a></p>`
+                  ? (() => {
+                    const type = String(msg.attachmentType || "").toLowerCase();
+                    const url = escapeHtml(msg.attachmentUrl);
+                    const name = escapeHtml(msg.attachmentName || "Open attachment");
+                    const isImage = type.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(String(msg.attachmentUrl || ""));
+                    return isImage
+                      ? `<div class="thread-attachment-wrap"><a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${name}" class="thread-attachment-image" /></a><p><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p></div>`
+                      : `<p><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p>`;
+                  })()
                   : "";
                 return `
                   <div class="thread-item ${roleClass}">
@@ -1240,7 +1298,7 @@ function renderThreadDrawer(drawer) {
       if (input) input.value = "";
       if (fileInput) fileInput.value = "";
     } catch (err) {
-      alert(err?.message || "Unable to send message");
+      showToast(err?.message || "Unable to send message", "error");
     }
   });
 }
@@ -1338,6 +1396,8 @@ function renderLogin() {
     googleLogin({ feedbackEl: feedback, buttonEl: googleLoginBtn });
   form.onsubmit = async e => {
     e.preventDefault();
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
     feedback.textContent = 'Logging in...';
     const creds = Object.fromEntries(new FormData(form));
     try {
@@ -1364,6 +1424,8 @@ function renderLogin() {
     } catch (err) {
       feedback.textContent = normalizeFetchErrorMessage(err, "Login failed.");
       feedback.className = 'feedback error';
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
   };
 }
@@ -1435,6 +1497,8 @@ function renderSignup() {
   }
   form.onsubmit = async e => {
     e.preventDefault();
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
     feedback.textContent = 'Signing up...';
     const user = Object.fromEntries(new FormData(form));
     if (selectedRole) user.role = selectedRole;
@@ -1464,6 +1528,8 @@ function renderSignup() {
     } catch (err) {
       feedback.textContent = normalizeFetchErrorMessage(err, "Signup failed.");
       feedback.className = 'feedback error';
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
     }
   };
 }
@@ -1804,7 +1870,7 @@ async function renderPatients() {
           (p) => `
             <tr>
               <td>${p.firstName} ${p.lastName}</td>
-              <td>${p.familyHeadName ? `Family Head: ${p.familyHeadName}` : (p.relationshipToAccountHolder ? `Dependent: ${p.relationshipToAccountHolder}` : "Primary")}</td>
+              <td>${p.familyHeadName ? `Family Head: ${p.familyHeadName}` : (p.relationshipToAccountHolder ? `Dependent: ${p.relationshipToAccountHolder}` : "Primary")}${p.isCareTeamLinked ? ' <span class="pill-tag">Attached</span>' : ""}</td>
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
               <td>${formatDateDisplay(p.birthdate) || ""}</td>
@@ -1860,12 +1926,12 @@ async function renderPatients() {
         ? patients.find((p) => String(p._id) === selectedId)
         : patients.find((p) => !p.relationshipToAccountHolder) || patients[0];
       if (!patientProfile?.userId) {
-        alert("No messaging profile found for the selected patient.");
+        showToast("No messaging profile found for the selected patient.", "error");
         return;
       }
       const doctorUserId = await resolveDoctorIdForPatientMessaging();
       if (!doctorUserId) {
-        alert("No linked doctor found yet. Book an appointment first.");
+        showToast("No linked doctor found yet. Book an appointment first.", "error");
         return;
       }
       const fileInput = document.createElement("input");
@@ -1881,9 +1947,9 @@ async function renderPatients() {
             text: "Patient document for clinic review.",
             file,
           });
-          alert("Document sent to clinic for review.");
+          showToast("Document sent to clinic for review.");
         } catch (error) {
-          alert(error?.message || "Unable to send document.");
+          showToast(error?.message || "Unable to send document.", "error");
         }
       };
       fileInput.click();
@@ -1891,7 +1957,7 @@ async function renderPatients() {
     window.sendPatientDocumentFromDoctor = async (patientId) => {
       const patient = patients.find((p) => String(p._id) === String(patientId));
       if (!patient?.userId) {
-        alert("This patient has no linked login account for messaging.");
+        showToast("This patient has no linked login account for messaging.", "error");
         return;
       }
       const fileInput = document.createElement("input");
@@ -1907,9 +1973,9 @@ async function renderPatients() {
             text: "Document from your doctor.",
             file,
           });
-          alert("Document sent to patient.");
+          showToast("Document sent to patient.");
         } catch (error) {
-          alert(error?.message || "Unable to send document.");
+          showToast(error?.message || "Unable to send document.", "error");
         }
       };
       fileInput.click();
@@ -1921,6 +1987,8 @@ async function renderPatients() {
 
 function showPatientForm(editId = null, familyMode = false) {
   const modal = document.getElementById("patient-form-modal");
+  const role = getCurrentUserRole();
+  const canAttachExisting = !editId && (role === "doctor" || role === "receptionist");
   modal.style.display = "block";
   modal.innerHTML = `
     <form id="patient-form">
@@ -1947,6 +2015,15 @@ function showPatientForm(editId = null, familyMode = false) {
       <label>Medical History
         <textarea name="medicalHistory" placeholder="One item per line"></textarea>
       </label>
+      ${canAttachExisting ? `
+      <section class="card" style="padding:0.75rem;">
+        <h4 style="margin:0 0 0.45rem;">Search Existing Patient</h4>
+        <label>Search by name, email, or phone
+          <input type="search" id="patient-existing-search" placeholder="Type at least 2 characters" />
+        </label>
+        <div id="patient-existing-results" class="feedback" style="display:none"></div>
+      </section>
+      ` : ""}
       <div class="modal-form-actions">
         <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
         <button type="button" class="btn btn-action-delete" onclick="window.closePatientForm()">Cancel</button>
@@ -1957,6 +2034,55 @@ function showPatientForm(editId = null, familyMode = false) {
     modal.style.display = "none";
   };
   const form = document.getElementById("patient-form");
+  if (canAttachExisting) {
+    const searchInput = document.getElementById("patient-existing-search");
+    const resultEl = document.getElementById("patient-existing-results");
+    let pickedExistingPatientId = "";
+    searchInput?.addEventListener("input", async () => {
+      const q = String(searchInput.value || "").trim();
+      resultEl.style.display = "none";
+      if (q.length < 2) return;
+      try {
+        const res = await apiRequest(`${API_BASE}/patients/search?q=${encodeURIComponent(q)}`);
+        if (!res.ok) throw new Error("Search failed");
+        const matches = await res.json();
+        if (!matches.length) {
+          resultEl.style.display = "block";
+          resultEl.className = "feedback";
+          resultEl.textContent = "No duplicate match found. You may create a new patient record.";
+          return;
+        }
+        resultEl.style.display = "block";
+        resultEl.className = "feedback error";
+        resultEl.innerHTML = matches
+          .map((m) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+              <span>${escapeHtml(m.firstName)} ${escapeHtml(m.lastName)} (${escapeHtml(m.email || m.phone || "No contact")})</span>
+              <button type="button" class="btn btn-secondary btn-sm" data-attach-patient="${m._id}">Add Existing</button>
+            </div>
+          `)
+          .join("");
+        resultEl.querySelectorAll("[data-attach-patient]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            pickedExistingPatientId = btn.getAttribute("data-attach-patient");
+            try {
+              const attachRes = await apiRequest(`${API_BASE}/patients/${pickedExistingPatientId}/attach`, { method: "POST" });
+              if (!attachRes.ok) throw new Error(await getApiErrorMessage(attachRes, "Failed to attach patient"));
+              modal.style.display = "none";
+              renderPatients();
+              showToast("Existing patient was added to your Patients tab.");
+            } catch (error) {
+              showToast(error.message || "Unable to attach existing patient.", "error");
+            }
+          });
+        });
+      } catch (error) {
+        resultEl.style.display = "block";
+        resultEl.className = "feedback error";
+        resultEl.textContent = "Unable to search duplicates right now.";
+      }
+    });
+  }
   if (editId) {
     apiRequest(`${API_BASE}/patients/${editId}`)
       .then((res) => res.json())
@@ -1983,6 +2109,17 @@ function showPatientForm(editId = null, familyMode = false) {
       .map((item) => item.trim())
       .filter(Boolean);
     try {
+      if (canAttachExisting) {
+        const duplicateRes = await apiRequest(
+          `${API_BASE}/patients/search?q=${encodeURIComponent(`${patient.firstName || ""} ${patient.lastName || ""} ${patient.email || ""}`.trim())}`,
+        );
+        if (duplicateRes.ok) {
+          const dupes = await duplicateRes.json();
+          if (Array.isArray(dupes) && dupes.length) {
+            throw new Error("Possible duplicate exists. Use 'Search Existing Patient' and click Add Existing.");
+          }
+        }
+      }
       const res = await apiRequest(
         `${API_BASE}/patients${editId ? "/" + editId : ""}`,
         {
@@ -1997,7 +2134,7 @@ function showPatientForm(editId = null, familyMode = false) {
       modal.style.display = "none";
       renderPatients();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   };
 }
@@ -2012,7 +2149,7 @@ async function deletePatient(id) {
     if (!res.ok) throw new Error("Failed to delete patient");
     renderPatients();
   } catch (err) {
-    alert(err.message);
+    showToast(err.message, "error");
   }
 }
 
@@ -2058,9 +2195,10 @@ async function renderDoctors() {
         <input type="search" id="doctor-filter-availability" placeholder="Filter by availability" />
         <input type="search" id="doctor-filter-phone" placeholder="Filter by phone" />
         <input type="search" id="doctor-filter-receptionist" placeholder="Filter by receptionist" />
+        <input type="search" id="doctor-filter-clinic" placeholder="Filter by clinic" />
       </div>`}
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Specialty</th><th>Availability</th><th>Phone</th><th>Receptionist</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Specialty</th><th>Clinic</th><th>Availability</th><th>Phone</th><th>Receptionist</th><th>Actions</th></tr></thead>
         <tbody id="doctors-table-body"></tbody>
       </table>
       <div id="doctor-form-modal" style="display:none"></div>
@@ -2071,9 +2209,10 @@ async function renderDoctors() {
         .map(
           (d) => `
             <tr>
-              <td>${d.firstName} ${d.lastName}</td>
+              <td>${d.photoUrl ? `<img src="${escapeHtml(d.photoUrl)}" alt="Doctor avatar" class="doctor-avatar" />` : `<span class="doctor-avatar"></span>`}${d.firstName} ${d.lastName}</td>
               <td>${d.email || ""}</td>
               <td>${d.specialty || ""}</td>
+              <td>${d.affiliatedClinics || "—"}</td>
               <td>${buildDoctorAvailabilityLabel(d)}</td>
               <td>${d.phone || ""}</td>
               <td>
@@ -2101,6 +2240,7 @@ async function renderDoctors() {
       const availabilityQ = String(document.getElementById("doctor-filter-availability")?.value || "").toLowerCase().trim();
       const phoneQ = String(document.getElementById("doctor-filter-phone")?.value || "").toLowerCase().trim();
       const receptionistQ = String(document.getElementById("doctor-filter-receptionist")?.value || "").toLowerCase().trim();
+      const clinicQ = String(document.getElementById("doctor-filter-clinic")?.value || "").toLowerCase().trim();
       const filtered = doctors.filter((d) => {
         const name = `${d.firstName || ""} ${d.lastName || ""}`.toLowerCase();
         const email = String(d.email || "").toLowerCase();
@@ -2108,19 +2248,21 @@ async function renderDoctors() {
         const availability = String(buildDoctorAvailabilityLabel(d) || "").toLowerCase();
         const phone = String(d.phone || "").toLowerCase();
         const receptionist = `${d.receptionistName || ""} ${d.receptionistPhone || ""} ${d.receptionistEmail || ""}`.toLowerCase();
+        const clinic = String(d.affiliatedClinics || "").toLowerCase();
         return (
           (!nameQ || name.includes(nameQ)) &&
           (!emailQ || email.includes(emailQ)) &&
           (!specialtyQ || specialty.includes(specialtyQ)) &&
           (!availabilityQ || availability.includes(availabilityQ)) &&
           (!phoneQ || phone.includes(phoneQ)) &&
-          (!receptionistQ || receptionist.includes(receptionistQ))
+          (!receptionistQ || receptionist.includes(receptionistQ)) &&
+          (!clinicQ || clinic.includes(clinicQ))
         );
       });
       renderRows(filtered);
     };
     if (!isDoctor) {
-      ["doctor-filter-name", "doctor-filter-email", "doctor-filter-specialty", "doctor-filter-availability", "doctor-filter-phone", "doctor-filter-receptionist"].forEach((id) => {
+      ["doctor-filter-name", "doctor-filter-email", "doctor-filter-specialty", "doctor-filter-availability", "doctor-filter-phone", "doctor-filter-receptionist", "doctor-filter-clinic"].forEach((id) => {
         document.getElementById(id)?.addEventListener("input", applyDoctorFilters);
       });
     }
@@ -2193,6 +2335,10 @@ function showDoctorForm(editId = null) {
       </label>
       <label>Receptionist Email <input name="receptionistEmail" type="email" placeholder="reception@clinic.com" /></label>
       <label>Address <input name="address" /></label>
+      <label>Profile Photo
+        <input name="photoFile" type="file" accept="image/*" />
+      </label>
+      <div id="doctor-photo-preview" class="feedback" style="display:none"></div>
       <div class="modal-form-actions">
         <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
         <button type="button" class="btn btn-action-delete" onclick="window.closeDoctorForm()">Cancel</button>
@@ -2231,11 +2377,21 @@ function showDoctorForm(editId = null) {
         form.receptionistPhone.value = data.receptionistPhone || "";
         form.receptionistEmail.value = data.receptionistEmail || "";
         form.address.value = data.address || "";
+        if (data.photoUrl) {
+          const preview = document.getElementById("doctor-photo-preview");
+          preview.style.display = "block";
+          preview.className = "feedback";
+          preview.innerHTML = `<img src="${escapeHtml(data.photoUrl)}" alt="Current photo" class="doctor-avatar" /> Current profile photo`;
+        }
       });
   }
   form.onsubmit = async (e) => {
     e.preventDefault();
     const doctor = Object.fromEntries(new FormData(form));
+    const photoFile = form.photoFile?.files?.[0];
+    if (photoFile) {
+      doctor.photoFileData = await fileToDataUrl(photoFile);
+    }
     const availability = (doctor.availabilityText || "")
       .split("\n")
       .map((row) => row.trim())
@@ -2278,7 +2434,7 @@ function showDoctorForm(editId = null) {
       modal.style.display = "none";
       renderDoctors();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   };
 }
@@ -2293,7 +2449,7 @@ async function deleteDoctor(id) {
     if (!res.ok) throw new Error("Failed to delete doctor");
     renderDoctors();
   } catch (err) {
-    alert(err.message);
+    showToast(err.message, "error");
   }
 }
 
@@ -2497,7 +2653,7 @@ async function showAppointmentForm(editId = null) {
       modal.style.display = "none";
       renderAppointments();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   };
 }
@@ -2514,7 +2670,7 @@ async function deleteAppointment(id) {
     if (!res.ok) throw new Error("Failed to delete appointment");
     renderAppointments();
   } catch (err) {
-    alert(err.message);
+    showToast(err.message, "error");
   }
 }
 
@@ -2648,7 +2804,7 @@ function showUserForm(editId = null) {
       modal.style.display = "none";
       renderUsers();
     } catch (err) {
-      alert(err.message);
+      showToast(err.message, "error");
     }
   };
 }
@@ -2663,6 +2819,6 @@ async function deleteUser(id) {
     if (!res.ok) throw new Error("Failed to delete user");
     renderUsers();
   } catch (err) {
-    alert(err.message);
+    showToast(err.message, "error");
   }
 }

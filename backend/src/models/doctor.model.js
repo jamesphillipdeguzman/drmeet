@@ -80,6 +80,10 @@ const doctorSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    photoUrl: {
+      type: String,
+      default: "",
+    },
     availabilityText: {
       type: String,
       default: "",

@@ -10,6 +10,10 @@ import { validateUserSignup } from '../middlewares/user.validation.middleware.js
 import User from '../models/user.model.js';
 import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
+import {
+  sendDoctorWelcomeEmail,
+  sendPatientWelcomeEmail,
+} from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -315,6 +319,19 @@ router.post('/signup', validateUserSignup, async (req, res) => {
       role: normalizeAmbiguousSignupRole(cleaned.role),
     });
     await syncRoleProfilesForUser(user, { title, specialty });
+    if (user.role === 'doctor') {
+      await sendDoctorWelcomeEmail({
+        email: user.email,
+        title: user.title,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      });
+    } else if (user.role === 'patient') {
+      await sendPatientWelcomeEmail({
+        email: user.email,
+        firstName: user.firstName,
+      });
+    }
 
     const token = jwt.sign(
       {

@@ -15,6 +15,11 @@ export const findPatientsByIds = async (ids) => {
   return Patient.find({ _id: { $in: ids } });
 };
 
+export const findPatientsByDoctorCareTeam = async (doctorId) => {
+  if (!doctorId) return [];
+  return Patient.find({ careTeamDoctorIds: doctorId });
+};
+
 // Find a patient by their ID
 export const findPatientById = async (id) => Patient.findById(id);
 

@@ -13,6 +13,8 @@ import Patient from '../models/patient.model.js';
 import { findAppointmentsByPatient } from '../services/appointment.service.js';
 import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
+import { uploadToCloudinary } from '../services/cloudinary.service.js';
+import { sendReceptionistInviteEmail } from '../services/emailService.js';
 
 function authUserId(req) {
     const id = req.user?._id || req.user?.id;
@@ -167,6 +169,13 @@ export const postDoctor = async (req, res) => {
     }
     try {
         const body = sanitizeInput(req.body || {});
+        let photoUpload = null;
+        if (body.photoFileData) {
+            photoUpload = await uploadToCloudinary(body.photoFileData, {
+                folder: 'drmeet/doctors',
+                resource_type: 'image',
+            });
+        }
 
         // ✅ normalize fields
         const doctorData = {
@@ -175,6 +184,7 @@ export const postDoctor = async (req, res) => {
             lastName: body.lastName?.trim(),
             email: body.email?.trim(),
             specialty: body.specialty,
+            photoUrl: photoUpload?.secure_url || body.photoUrl || '',
         };
 
         if (!doctorData.userId) {
@@ -238,6 +248,13 @@ export const updateDoctor = async (req, res) => {
     }
 
     try {
+        if (cleanedBody.photoFileData) {
+            const photoUpload = await uploadToCloudinary(cleanedBody.photoFileData, {
+                folder: 'drmeet/doctors',
+                resource_type: 'image',
+            });
+            updates.photoUrl = photoUpload?.secure_url || updates.photoUrl || '';
+        }
         if (role === 'doctor') {
             const mine = await findDoctorByUserId(uid);
             if (!mine || String(mine._id) !== String(id)) {
@@ -360,6 +377,10 @@ export const inviteReceptionist = async (req, res) => {
                   role: 'receptionist',
                   linkedDoctorId: doctor._id,
               });
+        await sendReceptionistInviteEmail({
+            email,
+            doctorName: `${doctor.firstName || ''} ${doctor.lastName || ''}`.trim() || 'Your doctor',
+        });
 
         return res.status(existing ? 200 : 201).json({
             message: existing

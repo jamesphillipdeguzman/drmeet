@@ -7,6 +7,8 @@ import {
   postPatient,
   updatePatient,
   deletePatient,
+  searchPatients,
+  attachExistingPatientToCareTeam,
 } from '../controllers/patient.controller.js';
 import {
   validatePatient,
@@ -32,6 +34,7 @@ const router = express.Router();
  *
  */
 router.get('/', hybridAuth, getAllPatients);
+router.get('/search', hybridAuth, searchPatients);
 
 // Get a patient by Id
 /**
@@ -184,5 +187,6 @@ router.put(
  *        description: An error occurred while deleting the patient
  */
 router.delete('/:id', hybridAuth, validateMongoIdParam, deletePatient);
+router.post('/:id/attach', hybridAuth, validateMongoIdParam, attachExistingPatientToCareTeam);
 
 export default router;

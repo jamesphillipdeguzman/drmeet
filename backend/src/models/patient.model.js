@@ -64,6 +64,12 @@ const patientSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    careTeamDoctorIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Doctor",
+      },
+    ],
   },
   { timestamps: true }
 );

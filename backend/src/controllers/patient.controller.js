@@ -9,6 +9,7 @@ import {
   findPatientsByUserId,
   findPatientsByAccountOwnerId,
   findPatientsByIds,
+  findPatientsByDoctorCareTeam,
 } from '../services/patient.service.js';
 import { findDoctorByUserId } from '../services/doctor.service.js';
 import User from '../models/user.model.js';
@@ -51,6 +52,7 @@ const mapPatientForClient = (patient) => {
     relationshipToAccountHolder: plain.relationshipToAccountHolder || '',
     isDependent: Boolean(plain.accountOwnerId) && String(plain.userId || '') !== String(plain.accountOwnerId || ''),
     familyHeadName: plain.familyHeadName || '',
+    isCareTeamLinked: Array.isArray(plain.careTeamDoctorIds) && plain.careTeamDoctorIds.length > 0,
   };
 };
 
@@ -68,8 +70,14 @@ async function getScopedPatients(req) {
       ? String(receptionist.linkedDoctorId)
       : '';
     if (!linkedDoctorId) return [];
-    const appts = await findAppointmentsByDoctor(linkedDoctorId);
-    const patientIds = [...new Set(appts.map((a) => a.patient).filter(Boolean))]
+    const [appts, linkedPatients] = await Promise.all([
+      findAppointmentsByDoctor(linkedDoctorId),
+      findPatientsByDoctorCareTeam(linkedDoctorId),
+    ]);
+    const patientIds = [...new Set([
+      ...appts.map((a) => a.patient).filter(Boolean),
+      ...linkedPatients.map((p) => p._id),
+    ])]
       .map((id) => String(id))
       .filter((id) => mongoose.Types.ObjectId.isValid(id));
     return findPatientsByIds(patientIds);
@@ -93,8 +101,14 @@ async function getScopedPatients(req) {
   if (role === 'doctor' && uid) {
     const doctor = await findDoctorByUserId(uid);
     if (!doctor) return [];
-    const appts = await findAppointmentsByDoctor(String(doctor._id));
-    const patientIds = [...new Set(appts.map((a) => a.patient).filter(Boolean))]
+    const [appts, linkedPatients] = await Promise.all([
+      findAppointmentsByDoctor(String(doctor._id)),
+      findPatientsByDoctorCareTeam(String(doctor._id)),
+    ]);
+    const patientIds = [...new Set([
+      ...appts.map((a) => a.patient).filter(Boolean),
+      ...linkedPatients.map((p) => p._id),
+    ])]
       .map((id) => String(id))
       .filter((id) => mongoose.Types.ObjectId.isValid(id));
     if (!patientIds.length) return [];
@@ -363,5 +377,65 @@ export const deletePatient = async (req, res) => {
     return res
       .status(500)
       .json({ error: 'An error occured while deleting the patient.' });
+  }
+};
+
+export const searchPatients = async (req, res) => {
+  try {
+    const role = authRole(req);
+    if (!['doctor', 'receptionist', 'admin'].includes(role)) {
+      return res.status(403).json({ error: 'Forbidden.' });
+    }
+    const q = String(req.query.q || '').trim();
+    if (!q) return res.status(200).json([]);
+    const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const matches = await findAllPatients().then((rows) =>
+      rows.filter((p) =>
+        regex.test(`${p.firstName || ''} ${p.lastName || ''}`) ||
+        regex.test(String(p.email || '')) ||
+        regex.test(String(p.phone || '')),
+      ),
+    );
+    return res.status(200).json(matches.slice(0, 10).map(mapPatientForClient));
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to search patients.' });
+  }
+};
+
+export const attachExistingPatientToCareTeam = async (req, res) => {
+  try {
+    const role = authRole(req);
+    const uid = authUserId(req);
+    if (!['doctor', 'receptionist'].includes(role)) {
+      return res.status(403).json({ error: 'Forbidden.' });
+    }
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid patient ID format.' });
+    }
+    let doctorId = '';
+    if (role === 'doctor') {
+      const doctor = await findDoctorByUserId(uid);
+      if (!doctor) return res.status(404).json({ error: 'Doctor profile not found.' });
+      doctorId = String(doctor._id);
+    } else {
+      const receptionist = await User.findById(uid).select('linkedDoctorId').lean();
+      if (!receptionist?.linkedDoctorId) {
+        return res.status(400).json({ error: 'Receptionist is not linked to a doctor.' });
+      }
+      doctorId = String(receptionist.linkedDoctorId);
+    }
+    const patient = await findPatientById(id);
+    if (!patient) return res.status(404).json({ error: 'Patient not found.' });
+    const existing = Array.isArray(patient.careTeamDoctorIds)
+      ? patient.careTeamDoctorIds.map((x) => String(x))
+      : [];
+    if (!existing.includes(doctorId)) {
+      patient.careTeamDoctorIds = [...existing, doctorId];
+      await patient.save();
+    }
+    return res.status(200).json(mapPatientForClient(patient));
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to attach existing patient.' });
   }
 };
