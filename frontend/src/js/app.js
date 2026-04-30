@@ -90,6 +90,17 @@ function consumeOauthErrorFromHash() {
   return messages[code] || "Google login failed. Please try again.";
 }
 
+function getHashRoute() {
+  const hash = window.location.hash || "#home";
+  return hash.split("?")[0] || "#home";
+}
+
+function getSignupRoleFromHash() {
+  const hash = window.location.hash || "";
+  const match = hash.match(/role=(doctor|patient)/i);
+  return match ? String(match[1]).toLowerCase() : "";
+}
+
 function resetMessagingSocket() {
   if (socket) {
     try {
@@ -672,9 +683,9 @@ function setupSocket() {
 }
 
 function renderPage() {
-  const hash = window.location.hash || "#home";
-  setActiveNav(hash);
-  switch (hash) {
+  const route = getHashRoute();
+  setActiveNav(route);
+  switch (route) {
     case "#patients":
       renderPatients();
       break;
@@ -732,6 +743,17 @@ function renderHome() {
       </div>
       <img class="why-drmeet-media" src="images/drmeet-pic1.png" alt="DrMeet technology in action" />
     </section>
+    <section class="role-select card">
+      <h3>Select Your Profile to Continue</h3>
+      <div class="role-select-grid">
+        <button type="button" class="role-card role-card-doctor" id="role-select-doctor">
+          <span class="role-card-label">Doctor Profile</span>
+        </button>
+        <button type="button" class="role-card role-card-patient" id="role-select-patient">
+          <span class="role-card-label">Patient Profile</span>
+        </button>
+      </div>
+    </section>
     <section class="dashboard-grid">
       <article class="card board-card">
         <div class="card-header">
@@ -749,6 +771,24 @@ function renderHome() {
     </section>
     <aside id="thread-drawer" class="thread-drawer hidden"></aside>
   `;
+  document.getElementById("role-select-doctor")?.addEventListener("click", () => {
+    if (!isLoggedIn()) {
+      window.location.hash = "#signup?role=doctor";
+      renderSignup();
+      return;
+    }
+    window.location.hash = "#doctors";
+    renderDoctors();
+  });
+  document.getElementById("role-select-patient")?.addEventListener("click", () => {
+    if (!isLoggedIn()) {
+      window.location.hash = "#signup?role=patient";
+      renderSignup();
+      return;
+    }
+    window.location.hash = "#book";
+    renderPatientBooking();
+  });
   mountDashboardWidgets();
 }
 
@@ -1114,9 +1154,18 @@ function renderSignup() {
     mainContent.innerHTML = `<div class="feedback success">You are already logged in.</div>`;
     return;
   }
+  const selectedRole = getSignupRoleFromHash();
+  const signupTitle =
+    selectedRole === "doctor"
+      ? "Create your doctor account"
+      : "Create your patient account";
+  const signupLead =
+    selectedRole === "doctor"
+      ? "Doctor sign-up gives you access to schedule, patient communication, and care workflows."
+      : "New accounts are registered as patients so you can book visits and message your care team.";
   mainContent.innerHTML = `
-    <h2>Create your patient account</h2>
-    <p class="signup-lead">New accounts are registered as patients so you can book visits and message your care team.</p>
+    <h2>${signupTitle}</h2>
+    <p class="signup-lead">${signupLead}</p>
     <form id="signup-form">
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
@@ -1144,6 +1193,7 @@ function renderSignup() {
     e.preventDefault();
     feedback.textContent = 'Signing up...';
     const user = Object.fromEntries(new FormData(form));
+    if (selectedRole) user.role = selectedRole;
     try {
       const res = await fetch(`${API_ORIGIN}/auth/signup`, {
         method: 'POST',

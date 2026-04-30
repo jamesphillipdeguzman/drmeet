@@ -21,6 +21,7 @@ function normalizeAmbiguousSignupRole(incoming) {
   const r = String(incoming ?? '')
     .trim()
     .toLowerCase();
+  if (r === 'doctor') return 'doctor';
   if (r === 'patient') return 'patient';
   return GENERAL_USER_ROLE_STORED;
 }

@@ -979,6 +979,55 @@ textarea {
     box-shadow: 0 10px 24px rgba(21, 36, 80, 0.16);
 }
 
+.role-select {
+    margin-top: 1rem;
+}
+
+.role-select-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.9rem;
+    margin-top: 0.7rem;
+}
+
+.role-card {
+    min-height: 180px;
+    border: 1px solid #d7e2fb;
+    border-radius: 14px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding: 0.75rem;
+    color: #fff;
+    font-weight: 700;
+    font-size: 1rem;
+    text-align: left;
+    background-size: cover;
+    background-position: center;
+}
+
+.role-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(16, 29, 68, 0.2), rgba(10, 24, 58, 0.68));
+}
+
+.role-card .role-card-label {
+    position: relative;
+    z-index: 1;
+}
+
+.role-card-doctor {
+    background-image: url("../images/doctor-profile.png");
+}
+
+.role-card-patient {
+    background-image: url("../images/patient-profile.png");
+}
+
 @media (max-width: 920px) {
     .why-drmeet {
         grid-template-columns: 1fr;
