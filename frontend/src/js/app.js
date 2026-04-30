@@ -1289,10 +1289,9 @@ function renderSignup() {
       }
       <button type="submit" class="btn btn-primary">Create account</button>
     </form>
-    <button id="google-signup-btn" type="button" class="btn btn-google" style="margin-top:1rem;">Continue with Google</button>
+    <p class="signup-lead" style="margin-top:0.75rem;">Already registered? <a href="#login">Go to Login</a></p>
     <div id="signup-feedback"></div>
   `;
-  const googleSignupBtn = document.getElementById('google-signup-btn');
   const form = document.getElementById('signup-form');
   const feedback = document.getElementById('signup-feedback');
   const oauthSuccessToken = consumeOauthSuccessTokenFromHash();
@@ -1311,8 +1310,6 @@ function renderSignup() {
     feedback.textContent = oauthError;
     feedback.className = "feedback error";
   }
-  googleSignupBtn.onclick = () =>
-    googleLogin({ feedbackEl: feedback, buttonEl: googleSignupBtn });
   form.onsubmit = async e => {
     e.preventDefault();
     feedback.textContent = 'Signing up...';
@@ -1325,7 +1322,9 @@ function renderSignup() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(user)
       });
-      if (!res.ok) throw new Error('Signup failed');
+      if (!res.ok) {
+        throw new Error(await getApiErrorMessage(res, "Signup failed."));
+      }
       const data = await res.json();
       if (data.token) {
         resetMessagingSocket();
