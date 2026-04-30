@@ -15,6 +15,11 @@ export const validateUserSignup = [
     body('password').notEmpty().withMessage('Password is required').trim(),
     body('phone').optional().isString().trim(),
     body('address').optional().isString().trim(),
+    body('title')
+        .optional()
+        .isIn(['', 'Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Dra.'])
+        .withMessage('Invalid title'),
+    body('specialty').optional().isString().trim(),
     runChecks,
 ];
 
@@ -34,5 +39,10 @@ export const validateUserUpdate = [
         .withMessage('Role must be admin, doctor, patient, or receptionist'),
     body('phone').optional().isString().trim(),
     body('address').optional().isString().trim(),
+    body('title')
+        .optional()
+        .isIn(['', 'Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Dra.'])
+        .withMessage('Invalid title'),
+    body('specialty').optional().isString().trim(),
     runChecks,
 ];

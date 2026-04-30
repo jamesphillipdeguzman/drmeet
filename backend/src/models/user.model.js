@@ -38,6 +38,12 @@ const userSchema = new mongoose.Schema(
       default: "patient",
       required: true,
     },
+    title: {
+      type: String,
+      enum: ["", "Mr.", "Ms.", "Mrs.", "Dr.", "Dra."],
+      default: "",
+      required: false,
+    },
     linkedDoctorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Doctor",

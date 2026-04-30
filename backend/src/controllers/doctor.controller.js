@@ -11,7 +11,7 @@ import {
 import User from '../models/user.model.js';
 import Patient from '../models/patient.model.js';
 import { findAppointmentsByPatient } from '../services/appointment.service.js';
-import { ensureDoctorProfileForUser } from '../services/doctorProfileSync.service.js';
+import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service.js';
 
 function authUserId(req) {
     const id = req.user?._id || req.user?.id;
@@ -296,7 +296,7 @@ export const inviteReceptionist = async (req, res) => {
         if (!me) {
             return res.status(401).json({ error: 'User not found.' });
         }
-        await ensureDoctorProfileForUser(me);
+        await syncRoleProfilesForUser(me, { title: me.title });
         const doctor = await findDoctorByUserId(uid);
         if (!doctor) {
             return res.status(404).json({ error: 'Doctor profile not found.' });

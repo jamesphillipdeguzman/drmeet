@@ -846,8 +846,8 @@ function renderHome() {
   `;
   document.getElementById("role-select-doctor")?.addEventListener("click", () => {
     if (!isLoggedIn()) {
-      window.location.hash = "#login?role=doctor";
-      renderLogin();
+      window.location.hash = "#signup?role=doctor";
+      renderSignup();
       return;
     }
     window.location.hash = "#doctors";
@@ -1266,16 +1266,27 @@ function renderSignup() {
     selectedRole === "doctor"
       ? "Doctor sign-up gives you access to schedule, patient communication, and care workflows."
       : "New accounts are registered as patients so you can book visits and message your care team.";
+  const titleOptions = selectedRole === "doctor"
+    ? `<option value="">(blank)</option><option value="Dr.">Dr.</option><option value="Dra.">Dra.</option>`
+    : `<option value="">(blank)</option><option value="Mr.">Mr.</option><option value="Ms.">Ms.</option><option value="Mrs.">Mrs.</option>`;
   mainContent.innerHTML = `
     <h2>${signupTitle}</h2>
     <p class="signup-lead">${signupLead}</p>
     <form id="signup-form">
+      <label>Title
+        <select name="title">${titleOptions}</select>
+      </label>
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
       <label>Password <input name="password" type="password" required /></label>
       <label>Phone <input name="phone" /></label>
       <label>Address <input name="address" /></label>
+      ${
+        selectedRole === "doctor"
+          ? `<label>Specialty <input name="specialty" required placeholder="e.g. Cardiology" /></label>`
+          : ""
+      }
       <button type="submit" class="btn btn-primary">Create account</button>
     </form>
     <button id="google-signup-btn" type="button" class="btn btn-google" style="margin-top:1rem;">Continue with Google</button>
@@ -2295,7 +2306,7 @@ async function renderUsers() {
         .map(
           (u) => `
             <tr>
-              <td>${u.firstName} ${u.lastName}</td>
+              <td>${u.title ? `${u.title} ` : ""}${u.firstName} ${u.lastName}</td>
               <td>${u.email || ""}</td>
               <td>${u.role || ""}</td>
               <td>${u.phone || ""}</td>
@@ -2328,6 +2339,16 @@ function showUserForm(editId = null) {
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
+      <label>Title
+        <select name="title">
+          <option value="">(blank)</option>
+          <option value="Mr.">Mr.</option>
+          <option value="Ms.">Ms.</option>
+          <option value="Mrs.">Mrs.</option>
+          <option value="Dr.">Dr.</option>
+          <option value="Dra.">Dra.</option>
+        </select>
+      </label>
       <label>Role
         <select name="role" required>
           <option value="patient">Patient</option>
@@ -2336,6 +2357,7 @@ function showUserForm(editId = null) {
           <option value="admin">Admin</option>
         </select>
       </label>
+      <label>Specialty <input name="specialty" placeholder="Used when role is doctor" /></label>
       <label>Phone <input name="phone" /></label>
       <label>Address <input name="address" /></label>
       <div class="modal-form-actions">
@@ -2358,7 +2380,9 @@ function showUserForm(editId = null) {
         form.firstName.value = data.firstName || "";
         form.lastName.value = data.lastName || "";
         form.email.value = data.email || "";
+        form.title.value = data.title || "";
         form.role.value = data.role || "patient";
+        form.specialty.value = data.specialty || "";
         form.phone.value = data.phone || "";
         form.address.value = data.address || "";
       });

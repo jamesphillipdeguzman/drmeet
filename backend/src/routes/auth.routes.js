@@ -8,7 +8,7 @@ import bcrypt from 'bcrypt';
 
 import { validateUserSignup } from '../middlewares/user.validation.middleware.js';
 import User from '../models/user.model.js';
-import { ensureDoctorProfileForUser } from '../services/doctorProfileSync.service.js';
+import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service.js';
 
 const router = express.Router();
 
@@ -291,7 +291,7 @@ router.post('/login', async (req, res) => {
  */
 router.post('/signup', validateUserSignup, async (req, res) => {
   try {
-    const { firstName, lastName, email, password, phone, address } = req.body;
+    const { firstName, lastName, email, password, phone, address, title, specialty } = req.body;
 
     const exists = await User.findOne({ email });
 
@@ -308,9 +308,10 @@ router.post('/signup', validateUserSignup, async (req, res) => {
       password: hashed,
       phone,
       address,
+      title: String(title || '').trim(),
       role: normalizeAmbiguousSignupRole(req.body.role),
     });
-    await ensureDoctorProfileForUser(user);
+    await syncRoleProfilesForUser(user, { title, specialty });
 
     const token = jwt.sign(
       {

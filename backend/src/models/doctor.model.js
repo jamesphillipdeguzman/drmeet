@@ -22,7 +22,7 @@ const doctorSchema = new mongoose.Schema(
 
     title: {
       type: String,
-      enum: ["Dr.", "MD", "DO", "Consultant"],
+      enum: ["Dr.", "Dra.", "MD", "DO", "Consultant"],
     },
     specialty: {
       type: String,
