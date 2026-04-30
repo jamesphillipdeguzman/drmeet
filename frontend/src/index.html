@@ -5,6 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DrMeet - Clinic Management</title>
+    <link rel="icon" type="image/png" href="images/drmeet-logo.png" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -13,8 +14,21 @@
     <div class="app-shell">
         <aside id="app-sidebar" class="sidebar expanded">
             <div class="sidebar-header">
-                <div class="nav-brand"><a href="https://drmeet-wqws.onrender.com/api-docs" target="_blank">DrMeet</a></div>
+                <div class="nav-brand">
+                    <a href="https://drmeet-wqws.onrender.com/api-docs" target="_blank">
+                        <img src="images/drmeet-logo.png" alt="DrMeet" class="brand-logo" />
+                    </a>
+                </div>
                 <button id="sidebar-toggle" class="icon-button" type="button" aria-label="Toggle Sidebar">☰</button>
+            </div>
+            <div class="sidebar-user-menu">
+                <button id="sidebar-user-trigger" class="sidebar-avatar-btn" type="button" aria-label="Open account menu">
+                    <span class="sidebar-avatar-circle">U</span>
+                    <span class="sidebar-avatar-name">My Account</span>
+                </button>
+                <div id="sidebar-user-popover" class="sidebar-user-popover hidden">
+                    <button id="sidebar-logout-btn" class="btn btn-action-delete" type="button">Logout</button>
+                </div>
             </div>
             <ul class="nav-links">
                 <li><a href="#home" class="nav-link active"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1z"/></svg></span><span class="nav-label">Home</span></a></li>

@@ -3,6 +3,9 @@ const mainContent = document.getElementById("main-content");
 const navLinks = document.querySelectorAll(".nav-link");
 const sidebar = document.getElementById("app-sidebar");
 const sidebarToggle = document.getElementById("sidebar-toggle");
+const sidebarUserTrigger = document.getElementById("sidebar-user-trigger");
+const sidebarUserPopover = document.getElementById("sidebar-user-popover");
+const sidebarLogoutBtn = document.getElementById("sidebar-logout-btn");
 const commandPalette = document.getElementById("command-palette");
 const commandInput = document.getElementById("command-input");
 const commandResults = document.getElementById("command-results");
@@ -177,6 +180,28 @@ function setupShellInteractions() {
   if (!sidebarToggle || !sidebar) return;
   sidebarToggle.addEventListener("click", () => {
     sidebar.classList.toggle("collapsed");
+  });
+  sidebarUserTrigger?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    sidebarUserPopover?.classList.toggle("hidden");
+  });
+  document.addEventListener("click", (event) => {
+    if (!sidebarUserPopover || !sidebarUserTrigger) return;
+    if (
+      !sidebarUserPopover.classList.contains("hidden") &&
+      !sidebarUserPopover.contains(event.target) &&
+      !sidebarUserTrigger.contains(event.target)
+    ) {
+      sidebarUserPopover.classList.add("hidden");
+    }
+  });
+  sidebarLogoutBtn?.addEventListener("click", () => {
+    localStorage.removeItem("token");
+    resetMessagingSocket();
+    updateAuthNav();
+    if (sidebarUserPopover) sidebarUserPopover.classList.add("hidden");
+    window.location.hash = "#login";
+    renderLogin();
   });
 }
 
@@ -668,9 +693,9 @@ function renderHome() {
       ? `<p class="dashboard-book-teaser"><a href="#book" class="btn btn-primary">Book a visit</a> <span class="dashboard-book-hint">Search for a doctor and request an appointment.</span></p>`
       : "";
   mainContent.innerHTML = `
-    <section class="dashboard-intro card">
+    <section class="dashboard-hero">
       <h1>Welcome to DrMeet</h1>
-      <p>Unified Inbox for patient communication. Use the command palette (Ctrl/Cmd+K) to quickly navigate.</p>
+      <p>Connected care coordination for patients, doctors, and clinic teams. Use the command palette (Ctrl/Cmd+K) to navigate quickly.</p>
       ${bookCta}
       <div class="inbox-live-row">
         <span class="live-badge ${dashboardState.websocketActive ? "active" : ""}">Live</span>
@@ -684,6 +709,14 @@ function renderHome() {
                 : "Offline — live updates unavailable."
         }</span>
       </div>
+    </section>
+    <section class="why-drmeet card">
+      <div>
+        <h3>Why Choose DrMeet</h3>
+        <p>DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates.</p>
+        <p>Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.</p>
+      </div>
+      <img class="why-drmeet-media" src="images/drmeet-pic1.png" alt="DrMeet technology in action" />
     </section>
     <section class="dashboard-grid">
       <article class="card board-card">
@@ -1406,10 +1439,21 @@ async function renderPatients() {
     mainContent.innerHTML = `
       <h2>Patients</h2>
       <button onclick="window.showPatientForm()">Add Patient</button>
+      <div class="list-filters">
+        <input type="search" id="patient-filter-name" placeholder="Filter by name" />
+        <input type="search" id="patient-filter-email" placeholder="Filter by email" />
+        <input type="search" id="patient-filter-phone" placeholder="Filter by phone" />
+        <input type="search" id="patient-filter-dob" placeholder="Filter by DOB (YYYY-MM-DD)" />
+      </div>
       <table>
         <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Actions</th></tr></thead>
-        <tbody>
-          ${patients
+        <tbody id="patients-table-body"></tbody>
+      </table>
+      <div id="patient-form-modal" style="display:none"></div>
+    `;
+    const bodyEl = document.getElementById("patients-table-body");
+    const renderRows = (list) => {
+      bodyEl.innerHTML = list
         .map(
           (p) => `
             <tr>
@@ -1424,11 +1468,31 @@ async function renderPatients() {
             </tr>
           `
         )
-        .join("")}
-        </tbody>
-      </table>
-      <div id="patient-form-modal" style="display:none"></div>
-    `;
+        .join("");
+    };
+    const applyPatientFilters = () => {
+      const nameQ = String(document.getElementById("patient-filter-name")?.value || "").toLowerCase().trim();
+      const emailQ = String(document.getElementById("patient-filter-email")?.value || "").toLowerCase().trim();
+      const phoneQ = String(document.getElementById("patient-filter-phone")?.value || "").toLowerCase().trim();
+      const dobQ = String(document.getElementById("patient-filter-dob")?.value || "").toLowerCase().trim();
+      const filtered = patients.filter((p) => {
+        const name = `${p.firstName || ""} ${p.lastName || ""}`.toLowerCase();
+        const email = String(p.email || "").toLowerCase();
+        const phone = String(p.phone || "").toLowerCase();
+        const dob = formatDateForInput(p.birthdate).toLowerCase();
+        return (
+          (!nameQ || name.includes(nameQ)) &&
+          (!emailQ || email.includes(emailQ)) &&
+          (!phoneQ || phone.includes(phoneQ)) &&
+          (!dobQ || dob.includes(dobQ))
+        );
+      });
+      renderRows(filtered);
+    };
+    ["patient-filter-name", "patient-filter-email", "patient-filter-phone", "patient-filter-dob"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("input", applyPatientFilters);
+    });
+    renderRows(patients);
     window.showPatientForm = showPatientForm;
     window.editPatient = editPatient;
     window.deletePatient = deletePatient;
@@ -1737,10 +1801,22 @@ async function renderAppointments() {
     mainContent.innerHTML = `
       <h2>Appointments</h2>
       <button onclick="window.showAppointmentForm()">Add Appointment</button>
+      <div class="list-filters">
+        <input type="search" id="appt-filter-doctor" placeholder="Filter by doctor" />
+        <input type="search" id="appt-filter-patient" placeholder="Filter by patient" />
+        <input type="search" id="appt-filter-date" placeholder="Filter by date (YYYY-MM-DD)" />
+        <input type="search" id="appt-filter-time" placeholder="Filter by time" />
+        <input type="search" id="appt-filter-status" placeholder="Filter by status" />
+      </div>
       <table>
         <thead><tr><th>Doctor</th><th>Patient</th><th>Date</th><th>Time</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody>
-          ${appointments
+        <tbody id="appointments-table-body"></tbody>
+      </table>
+      <div id="appointment-form-modal" style="display:none"></div>
+    `;
+    const bodyEl = document.getElementById("appointments-table-body");
+    const renderRows = (list) => {
+      bodyEl.innerHTML = list
         .map(
           (a) => `
             <tr>
@@ -1758,11 +1834,34 @@ async function renderAppointments() {
             </tr>
           `
         )
-        .join("")}
-        </tbody>
-      </table>
-      <div id="appointment-form-modal" style="display:none"></div>
-    `;
+        .join("");
+    };
+    const applyAppointmentFilters = () => {
+      const doctorQ = String(document.getElementById("appt-filter-doctor")?.value || "").toLowerCase().trim();
+      const patientQ = String(document.getElementById("appt-filter-patient")?.value || "").toLowerCase().trim();
+      const dateQ = String(document.getElementById("appt-filter-date")?.value || "").toLowerCase().trim();
+      const timeQ = String(document.getElementById("appt-filter-time")?.value || "").toLowerCase().trim();
+      const statusQ = String(document.getElementById("appt-filter-status")?.value || "").toLowerCase().trim();
+      const filtered = appointments.filter((a) => {
+        const doctor = String(doctorLookup.get(String(a.doctor?._id || a.doctor)) || a.doctor || "").toLowerCase();
+        const patient = String(patientLookup.get(String(a.patient?._id || a.patient)) || a.patient || "").toLowerCase();
+        const date = formatDateForInput(a.date).toLowerCase();
+        const time = String(a.time || "").toLowerCase();
+        const status = String(a.status || "").toLowerCase();
+        return (
+          (!doctorQ || doctor.includes(doctorQ)) &&
+          (!patientQ || patient.includes(patientQ)) &&
+          (!dateQ || date.includes(dateQ)) &&
+          (!timeQ || time.includes(timeQ)) &&
+          (!statusQ || status.includes(statusQ))
+        );
+      });
+      renderRows(filtered);
+    };
+    ["appt-filter-doctor", "appt-filter-patient", "appt-filter-date", "appt-filter-time", "appt-filter-status"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("input", applyAppointmentFilters);
+    });
+    renderRows(appointments);
     window.showAppointmentForm = showAppointmentForm;
     window.editAppointment = editAppointment;
     window.deleteAppointment = deleteAppointment;

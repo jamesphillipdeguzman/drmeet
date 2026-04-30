@@ -9,6 +9,8 @@ import patientRoutes from './src/routes/patient.routes.js';
 import appointmentRoutes from './src/routes/appointment.routes.js';
 import userRoutes from './src/routes/user.routes.js';
 import messageRoutes from './src/routes/message.routes.js';
+import prescriptionRoutes from './src/routes/prescription.routes.js';
+import medicalHistoryRoutes from './src/routes/medicalHistory.routes.js';
 
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './src/docs/swagger.js';
@@ -127,6 +129,8 @@ app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/prescriptions', prescriptionRoutes);
+app.use('/api/medical-history', medicalHistoryRoutes);
 
 // ========================
 export { app };

@@ -58,3 +58,14 @@ export function hybridAuth(req, res, next) {
         message: 'You are not authorized to view/use this resource',
     });
 }
+
+export function requireRoles(roles = []) {
+    const allowed = new Set(roles.map((r) => String(r).toLowerCase()));
+    return (req, res, next) => {
+        const role = String(req.user?.role || '').toLowerCase();
+        if (!allowed.has(role)) {
+            return res.status(403).json({ error: 'Forbidden.' });
+        }
+        return next();
+    };
+}

@@ -38,6 +38,8 @@ body {
 .sidebar.collapsed .nav-label,
 .sidebar.collapsed .nav-brand { display: none; }
 .sidebar.collapsed .nav-link { justify-content: center; }
+.sidebar.collapsed .sidebar-avatar-name,
+.sidebar.collapsed .sidebar-user-popover { display: none; }
 
 .sidebar-header {
     display: flex;
@@ -50,11 +52,59 @@ body {
 }
 
 .nav-brand {
-    font-size: 1.3rem;
-    font-weight: 700;
+    display: flex;
+    align-items: center;
 }
 
 .nav-brand a { color: #fff; text-decoration: none; }
+.brand-logo {
+    width: 148px;
+    height: auto;
+    display: block;
+    object-fit: contain;
+}
+
+.sidebar-user-menu {
+    position: relative;
+    margin: 0.2rem 0 0.9rem;
+}
+
+.sidebar-avatar-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    background: rgba(151, 171, 255, 0.16);
+    border: 1px solid #475a9f;
+    color: #e4ebff;
+    padding: 0.5rem 0.62rem;
+    border-radius: 12px;
+}
+
+.sidebar-avatar-circle {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: 700;
+    background: #4a5ca5;
+    color: #fff;
+}
+
+.sidebar-avatar-name {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.sidebar-user-popover {
+    margin-top: 0.45rem;
+    padding: 0.45rem;
+    border-radius: 10px;
+    border: 1px solid #4f62aa;
+    background: #1a2756;
+}
 
 .icon-button {
     background: transparent;
@@ -69,6 +119,10 @@ body {
     border-radius: 10px;
     font-size: 1.25rem;
     line-height: 1;
+}
+
+.sidebar-user-popover.hidden {
+    display: none;
 }
 
 .nav-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; }
@@ -867,6 +921,74 @@ textarea {
     color: var(--slate);
     margin-left: 0.35rem;
     vertical-align: middle;
+}
+
+.list-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.55rem;
+    margin: 0.8rem 0 0.35rem;
+}
+
+.list-filters input {
+    width: 100%;
+    border: 1px solid #c9dafc;
+    border-radius: 10px;
+    padding: 0.58rem 0.7rem;
+    font-size: 0.9rem;
+    background: #f8fbff;
+}
+
+.list-filters input:focus {
+    outline: none;
+    border-color: #5d92ec;
+    box-shadow: 0 0 0 3px rgba(93, 146, 236, 0.18);
+    background: #fff;
+}
+
+.dashboard-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    padding: 1.4rem;
+    color: #fff;
+    min-height: 240px;
+    background:
+        linear-gradient(135deg, rgba(11, 26, 61, 0.86), rgba(34, 63, 129, 0.76)),
+        url("../images/hero.png") center/cover no-repeat;
+}
+
+.dashboard-hero h1,
+.dashboard-hero p {
+    color: #fff;
+    max-width: 46rem;
+}
+
+.why-drmeet {
+    margin-top: 1rem;
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1.15fr 1fr;
+    align-items: center;
+}
+
+.why-drmeet-media {
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid #d5def3;
+    box-shadow: 0 10px 24px rgba(21, 36, 80, 0.16);
+}
+
+@media (max-width: 920px) {
+    .why-drmeet {
+        grid-template-columns: 1fr;
+    }
+    .brand-logo {
+        width: 120px;
+    }
+    .sidebar-avatar-name {
+        display: none;
+    }
 }
 
 /* Stronger table action CTAs */
