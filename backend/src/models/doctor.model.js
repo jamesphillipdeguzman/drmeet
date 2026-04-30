@@ -84,6 +84,10 @@ const doctorSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    allowReceptionistSendDocuments: {
+      type: Boolean,
+      default: false,
+    },
     availabilityText: {
       type: String,
       default: "",

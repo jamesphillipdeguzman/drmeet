@@ -176,6 +176,9 @@ body {
     gap: 0.35rem;
     flex-wrap: wrap;
     font-size: 0.86rem;
+    max-width: min(58vw, 760px);
+    overflow-x: auto;
+    white-space: nowrap;
 }
 .breadcrumbs a {
     text-decoration: none;
@@ -190,6 +193,15 @@ body {
     background: #fff;
     color: var(--indigo);
     border: 1px solid #cfd8f0;
+}
+.icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+.icon-btn img {
+    width: 16px;
+    height: 16px;
 }
 .modal-overlay {
     position: fixed;
@@ -231,6 +243,13 @@ body {
 .toast-item.fade-out {
     opacity: 0;
     transform: translateY(6px);
+}
+.danger-modal {
+    width: min(460px, 100%);
+}
+.danger-hint {
+    color: #9e2235;
+    font-weight: 700;
 }
 .doctor-avatar {
     width: 34px;
@@ -279,6 +298,12 @@ footer {
     color: #344d86;
     text-decoration: none;
     font-weight: 600;
+}
+.social-icon {
+    width: 20px;
+    height: 20px;
+    display: inline-block;
+    vertical-align: middle;
 }
 
 .page-title {
@@ -880,8 +905,27 @@ textarea {
 }
 
 @media (max-width: 640px) {
-    .topbar { justify-content: stretch; padding: 0.7rem 0.65rem 0; }
-    .topbar .btn { width: 100%; }
+    .topbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.55rem;
+        padding: 0.7rem 0.65rem 0;
+    }
+    .topbar-nav-tools {
+        justify-content: space-between;
+        width: 100%;
+    }
+    .breadcrumbs {
+        order: 3;
+        max-width: 100%;
+        width: 100%;
+        font-size: 0.78rem;
+    }
+    .topbar .btn {
+        width: auto;
+        padding: 0.45rem 0.6rem;
+        font-size: 0.8rem;
+    }
     .masonry-grid { grid-template-columns: 1fr; }
 
     #patient-form-modal form,
@@ -891,6 +935,56 @@ textarea {
         width: 100%;
         margin: 0.8rem auto 2rem;
     }
+}
+
+/* Command palette spacing on small screens */
+@media (max-width: 640px) {
+    .command-palette {
+        padding-top: 5vh;
+        padding-inline: 0.6rem;
+    }
+    .command-panel {
+        width: 100%;
+        padding: 0.65rem;
+    }
+}
+
+/* Theme variants */
+body.theme-dark {
+    --bg: #111827;
+    --slate: #b6c0d8;
+    --ink: #e6ecff;
+    --indigo: #9bb7ff;
+    --indigo-2: #7f9bf2;
+    --surface: #0f172a;
+    --line: #23304a;
+    background: linear-gradient(180deg, #0b1220 0%, #121c31 100%);
+}
+body.theme-dark main#main-content,
+body.theme-dark .card,
+body.theme-dark .command-panel,
+body.theme-dark table,
+body.theme-dark .thread-drawer {
+    background: #111a2f;
+    color: #dbe7ff;
+    border-color: #263554;
+}
+body.theme-dark table thead th {
+    background: #1a2843;
+    color: #d6e3ff;
+}
+body.theme-dark .btn.btn-secondary,
+body.theme-dark .btn.ghost.btn-secondary {
+    background: #16243e;
+    color: #dbe6ff;
+    border-color: #355181;
+}
+body.theme-dark input,
+body.theme-dark select,
+body.theme-dark textarea {
+    background: #0e1a31;
+    color: #dbe7ff;
+    border-color: #2e456f;
 }
 
 /* Patient booking (search + pick doctor) */

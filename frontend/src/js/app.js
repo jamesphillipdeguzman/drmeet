@@ -22,6 +22,8 @@ const API_ORIGIN = isLocalHost
   : "https://drmeet-api.onrender.com";
 const API_BASE = `${API_ORIGIN}/api`;
 const DASHBOARD_STATE_KEY = "drmeet-dashboard-state";
+const USER_CACHE_KEY = "drmeet-user-cache";
+const THEME_KEY = "drmeet-theme";
 const MESSAGES_API = `${API_BASE}/messages`;
 const dashboardSubscribers = [];
 const dashboardState = {
@@ -220,6 +222,7 @@ function setActiveNav(hash) {
 
 window.addEventListener("hashchange", renderPage);
 window.addEventListener("DOMContentLoaded", () => {
+  bootstrapTheme();
   loadDashboardState();
   setupShellInteractions();
   setupCommandPalette();
@@ -250,6 +253,7 @@ function setupShellInteractions() {
   });
   sidebarLogoutBtn?.addEventListener("click", () => {
     localStorage.removeItem("token");
+    localStorage.removeItem(USER_CACHE_KEY);
     resetMessagingSocket();
     updateAuthNav();
     if (sidebarUserPopover) sidebarUserPopover.classList.add("hidden");
@@ -350,12 +354,22 @@ function renderTopbarBreadcrumbs() {
     })
     .join(" / ");
   container.innerHTML = `
-    <button type="button" class="btn btn-secondary btn-sm" id="topbar-back-btn">Back</button>
+    <button type="button" class="btn btn-secondary btn-sm icon-btn" id="topbar-back-btn" aria-label="Back"><img src="images/arrow-left-s-line.svg" alt="" /> Back</button>
     <nav class="breadcrumbs">${crumbs}</nav>
+    <button type="button" class="btn btn-secondary btn-sm icon-btn" id="theme-toggle-btn" aria-label="Toggle theme"></button>
   `;
   container.querySelector("#topbar-back-btn")?.addEventListener("click", () => {
     window.history.back();
   });
+  const themeBtn = container.querySelector("#theme-toggle-btn");
+  const isDark = document.body.classList.contains("theme-dark");
+  if (themeBtn) {
+    themeBtn.innerHTML = `<img src="images/${isDark ? "contrast-2-fill.svg" : "contrast-2-line.svg"}" alt="" /> ${isDark ? "Dark" : "Light"}`;
+    themeBtn.addEventListener("click", () => {
+      applyTheme(isDark ? "light" : "dark");
+      renderTopbarBreadcrumbs();
+    });
+  }
 }
 
 function loadDashboardState() {
@@ -444,6 +458,13 @@ function getCurrentUserRole() {
   return role != null ? String(role).toLowerCase() : null;
 }
 
+function getCurrentLinkedDoctorId() {
+  const token = localStorage.getItem("token");
+  if (!token) return "";
+  const payload = decodeJwtPayload(token);
+  return String(payload?.linkedDoctorId || "");
+}
+
 function getCurrentUserName() {
   const token = localStorage.getItem("token");
   if (!token) return "";
@@ -451,6 +472,35 @@ function getCurrentUserName() {
   const first = String(payload?.firstName || "").trim();
   const last = String(payload?.lastName || "").trim();
   return `${first} ${last}`.trim();
+}
+
+function cacheCurrentUserProfile() {
+  const token = localStorage.getItem("token");
+  if (!token) return;
+  const payload = decodeJwtPayload(token);
+  if (!payload) return;
+  localStorage.setItem(
+    USER_CACHE_KEY,
+    JSON.stringify({
+      _id: payload?._id || payload?.id || "",
+      firstName: payload?.firstName || "",
+      lastName: payload?.lastName || "",
+      role: payload?.role || "",
+      linkedDoctorId: payload?.linkedDoctorId || "",
+      cachedAt: Date.now(),
+    }),
+  );
+}
+
+function applyTheme(theme) {
+  const resolved = theme === "dark" ? "dark" : "light";
+  document.body.classList.toggle("theme-dark", resolved === "dark");
+  localStorage.setItem(THEME_KEY, resolved);
+}
+
+function bootstrapTheme() {
+  const stored = localStorage.getItem(THEME_KEY) || "light";
+  applyTheme(stored);
 }
 
 function getSidebarRoleLabel(role) {
@@ -543,6 +593,44 @@ function showToast(message, type = "success") {
     toast.classList.add("fade-out");
     setTimeout(() => toast.remove(), 280);
   }, 2800);
+}
+
+function showDangerConfirm(message) {
+  return new Promise((resolve) => {
+    const modal = document.createElement("div");
+    modal.className = "modal-overlay";
+    modal.innerHTML = `
+      <div class="card danger-modal">
+        <h3>Confirm Delete</h3>
+        <p>${escapeHtml(message || "This action is irreversible.")}</p>
+        <p class="danger-hint">This action is irreversible.</p>
+        <div class="modal-form-actions">
+          <button type="button" class="btn btn-action-delete" id="danger-confirm-ok">Delete</button>
+          <button type="button" class="btn btn-secondary" id="danger-confirm-cancel">Cancel</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    const close = (value) => {
+      modal.remove();
+      resolve(value);
+    };
+    modal.querySelector("#danger-confirm-ok")?.addEventListener("click", () => close(true));
+    modal.querySelector("#danger-confirm-cancel")?.addEventListener("click", () => close(false));
+  });
+}
+
+function enforcePhoneInputs(scope = document) {
+  const inputs = scope.querySelectorAll('input[name="phone"], input[name="receptionistPhone"]');
+  inputs.forEach((input) => {
+    input.setAttribute("inputmode", "numeric");
+    input.setAttribute("maxlength", "11");
+    input.setAttribute("pattern", "[0-9]{10,11}");
+    input.addEventListener("input", () => {
+      const cleaned = String(input.value || "").replace(/\D+/g, "").slice(0, 11);
+      input.value = cleaned;
+    });
+  });
 }
 
 function fileToDataUrl(file) {
@@ -1336,6 +1424,7 @@ function updateAuthNav() {
     sidebarClockIntervalId = null;
   }
   if (signedIn) {
+    cacheCurrentUserProfile();
     sidebarClockIntervalId = setInterval(updateSidebarAccountInfo, 1000);
   }
   if (signedIn) {
@@ -1356,6 +1445,7 @@ function renderLogin() {
     `;
     window.logoutUser = () => {
       localStorage.removeItem("token");
+      localStorage.removeItem(USER_CACHE_KEY);
       resetMessagingSocket();
       updateAuthNav();
       window.location.hash = "#login";
@@ -1460,8 +1550,8 @@ function renderSignup() {
       <label>Email <input name="email" type="email" required /></label>
       <label>Password <input name="password" type="password" required /></label>
       <label>Phone
-        <input name="phone" inputmode="numeric" pattern="[0-9]{7,15}" title="Use digits only, 7 to 15 numbers" placeholder="e.g. 09171234567" />
-        <small>Digits only, 7-15 numbers.</small>
+        <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
+        <small>Digits only, 10-11 numbers.</small>
       </label>
       <label>Address <input name="address" /></label>
       ${
@@ -1478,6 +1568,7 @@ function renderSignup() {
     <div id="signup-feedback"></div>
   `;
   const form = document.getElementById('signup-form');
+  enforcePhoneInputs(form);
   const feedback = document.getElementById('signup-feedback');
   const oauthSuccessToken = consumeOauthSuccessTokenFromHash();
   if (oauthSuccessToken) {
@@ -1830,10 +1921,25 @@ async function renderPatients() {
     const patients = await res.json();
     const role = getCurrentUserRole();
     const isPatient = role === "patient";
+    const isReceptionist = role === "receptionist";
     const patientOptions = patients
       .map((p) => `<option value="${p._id}">${p.firstName || ""} ${p.lastName || ""}</option>`)
       .join("");
     const isDoctor = role === "doctor";
+    let canReceptionistSendDocs = false;
+    if (isReceptionist) {
+      try {
+        const docsRes = await apiRequest(`${API_BASE}/doctors`);
+        if (docsRes.ok) {
+          const doctorRows = await docsRes.json();
+          const linkedDoctorId = getCurrentLinkedDoctorId();
+          const linked = doctorRows.find((d) => String(d._id) === String(linkedDoctorId));
+          canReceptionistSendDocs = Boolean(linked?.allowReceptionistSendDocuments);
+        }
+      } catch (e) {
+        canReceptionistSendDocs = false;
+      }
+    }
     mainContent.innerHTML = `
       <h2 class="page-title page-title-patients">Patients</h2>
       <div>
@@ -1877,7 +1983,7 @@ async function renderPatients() {
               <td>
                 <button class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
                 <button class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>
-                ${isDoctor ? `<button class="btn btn-primary btn-action-edit" onclick="window.sendPatientDocumentFromDoctor('${p._id}')">Send Document</button>` : ""}
+                ${isDoctor || (isReceptionist && canReceptionistSendDocs) ? `<button class="btn btn-primary btn-action-edit" onclick="window.sendPatientDocumentFromDoctor('${p._id}')">Send Document</button>` : ""}
               </td>
             </tr>
           `
@@ -1993,12 +2099,21 @@ function showPatientForm(editId = null, familyMode = false) {
   modal.innerHTML = `
     <form id="patient-form">
       <h3>${editId ? "Edit" : familyMode ? "Register Family Member" : "Add"} Patient</h3>
+      ${canAttachExisting ? `
+      <section class="card" style="padding:0.75rem;">
+        <h4 style="margin:0 0 0.45rem;">Search Existing Patient</h4>
+        <label>Search by name, email, or phone
+          <input type="search" id="patient-existing-search" placeholder="Type at least 2 characters" />
+        </label>
+        <div id="patient-existing-results" class="feedback" style="display:none"></div>
+      </section>
+      ` : ""}
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" ${familyMode ? "" : "required"} /></label>
       <label>Phone
-        <input name="phone" inputmode="numeric" pattern="[0-9]{7,15}" title="Use digits only, 7 to 15 numbers" placeholder="e.g. 09171234567" />
-        <small>Digits only, 7-15 numbers.</small>
+        <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
+        <small>Digits only, 10-11 numbers.</small>
       </label>
       <label>Date of Birth <input name="birthdate" type="date" /></label>
       <label>Gender
@@ -2015,15 +2130,9 @@ function showPatientForm(editId = null, familyMode = false) {
       <label>Medical History
         <textarea name="medicalHistory" placeholder="One item per line"></textarea>
       </label>
-      ${canAttachExisting ? `
-      <section class="card" style="padding:0.75rem;">
-        <h4 style="margin:0 0 0.45rem;">Search Existing Patient</h4>
-        <label>Search by name, email, or phone
-          <input type="search" id="patient-existing-search" placeholder="Type at least 2 characters" />
-        </label>
-        <div id="patient-existing-results" class="feedback" style="display:none"></div>
-      </section>
-      ` : ""}
+      <label>Attach Document
+        <input name="documentFile" type="file" accept="image/*,.pdf,.doc,.docx,.txt" />
+      </label>
       <div class="modal-form-actions">
         <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
         <button type="button" class="btn btn-action-delete" onclick="window.closePatientForm()">Cancel</button>
@@ -2034,6 +2143,7 @@ function showPatientForm(editId = null, familyMode = false) {
     modal.style.display = "none";
   };
   const form = document.getElementById("patient-form");
+  enforcePhoneInputs(form);
   if (canAttachExisting) {
     const searchInput = document.getElementById("patient-existing-search");
     const resultEl = document.getElementById("patient-existing-results");
@@ -2101,6 +2211,11 @@ function showPatientForm(editId = null, familyMode = false) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const patient = Object.fromEntries(new FormData(form));
+    const docFile = form.documentFile?.files?.[0];
+    if (docFile) {
+      patient.documentFileData = await fileToDataUrl(docFile);
+      patient.documentName = docFile.name || "Patient attachment";
+    }
     if (familyMode) {
       patient.relationshipToAccountHolder = String(patient.relationshipToAccountHolder || "").trim();
     }
@@ -2143,7 +2258,7 @@ function editPatient(id) {
   showPatientForm(id);
 }
 async function deletePatient(id) {
-  if (!confirm("Delete this patient?")) return;
+  if (!(await showDangerConfirm("Delete this patient?"))) return;
   try {
     const res = await apiRequest(`${API_BASE}/patients/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete patient");
@@ -2184,6 +2299,10 @@ async function renderDoctors() {
                 </div>
               </form>
               <div id="invite-receptionist-feedback" class="feedback" style="display:none"></div>
+        <label style="margin-top:0.6rem;">Receptionist document permission
+          <input type="checkbox" id="doctor-allow-receptionist-docs" />
+          <small>Allow receptionist to send patient documents.</small>
+        </label>
             </section>`
           : ""
       }
@@ -2300,6 +2419,26 @@ async function renderDoctors() {
         feedback.textContent = error.message || "Failed to invite receptionist.";
       }
     });
+    if (isDoctor && doctors[0]) {
+      const toggle = document.getElementById("doctor-allow-receptionist-docs");
+      if (toggle) {
+        toggle.checked = Boolean(doctors[0].allowReceptionistSendDocuments);
+        toggle.addEventListener("change", async () => {
+          try {
+            const upRes = await apiRequest(`${API_BASE}/doctors/${doctors[0]._id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ allowReceptionistSendDocuments: toggle.checked }),
+            });
+            if (!upRes.ok) throw new Error(await getApiErrorMessage(upRes, "Failed to update permission"));
+            showToast("Receptionist document permission updated.");
+          } catch (error) {
+            toggle.checked = !toggle.checked;
+            showToast(error.message || "Failed to update permission.", "error");
+          }
+        });
+      }
+    }
   } catch (err) {
     mainContent.innerHTML = `<h2>Doctors</h2><div class="feedback error">${err.message}</div>`;
   }
@@ -2325,13 +2464,13 @@ function showDoctorForm(editId = null) {
       <label>Room <input name="room" placeholder="e.g. Room 204" /></label>
       <label>Affiliated Hospitals / Clinics <input name="affiliatedClinics" placeholder="Clinic A, Hospital B" /></label>
       <label>Phone
-        <input name="phone" inputmode="numeric" pattern="[0-9]{7,15}" title="Use digits only, 7 to 15 numbers" placeholder="e.g. 09171234567" />
-        <small>Digits only, 7-15 numbers.</small>
+        <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
+        <small>Digits only, 10-11 numbers.</small>
       </label>
       <label>Receptionist Name <input name="receptionistName" placeholder="Front desk contact name" /></label>
       <label>Receptionist Phone
-        <input name="receptionistPhone" inputmode="numeric" pattern="[0-9]{7,15}" title="Use digits only, 7 to 15 numbers" placeholder="e.g. 09171234567" />
-        <small>Digits only, 7-15 numbers.</small>
+        <input name="receptionistPhone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
+        <small>Digits only, 10-11 numbers.</small>
       </label>
       <label>Receptionist Email <input name="receptionistEmail" type="email" placeholder="reception@clinic.com" /></label>
       <label>Address <input name="address" /></label>
@@ -2349,6 +2488,7 @@ function showDoctorForm(editId = null) {
     modal.style.display = "none";
   };
   const form = document.getElementById("doctor-form");
+  enforcePhoneInputs(form);
   if (editId) {
     apiRequest(`${API_BASE}/doctors/${editId}`)
       .then((res) => res.json())
@@ -2443,7 +2583,7 @@ function editDoctor(id) {
   showDoctorForm(id);
 }
 async function deleteDoctor(id) {
-  if (!confirm("Delete this doctor?")) return;
+  if (!(await showDangerConfirm("Delete this doctor?"))) return;
   try {
     const res = await apiRequest(`${API_BASE}/doctors/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete doctor");
@@ -2662,7 +2802,7 @@ function editAppointment(id) {
   showAppointmentForm(id);
 }
 async function deleteAppointment(id) {
-  if (!confirm("Delete this appointment?")) return;
+  if (!(await showDangerConfirm("Delete this appointment?"))) return;
   try {
     const res = await apiRequest(`${API_BASE}/appointments/${id}`, {
       method: "DELETE",
@@ -2755,13 +2895,13 @@ function showUserForm(editId = null) {
           <option value="admin">Admin</option>
         </select>
       </label>
-      <label>Specialty <input name="specialty" list="doctor-specialties-user" placeholder="Used when role is doctor" /></label>
+      <label id="user-specialty-wrap">Specialty <input name="specialty" list="doctor-specialties-user" placeholder="Used when role is doctor" /></label>
       <datalist id="doctor-specialties-user">
         ${[...new Set(DOCTOR_SPECIALTIES)].map((s) => `<option value="${s}"></option>`).join("")}
       </datalist>
       <label>Phone
-        <input name="phone" inputmode="numeric" pattern="[0-9]{7,15}" title="Use digits only, 7 to 15 numbers" placeholder="e.g. 09171234567" />
-        <small>Digits only, 7-15 numbers.</small>
+        <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
+        <small>Digits only, 10-11 numbers.</small>
       </label>
       <label>Address <input name="address" /></label>
       <div class="modal-form-actions">
@@ -2774,6 +2914,14 @@ function showUserForm(editId = null) {
     modal.style.display = "none";
   };
   const form = document.getElementById("user-form");
+  enforcePhoneInputs(form);
+  const specialtyWrap = form.querySelector("#user-specialty-wrap");
+  const roleSelect = form.querySelector('select[name="role"]');
+  const syncSpecialtyVisibility = () => {
+    const isDoctorRole = String(roleSelect?.value || "").toLowerCase() === "doctor";
+    specialtyWrap.style.display = isDoctorRole ? "" : "none";
+  };
+  roleSelect?.addEventListener("change", syncSpecialtyVisibility);
   if (editId) {
     apiRequest(`${API_BASE}/users/${editId}`)
       .then((res) => res.json())
@@ -2786,7 +2934,10 @@ function showUserForm(editId = null) {
         form.specialty.value = data.specialty || "";
         form.phone.value = data.phone || "";
         form.address.value = data.address || "";
+        syncSpecialtyVisibility();
       });
+  } else {
+    syncSpecialtyVisibility();
   }
   form.onsubmit = async (e) => {
     e.preventDefault();
@@ -2813,7 +2964,7 @@ function editUser(id) {
   showUserForm(id);
 }
 async function deleteUser(id) {
-  if (!confirm("Delete this user?")) return;
+  if (!(await showDangerConfirm("Delete this user?"))) return;
   try {
     const res = await apiRequest(`${API_BASE}/users/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error("Failed to delete user");

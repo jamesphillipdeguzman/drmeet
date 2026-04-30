@@ -21,7 +21,10 @@ export const validatePatient = [
     body('birthdate')
         .optional({ values: 'falsy' })
         .isDate().withMessage('Invalid date of birth format'),
-    body('phone').optional().isString().trim(),
+    body('phone')
+        .optional({ values: 'falsy' })
+        .matches(/^\d{10,11}$/)
+        .withMessage('Phone must be 10 or 11 digits.'),
     body('address').optional().isString().trim(),
     runChecks,
 ];
@@ -44,7 +47,10 @@ export const validatePatientUpdate = [
         .withMessage('Valid email is required')
         .trim()
         .normalizeEmail(),
-    body('phone').optional().isString().trim(),
+    body('phone')
+        .optional({ values: 'falsy' })
+        .matches(/^\d{10,11}$/)
+        .withMessage('Phone must be 10 or 11 digits.'),
     body('address').optional().isString().trim(),
     runChecks,
 ];

@@ -64,6 +64,13 @@ const patientSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    documents: [
+      {
+        name: { type: String, default: "" },
+        url: { type: String, default: "" },
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
     careTeamDoctorIds: [
       {
         type: mongoose.Schema.Types.ObjectId,

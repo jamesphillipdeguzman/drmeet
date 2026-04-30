@@ -14,6 +14,7 @@ import {
 import { findDoctorByUserId } from '../services/doctor.service.js';
 import User from '../models/user.model.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
+import { uploadToCloudinary } from '../services/cloudinary.service.js';
 import {
   findAppointmentsByDoctor,
   findAppointmentsByPatient,
@@ -53,6 +54,7 @@ const mapPatientForClient = (patient) => {
     isDependent: Boolean(plain.accountOwnerId) && String(plain.userId || '') !== String(plain.accountOwnerId || ''),
     familyHeadName: plain.familyHeadName || '',
     isCareTeamLinked: Array.isArray(plain.careTeamDoctorIds) && plain.careTeamDoctorIds.length > 0,
+    documents: Array.isArray(plain.documents) ? plain.documents : [],
   };
 };
 
@@ -229,7 +231,7 @@ export const postPatient = async (req, res) => {
     const role = authRole(req);
     const uid = authUserId(req);
 
-    const { firstName, lastName, email, birthdate, address, name, ...rest } =
+    const { firstName, lastName, email, birthdate, address, name, documentFileData, documentName, ...rest } =
       cleanedBody;
 
     let resolvedFirstName = firstName;
@@ -269,6 +271,19 @@ export const postPatient = async (req, res) => {
       birthdate: parsedBirthdate,
       address: typeof address === 'string' ? { address1: address } : address,
     };
+    if (documentFileData) {
+      const uploaded = await uploadToCloudinary(documentFileData, {
+        folder: 'drmeet/patients',
+        resource_type: 'auto',
+      });
+      patientData.documents = [
+        {
+          name: String(documentName || 'Patient attachment'),
+          url: uploaded.secure_url,
+          uploadedAt: new Date(),
+        },
+      ];
+    }
 
     if (role === 'patient' && uid) {
       const isDependent = Boolean(patientData.relationshipToAccountHolder);
@@ -323,6 +338,21 @@ export const updatePatient = async (req, res) => {
     const existing = await findPatientById(id);
     if (!existing) {
       return res.status(404).json({ error: 'Patient not found. ' });
+    }
+    if (cleanedBody.documentFileData) {
+      const uploaded = await uploadToCloudinary(cleanedBody.documentFileData, {
+        folder: 'drmeet/patients',
+        resource_type: 'auto',
+      });
+      const docs = Array.isArray(existing?.documents) ? existing.documents : [];
+      updates.documents = [
+        ...docs,
+        {
+          name: String(cleanedBody.documentName || 'Patient attachment'),
+          url: uploaded.secure_url,
+          uploadedAt: new Date(),
+        },
+      ];
     }
     const allowed = await patientVisibleToRequester(req, existing);
     if (!allowed) {

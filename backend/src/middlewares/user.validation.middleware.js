@@ -13,7 +13,10 @@ export const validateUserSignup = [
     body('lastName').notEmpty().withMessage('Last name is required').trim(),
     body('email').isEmail().withMessage('Email is invalid').normalizeEmail(),
     body('password').notEmpty().withMessage('Password is required').trim(),
-    body('phone').optional().isString().trim(),
+    body('phone')
+        .optional({ values: 'falsy' })
+        .matches(/^\d{10,11}$/)
+        .withMessage('Phone must be 10 or 11 digits.'),
     body('address').optional().isString().trim(),
     body('title')
         .optional()
@@ -37,7 +40,10 @@ export const validateUserUpdate = [
         .optional()
         .isIn(['admin', 'doctor', 'patient', 'receptionist'])
         .withMessage('Role must be admin, doctor, patient, or receptionist'),
-    body('phone').optional().isString().trim(),
+    body('phone')
+        .optional({ values: 'falsy' })
+        .matches(/^\d{10,11}$/)
+        .withMessage('Phone must be 10 or 11 digits.'),
     body('address').optional().isString().trim(),
     body('title')
         .optional()
