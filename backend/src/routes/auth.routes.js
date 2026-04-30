@@ -9,6 +9,7 @@ import bcrypt from 'bcrypt';
 import { validateUserSignup } from '../middlewares/user.validation.middleware.js';
 import User from '../models/user.model.js';
 import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service.js';
+import { sanitizeInput } from '../utils/inputSanitizer.js';
 
 const router = express.Router();
 
@@ -244,7 +245,8 @@ router.get('/logout', (req, res, next) => {
  */
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const cleaned = sanitizeInput(req.body || {});
+    const { email, password } = cleaned;
 
     if (!email || !password) {
       return res.status(400).json({ error: 'Missing credentials' });
@@ -291,7 +293,8 @@ router.post('/login', async (req, res) => {
  */
 router.post('/signup', validateUserSignup, async (req, res) => {
   try {
-    const { firstName, lastName, email, password, phone, address, title, specialty } = req.body;
+    const cleaned = sanitizeInput(req.body || {});
+    const { firstName, lastName, email, password, phone, address, title, specialty } = cleaned;
 
     const exists = await User.findOne({ email });
 
@@ -309,7 +312,7 @@ router.post('/signup', validateUserSignup, async (req, res) => {
       phone,
       address,
       title: String(title || '').trim(),
-      role: normalizeAmbiguousSignupRole(req.body.role),
+      role: normalizeAmbiguousSignupRole(cleaned.role),
     });
     await syncRoleProfilesForUser(user, { title, specialty });
 

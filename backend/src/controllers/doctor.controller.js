@@ -12,6 +12,7 @@ import User from '../models/user.model.js';
 import Patient from '../models/patient.model.js';
 import { findAppointmentsByPatient } from '../services/appointment.service.js';
 import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service.js';
+import { sanitizeInput } from '../utils/inputSanitizer.js';
 
 function authUserId(req) {
     const id = req.user?._id || req.user?.id;
@@ -165,7 +166,7 @@ export const postDoctor = async (req, res) => {
         return res.status(403).json({ error: 'Only admins can create doctors.' });
     }
     try {
-        const body = req.body;
+        const body = sanitizeInput(req.body || {});
 
         // ✅ normalize fields
         const doctorData = {
@@ -227,10 +228,11 @@ export const updateDoctor = async (req, res) => {
     if (!isAdmin(req)) {
         return res.status(403).json({ error: 'Only admins can update doctors.' });
     }
+    const cleanedBody = sanitizeInput(req.body || {});
     const { id } = req.params;
     const updates = {
-        ...req.body,
-        specialty: req.body.specialty,
+        ...cleanedBody,
+        specialty: cleanedBody.specialty,
     };
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid doctor ID format.' });

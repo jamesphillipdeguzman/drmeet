@@ -192,6 +192,22 @@ footer {
     bottom: 0;
 }
 
+.footer-links,
+.footer-social {
+    display: flex;
+    justify-content: center;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.25rem;
+}
+
+.footer-links a,
+.footer-social a {
+    color: #344d86;
+    text-decoration: none;
+    font-weight: 600;
+}
+
 h1, h2, h3 { color: var(--indigo); margin-top: 0; }
 
 h2 {

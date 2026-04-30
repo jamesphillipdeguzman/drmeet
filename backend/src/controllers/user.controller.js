@@ -9,6 +9,7 @@ import {
 } from '../services/user.service.js';
 import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service.js';
 import { findDoctorByUserId } from '../services/doctor.service.js';
+import { sanitizeInput } from '../utils/inputSanitizer.js';
 /**
  * @route GET /api/users
  * @desc Fetch all users
@@ -87,7 +88,7 @@ export const getUserById = async (req, res) => {
  */
 export const postUser = async (req, res) => {
     try {
-        const userData = req.body;
+        const userData = sanitizeInput(req.body || {});
         const newUser = await createUserService(userData);
         await syncRoleProfilesForUser(newUser, {
             title: req.body?.title,
@@ -114,7 +115,7 @@ export const postUser = async (req, res) => {
  */
 export const updateUser = async (req, res) => {
     const { id } = req.params;
-    const updates = req.body;
+    const updates = sanitizeInput(req.body || {});
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid user ID format.' });
     }

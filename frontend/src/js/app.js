@@ -753,6 +753,9 @@ function renderPage() {
   const route = getHashRoute();
   setActiveNav(route);
   switch (route) {
+    case "#privacy":
+      renderPrivacy();
+      break;
     case "#patients":
       renderPatients();
       break;
@@ -777,6 +780,17 @@ function renderPage() {
     default:
       renderHome();
   }
+}
+
+function renderPrivacy() {
+  mainContent.innerHTML = `
+    <section class="card">
+      <h2>Privacy Policy</h2>
+      <p>DrMeet protects your account and medical workflow data with role-based access controls, encrypted transport, and secure session handling.</p>
+      <p>We collect only information needed to deliver appointments, messaging, and patient-care coordination. Personal data is restricted by role permissions.</p>
+      <p>Contact your clinic administrator if you need account data updates or removal support.</p>
+    </section>
+  `;
 }
 
 function renderHome() {
@@ -1142,10 +1156,9 @@ function updateAuthNav() {
   navLinks.forEach((link) => {
     const href = link.getAttribute("href");
     const isHome = href === "#home";
-    const isSignup = href === "#signup";
     const isLogin = href === "#login";
     if (!signedIn) {
-      link.style.display = isHome || isSignup ? "" : "none";
+      link.style.display = isHome || isLogin ? "" : "none";
       return;
     }
     if (isLogin) {
@@ -1417,7 +1430,7 @@ async function renderPatientBooking() {
           <p class="patient-booking-lead">Sign in to search for a doctor and request an appointment.</p>
           <div class="patient-booking-cta-row">
             <a href="#login" class="btn btn-primary">Sign in</a>
-            <a href="#signup" class="btn btn-secondary">Create an account</a>
+            <a href="#home" class="btn btn-secondary">Create an account from Home</a>
           </div>
         </div>
       </section>`;

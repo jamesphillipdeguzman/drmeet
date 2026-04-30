@@ -11,6 +11,7 @@ import {
 } from '../services/patient.service.js';
 import { findDoctorByUserId } from '../services/doctor.service.js';
 import User from '../models/user.model.js';
+import { sanitizeInput } from '../utils/inputSanitizer.js';
 import {
   findAppointmentsByDoctor,
   findAppointmentsByPatient,
@@ -170,11 +171,12 @@ export const getPatientById = async (req, res) => {
  */
 export const postPatient = async (req, res) => {
   try {
+    const cleanedBody = sanitizeInput(req.body || {});
     const role = authRole(req);
     const uid = authUserId(req);
 
     const { firstName, lastName, email, birthdate, address, name, ...rest } =
-      req.body;
+      cleanedBody;
 
     let resolvedFirstName = firstName;
     let resolvedLastName = lastName;
@@ -244,13 +246,14 @@ export const postPatient = async (req, res) => {
  */
 export const updatePatient = async (req, res) => {
   const { id } = req.params;
+  const cleanedBody = sanitizeInput(req.body || {});
   const updates = {
-    ...req.body,
-    birthdate: req.body.birthdate || req.body.birthdate || undefined,
+    ...cleanedBody,
+    birthdate: cleanedBody.birthdate || cleanedBody.birthdate || undefined,
     address:
-      typeof req.body.address === 'string'
-        ? { address1: req.body.address }
-        : req.body.address,
+      typeof cleanedBody.address === 'string'
+        ? { address1: cleanedBody.address }
+        : cleanedBody.address,
   };
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ error: 'Invalid patient ID format.' });
