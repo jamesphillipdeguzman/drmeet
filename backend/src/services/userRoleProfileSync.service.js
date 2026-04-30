@@ -53,6 +53,7 @@ export async function syncRoleProfilesForUser(user, options = {}) {
     if (!existingPatient) {
       await Patient.create({
         userId,
+        accountOwnerId: userId,
         firstName: user.firstName || 'Patient',
         lastName: user.lastName || 'Profile',
         email: user.email || '',
@@ -60,6 +61,7 @@ export async function syncRoleProfilesForUser(user, options = {}) {
       });
     } else {
       await Patient.findByIdAndUpdate(existingPatient._id, {
+        accountOwnerId: existingPatient.accountOwnerId || userId,
         firstName: user.firstName || existingPatient.firstName,
         lastName: user.lastName || existingPatient.lastName,
         email: user.email || existingPatient.email,

@@ -218,6 +218,20 @@ footer {
 .page-title-appointments { background: #eaf8ee; color: #245e3e; }
 .page-title-users { background: #fff3e8; color: #7c4c1c; }
 
+.cta-primary {
+    min-height: 46px;
+    min-width: 150px;
+    font-size: 1rem;
+    padding: 0.72rem 1.15rem;
+    margin-right: 0.5rem;
+}
+
+.section-divider {
+    margin: 0.85rem 0 0.95rem;
+    border: 0;
+    border-top: 2px solid #e1e9fb;
+}
+
 h1, h2, h3 { color: var(--indigo); margin-top: 0; }
 
 h2 {
@@ -345,6 +359,12 @@ form label {
     gap: 0.36rem;
     font-weight: 600;
     color: #2a3656;
+}
+
+form small {
+    color: #546388;
+    font-size: 0.8rem;
+    font-weight: 500;
 }
 
 form input,

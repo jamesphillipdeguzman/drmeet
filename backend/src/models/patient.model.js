@@ -9,6 +9,16 @@ const patientSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
+    accountOwnerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: false,
+      index: true,
+    },
+    relationshipToAccountHolder: {
+      type: String,
+      default: "",
+    },
     firstName: {
       type: String,
       default: "unknown",
@@ -21,7 +31,7 @@ const patientSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: true,
+      required: false,
     },
     phone: {
       type: String,

@@ -1316,7 +1316,10 @@ function renderSignup() {
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
       <label>Password <input name="password" type="password" required /></label>
-      <label>Phone <input name="phone" /></label>
+      <label>Phone
+        <input name="phone" inputmode="numeric" pattern="[0-9]{7,15}" title="Use digits only, 7 to 15 numbers" placeholder="e.g. 09171234567" />
+        <small>Digits only, 7-15 numbers.</small>
+      </label>
       <label>Address <input name="address" /></label>
       ${
         selectedRole === "doctor"
@@ -1679,9 +1682,27 @@ async function renderPatients() {
     const res = await apiRequest(`${API_BASE}/patients`);
     if (!res.ok) throw new Error("Failed to fetch patients");
     const patients = await res.json();
+    const role = getCurrentUserRole();
+    const isPatient = role === "patient";
+    const patientOptions = patients
+      .map((p) => `<option value="${p._id}">${p.firstName || ""} ${p.lastName || ""}</option>`)
+      .join("");
     mainContent.innerHTML = `
       <h2 class="page-title page-title-patients">Patients</h2>
-      <button onclick="window.showPatientForm()">Add Patient</button>
+      <div>
+        <button class="cta-primary" onclick="window.showPatientForm()">Add Patient</button>
+        ${isPatient ? '<button class="cta-primary" onclick="window.showFamilyMemberForm()">Register Family Member</button>' : ""}
+      </div>
+      ${isPatient && patients.length ? `
+      <div class="list-filters">
+        <label>Switch Profile
+          <select id="patient-switch-profile">
+            <option value="">All linked profiles</option>
+            ${patientOptions}
+          </select>
+        </label>
+      </div>` : ""}
+      <hr class="section-divider" />
       <div class="list-filters">
         <input type="search" id="patient-filter-name" placeholder="Filter by name" />
         <input type="search" id="patient-filter-email" placeholder="Filter by email" />
@@ -1689,7 +1710,7 @@ async function renderPatients() {
         <input type="search" id="patient-filter-dob" placeholder="Filter by DOB (YYYY-MM-DD)" />
       </div>
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Profile Type</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Actions</th></tr></thead>
         <tbody id="patients-table-body"></tbody>
       </table>
       <div id="patient-form-modal" style="display:none"></div>
@@ -1701,6 +1722,7 @@ async function renderPatients() {
           (p) => `
             <tr>
               <td>${p.firstName} ${p.lastName}</td>
+              <td>${p.familyHeadName ? `Family Head: ${p.familyHeadName}` : (p.relationshipToAccountHolder ? `Dependent: ${p.relationshipToAccountHolder}` : "Primary")}</td>
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
               <td>${formatDateDisplay(p.birthdate) || ""}</td>
@@ -1735,8 +1757,18 @@ async function renderPatients() {
     ["patient-filter-name", "patient-filter-email", "patient-filter-phone", "patient-filter-dob"].forEach((id) => {
       document.getElementById(id)?.addEventListener("input", applyPatientFilters);
     });
+    document.getElementById("patient-switch-profile")?.addEventListener("change", (event) => {
+      const selectedId = String(event.target.value || "");
+      if (!selectedId) {
+        applyPatientFilters();
+        return;
+      }
+      const picked = patients.filter((p) => String(p._id) === selectedId);
+      renderRows(picked);
+    });
     renderRows(patients);
     window.showPatientForm = showPatientForm;
+    window.showFamilyMemberForm = () => showPatientForm(null, true);
     window.editPatient = editPatient;
     window.deletePatient = deletePatient;
   } catch (err) {
@@ -1744,16 +1776,19 @@ async function renderPatients() {
   }
 }
 
-function showPatientForm(editId = null) {
+function showPatientForm(editId = null, familyMode = false) {
   const modal = document.getElementById("patient-form-modal");
   modal.style.display = "block";
   modal.innerHTML = `
     <form id="patient-form">
-      <h3>${editId ? "Edit" : "Add"} Patient</h3>
+      <h3>${editId ? "Edit" : familyMode ? "Register Family Member" : "Add"} Patient</h3>
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
-      <label>Email <input name="email" type="email" required /></label>
-      <label>Phone <input name="phone" /></label>
+      <label>Email <input name="email" type="email" ${familyMode ? "" : "required"} /></label>
+      <label>Phone
+        <input name="phone" inputmode="numeric" pattern="[0-9]{7,15}" title="Use digits only, 7 to 15 numbers" placeholder="e.g. 09171234567" />
+        <small>Digits only, 7-15 numbers.</small>
+      </label>
       <label>Date of Birth <input name="birthdate" type="date" /></label>
       <label>Gender
         <select name="gender">
@@ -1764,6 +1799,7 @@ function showPatientForm(editId = null) {
         </select>
       </label>
       <label>Address <input name="address" /></label>
+      ${familyMode ? `<label>Relationship to Account Holder <input name="relationshipToAccountHolder" required placeholder="e.g. Son, Daughter, Spouse" /></label>` : ""}
       <label>Notes <textarea name="notes" placeholder="Medical notes or reminders"></textarea></label>
       <label>Medical History
         <textarea name="medicalHistory" placeholder="One item per line"></textarea>
@@ -1799,6 +1835,9 @@ function showPatientForm(editId = null) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const patient = Object.fromEntries(new FormData(form));
+    if (familyMode) {
+      patient.relationshipToAccountHolder = String(patient.relationshipToAccountHolder || "").trim();
+    }
     patient.medicalHistory = String(patient.medicalHistory || "")
       .split("\n")
       .map((item) => item.trim())
@@ -1851,7 +1890,7 @@ async function renderDoctors() {
     const isDoctor = role === "doctor";
     mainContent.innerHTML = `
       <h2 class="page-title page-title-doctors">Doctors</h2>
-      ${isAdmin ? '<button onclick="window.showDoctorForm()">Add Doctor</button>' : ""}
+      ${isAdmin ? '<button class="cta-primary" onclick="window.showDoctorForm()">Add Doctor</button>' : ""}
       ${
         isDoctor
           ? `<section class="card" style="margin: 1rem 0;">
@@ -1867,6 +1906,7 @@ async function renderDoctors() {
             </section>`
           : ""
       }
+      <hr class="section-divider" />
       <div class="list-filters">
         <input type="search" id="doctor-filter-name" placeholder="Filter by name" />
         <input type="search" id="doctor-filter-email" placeholder="Filter by email" />
@@ -1996,9 +2036,15 @@ function showDoctorForm(editId = null) {
       </label>
       <label>Room <input name="room" placeholder="e.g. Room 204" /></label>
       <label>Affiliated Hospitals / Clinics <input name="affiliatedClinics" placeholder="Clinic A, Hospital B" /></label>
-      <label>Phone <input name="phone" /></label>
+      <label>Phone
+        <input name="phone" inputmode="numeric" pattern="[0-9]{7,15}" title="Use digits only, 7 to 15 numbers" placeholder="e.g. 09171234567" />
+        <small>Digits only, 7-15 numbers.</small>
+      </label>
       <label>Receptionist Name <input name="receptionistName" placeholder="Front desk contact name" /></label>
-      <label>Receptionist Phone <input name="receptionistPhone" placeholder="Reception contact number" /></label>
+      <label>Receptionist Phone
+        <input name="receptionistPhone" inputmode="numeric" pattern="[0-9]{7,15}" title="Use digits only, 7 to 15 numbers" placeholder="e.g. 09171234567" />
+        <small>Digits only, 7-15 numbers.</small>
+      </label>
       <label>Receptionist Email <input name="receptionistEmail" type="email" placeholder="reception@clinic.com" /></label>
       <label>Address <input name="address" /></label>
       <div class="modal-form-actions">
@@ -2137,7 +2183,8 @@ async function renderAppointments() {
     );
     mainContent.innerHTML = `
       <h2 class="page-title page-title-appointments">Appointments</h2>
-      <button onclick="window.showAppointmentForm()">Add Appointment</button>
+      <button class="cta-primary" onclick="window.showAppointmentForm()">Add Appointment</button>
+      <hr class="section-divider" />
       <div class="list-filters">
         <input type="search" id="appt-filter-doctor" placeholder="Filter by doctor" />
         <input type="search" id="appt-filter-patient" placeholder="Filter by patient" />
@@ -2352,7 +2399,8 @@ async function renderUsers() {
     }
     mainContent.innerHTML = `
       <h2 class="page-title page-title-users">Users</h2>
-      <button onclick="window.showUserForm()">Add User</button>
+      <button class="cta-primary" onclick="window.showUserForm()">Add User</button>
+      <hr class="section-divider" />
       <table>
         <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>Actions</th></tr></thead>
         <tbody>
@@ -2415,7 +2463,10 @@ function showUserForm(editId = null) {
       <datalist id="doctor-specialties-user">
         ${[...new Set(DOCTOR_SPECIALTIES)].map((s) => `<option value="${s}"></option>`).join("")}
       </datalist>
-      <label>Phone <input name="phone" /></label>
+      <label>Phone
+        <input name="phone" inputmode="numeric" pattern="[0-9]{7,15}" title="Use digits only, 7 to 15 numbers" placeholder="e.g. 09171234567" />
+        <small>Digits only, 7-15 numbers.</small>
+      </label>
       <label>Address <input name="address" /></label>
       <div class="modal-form-actions">
         <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>

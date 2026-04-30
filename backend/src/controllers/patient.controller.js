@@ -7,6 +7,7 @@ import {
   updatePatientById as updatePatientByIdService,
   deletePatientById as deletePatientByIdService,
   findPatientsByUserId,
+  findPatientsByAccountOwnerId,
   findPatientsByIds,
 } from '../services/patient.service.js';
 import { findDoctorByUserId } from '../services/doctor.service.js';
@@ -47,6 +48,9 @@ const mapPatientForClient = (patient) => {
     ...plain,
     birthdate: plain.birthdate || null,
     address: addressText || '',
+    relationshipToAccountHolder: plain.relationshipToAccountHolder || '',
+    isDependent: Boolean(plain.accountOwnerId) && String(plain.userId || '') !== String(plain.accountOwnerId || ''),
+    familyHeadName: plain.familyHeadName || '',
   };
 };
 
@@ -72,7 +76,18 @@ async function getScopedPatients(req) {
   }
 
   if (role === 'patient' && uid) {
-    return findPatientsByUserId(uid);
+    const [primary, dependents] = await Promise.all([
+      findPatientsByUserId(uid),
+      findPatientsByAccountOwnerId(uid),
+    ]);
+    const merged = [...primary, ...dependents];
+    const seen = new Set();
+    return merged.filter((p) => {
+      const id = String(p._id);
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
   }
 
   if (role === 'doctor' && uid) {
@@ -101,7 +116,10 @@ async function patientVisibleToRequester(req, patientDoc) {
   }
 
   if (role === 'patient' && uid) {
-    return String(patientDoc.userId || '') === uid;
+    return (
+      String(patientDoc.userId || '') === uid ||
+      String(patientDoc.accountOwnerId || '') === uid
+    );
   }
 
   if (role === 'doctor' && uid) {
@@ -120,7 +138,28 @@ async function patientVisibleToRequester(req, patientDoc) {
 export const getAllPatients = async (req, res) => {
   try {
     const patients = await getScopedPatients(req);
-    const normalizedPatients = patients.map(mapPatientForClient);
+    let normalizedPatients = patients.map(mapPatientForClient);
+    if (authRole(req) === 'doctor' || authRole(req) === 'receptionist' || authRole(req) === 'admin') {
+      const ownerIds = [
+        ...new Set(
+          patients
+            .map((p) => String(p.accountOwnerId || ''))
+            .filter(Boolean),
+        ),
+      ].filter((id) => mongoose.Types.ObjectId.isValid(id));
+      const owners = ownerIds.length
+        ? await User.find({ _id: { $in: ownerIds } })
+            .select('firstName lastName')
+            .lean()
+        : [];
+      const ownerMap = new Map(
+        owners.map((o) => [String(o._id), `${o.firstName || ''} ${o.lastName || ''}`.trim()]),
+      );
+      normalizedPatients = normalizedPatients.map((p) => ({
+        ...p,
+        familyHeadName: p.accountOwnerId ? ownerMap.get(String(p.accountOwnerId)) || '' : '',
+      }));
+    }
     console.log('[PATIENT]✅ GET /api/patients was called.');
     return res.status(200).json(normalizedPatients);
   } catch (error) {
@@ -182,9 +221,9 @@ export const postPatient = async (req, res) => {
       resolvedLastName = parts.slice(1).join(' ') || '';
     }
 
-    if (!resolvedFirstName || !resolvedLastName || !email) {
+    if (!resolvedFirstName || !resolvedLastName) {
       return res.status(400).json({
-        error: 'firstName, lastName, and email are required',
+        error: 'firstName and lastName are required',
       });
     }
 
@@ -206,19 +245,25 @@ export const postPatient = async (req, res) => {
       ...rest,
       firstName: resolvedFirstName,
       lastName: resolvedLastName,
-      email,
+      email: email || '',
       birthdate: parsedBirthdate,
       address: typeof address === 'string' ? { address1: address } : address,
     };
 
     if (role === 'patient' && uid) {
-      const existing = await findPatientsByUserId(uid);
-      if (existing.length) {
-        return res.status(400).json({
-          error: 'A patient profile is already linked to this account.',
-        });
+      const isDependent = Boolean(patientData.relationshipToAccountHolder);
+      if (isDependent) {
+        patientData.accountOwnerId = uid;
+      } else {
+        const existingPrimary = await findPatientsByUserId(uid);
+        if (existingPrimary.length) {
+          return res.status(400).json({
+            error: 'A primary patient profile is already linked to this account.',
+          });
+        }
+        patientData.userId = uid;
+        patientData.accountOwnerId = uid;
       }
-      patientData.userId = uid;
     } else if (!patientData.userId) {
       delete patientData.userId;
     }

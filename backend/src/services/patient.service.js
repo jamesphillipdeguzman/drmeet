@@ -7,6 +7,9 @@ export const findAllPatients = async () => Patient.find();
 
 export const findPatientsByUserId = async (userId) => Patient.find({ userId });
 
+export const findPatientsByAccountOwnerId = async (accountOwnerId) =>
+  Patient.find({ accountOwnerId });
+
 export const findPatientsByIds = async (ids) => {
   if (!Array.isArray(ids) || !ids.length) return [];
   return Patient.find({ _id: { $in: ids } });
