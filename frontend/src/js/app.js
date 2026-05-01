@@ -745,7 +745,8 @@ function updateSidebarAccountInfo() {
       : "My Account";
   if (sidebarAccountMeta) {
     sidebarAccountMeta.innerHTML = signedIn
-      ? `<strong>${escapeHtml(fullName || "User")}</strong><br>(${escapeHtml(roleLabel)})`
+      ? `<strong>${escapeHtml(fullName || "User")}</strong>
+     <span class="role-label">${escapeHtml(roleLabel)}</span>`
       : "Not signed in";
   }
 }
