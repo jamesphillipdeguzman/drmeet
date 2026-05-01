@@ -5,6 +5,7 @@ import doctorRoutes from '../src/routes/doctor.routes.js';
 // Bypass middleware for testing
 jest.mock('../src/middlewares/auth.middleware.js', () => ({
     hybridAuth: (req, res, next) => next(),
+    requireRoles: () => (req, res, next) => next(),
 }));
 
 jest.mock('../src/middlewares/validate.middleware.js', () => ({
@@ -27,6 +28,7 @@ jest.mock('../src/controllers/doctor.controller.js', () => ({
     postDoctor: (req, res) => res.status(201).json({ created: true }),
     updateDoctor: (req, res) => res.status(200).json({ updated: true }),
     deleteDoctor: (req, res) => res.status(200).json({ deleted: true }),
+    inviteReceptionist: (req, res) => res.status(200).json({ invited: true }),
 }));
 
 const app = express();

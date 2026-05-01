@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 import Patient from '../models/patient.model.js';
+import { patientActiveQuery } from '../services/patient.service.js';
 
 import {
     findAllAppointmentsWithPatientMeta,
@@ -37,7 +38,7 @@ async function getScopedAppointments(req) {
     }
 
     if (role === 'patient' && uid) {
-        const patient = await Patient.findOne({ userId: uid });
+        const patient = await Patient.findOne({ userId: uid, ...patientActiveQuery });
         if (!patient) return [];
         return findAppointmentsByPatient(String(patient._id));
     }
@@ -64,7 +65,7 @@ async function appointmentVisibleToRequester(req, appt) {
     }
 
     if (role === 'patient' && uid) {
-        const patient = await Patient.findOne({ userId: uid });
+        const patient = await Patient.findOne({ userId: uid, ...patientActiveQuery });
         return patient && String(appt.patient) === String(patient._id);
     }
 
@@ -136,7 +137,7 @@ export const postAppointment = async (req, res) => {
         const role = authRole(req);
         const uid = authUserId(req);
         if (role === 'patient' && uid) {
-            const patient = await Patient.findOne({ userId: uid });
+            const patient = await Patient.findOne({ userId: uid, ...patientActiveQuery });
             if (!patient) {
                 return res.status(400).json({
                     error: 'Create your patient profile before booking an appointment.',

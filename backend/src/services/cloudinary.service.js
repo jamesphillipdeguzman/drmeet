@@ -1,4 +1,7 @@
-import cloudinary, { syncCloudinaryFromEnv } from '../config/cloudinary.js';
+import cloudinary, {
+  isCloudinaryConfigured,
+  syncCloudinaryFromEnv,
+} from '../config/cloudinary.js';
 
 const UPLOAD_OPTION_KEYS = new Set([
   'folder',
@@ -35,10 +38,9 @@ export async function uploadToCloudinary(fileData, options = {}) {
     throw new Error('fileData is required');
   }
   syncCloudinaryFromEnv();
-  const cfg = cloudinary.config();
-  if (!cfg?.api_key) {
+  if (!isCloudinaryConfigured()) {
     throw new Error(
-      'Cloudinary is not configured on the server. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.',
+      'Cloudinary is not configured on the server. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET on the host (e.g. Render environment variables).',
     );
   }
   const uploadParams = pickUploadOptions({
@@ -53,5 +55,6 @@ export async function uploadToCloudinary(fileData, options = {}) {
 export async function deleteFromCloudinary(publicId) {
   if (!publicId) return null;
   syncCloudinaryFromEnv();
+  if (!isCloudinaryConfigured()) return null;
   return cloudinary.uploader.destroy(publicId, { resource_type: 'auto' });
 }

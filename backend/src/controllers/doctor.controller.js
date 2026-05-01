@@ -10,6 +10,7 @@ import {
 } from '../services/doctor.service.js';
 import User from '../models/user.model.js';
 import Patient from '../models/patient.model.js';
+import { patientActiveQuery } from '../services/patient.service.js';
 import { findAppointmentsByPatient } from '../services/appointment.service.js';
 import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
@@ -101,7 +102,7 @@ async function doctorVisibleToRequester(req, doctorDoc) {
     }
 
     if (role === 'patient' && uid) {
-        const patient = await Patient.findOne({ userId: uid }).lean();
+        const patient = await Patient.findOne({ userId: uid, ...patientActiveQuery }).lean();
         if (!patient) return true;
         const appointments = await findAppointmentsByPatient(String(patient._id));
         const assignedDoctorIds = new Set(

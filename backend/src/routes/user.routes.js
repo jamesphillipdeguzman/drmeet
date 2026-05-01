@@ -7,12 +7,14 @@ import {
   postUser,
   updateUser,
   deleteUser,
+  exportUsersCsv,
 } from '../controllers/user.controller.js';
 import {
 } from '../middlewares/user.validation.middleware.js';
 
 const router = express.Router();
 
+router.get('/export/csv', hybridAuth, exportUsersCsv);
 router.get('/', hybridAuth, getAllUsers);
 router.get('/:id', hybridAuth, validateMongoIdParam, getUserById);
 router.post('/', hybridAuth, postUser);

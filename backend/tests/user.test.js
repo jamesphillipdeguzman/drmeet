@@ -27,6 +27,7 @@ jest.mock('../src/controllers/user.controller.js', () => ({
     postUser: (req, res) => res.status(201).json({ created: true }),
     updateUser: (req, res) => res.status(200).json({ updated: true }),
     deleteUser: (req, res) => res.status(200).json({ deleted: true }),
+    exportUsersCsv: (req, res) => res.status(200).type('text/csv').send('_id,email\nuser123,bob@example.com'),
 }));
 
 const app = express();

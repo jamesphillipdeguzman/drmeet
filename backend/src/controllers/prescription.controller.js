@@ -6,6 +6,7 @@ import {
   deletePrescriptionById,
 } from '../services/prescription.service.js';
 import Patient from '../models/patient.model.js';
+import { patientActiveQuery } from '../services/patient.service.js';
 import { findDoctorByUserId } from '../services/doctor.service.js';
 import { uploadToCloudinary } from '../services/cloudinary.service.js';
 
@@ -24,7 +25,7 @@ async function resolveScopedFilters(req) {
   const filters = { ...req.query };
 
   if (role === 'patient' && userId) {
-    const patient = await Patient.findOne({ userId }).lean();
+    const patient = await Patient.findOne({ userId, ...patientActiveQuery }).lean();
     filters.patientId = patient ? String(patient._id) : '__none__';
   }
 

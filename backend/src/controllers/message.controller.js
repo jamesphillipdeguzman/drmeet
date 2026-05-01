@@ -3,6 +3,7 @@ import Conversation from "../models/conversation.model.js";
 import Message from "../models/message.model.js";
 import Doctor from "../models/doctor.model.js";
 import Patient from "../models/patient.model.js";
+import { patientActiveQuery } from "../services/patient.service.js";
 import { uploadToCloudinary } from "../services/cloudinary.service.js";
 import { appointmentExistsForDoctorPatient } from "../services/appointment.service.js";
 import {
@@ -90,7 +91,12 @@ export const ensurePatientDoctorConversationId = async (req, res) => {
         return res.status(403).json({ error: "Forbidden." });
       }
       const doctorProfile = await Doctor.findOne({ userId }).select("_id").lean();
-      const patientProfile = await Patient.findOne({ userId: patientId }).select("_id").lean();
+      const patientProfile = await Patient.findOne({
+        userId: patientId,
+        ...patientActiveQuery,
+      })
+        .select("_id")
+        .lean();
       if (!doctorProfile || !patientProfile) {
         return res.status(403).json({ error: "Forbidden." });
       }

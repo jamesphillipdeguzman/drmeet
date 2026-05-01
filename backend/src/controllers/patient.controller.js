@@ -5,12 +5,15 @@ import {
   findPatientById,
   createPatient as createPatientService,
   updatePatientById as updatePatientByIdService,
-  deletePatientById as deletePatientByIdService,
+  softDeletePatientById as softDeletePatientByIdService,
   findPatientsByUserId,
   findPatientsByAccountOwnerId,
   findPatientsByIds,
   findPatientsByDoctorCareTeam,
+  findAnyPatientByUserId,
+  isPatientDocActive,
 } from '../services/patient.service.js';
+import { PHILIPPINES_HMO_PROVIDERS } from '../constants/philippinesHmo.js';
 import { findDoctorByUserId } from '../services/doctor.service.js';
 import User from '../models/user.model.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
@@ -55,6 +58,8 @@ const mapPatientForClient = (patient) => {
     familyHeadName: plain.familyHeadName || '',
     isCareTeamLinked: Array.isArray(plain.careTeamDoctorIds) && plain.careTeamDoctorIds.length > 0,
     documents: Array.isArray(plain.documents) ? plain.documents : [],
+    isInsured: Boolean(plain.isInsured),
+    hmoProvider: plain.isInsured ? String(plain.hmoProvider || '').trim() : '',
   };
 };
 
@@ -231,8 +236,19 @@ export const postPatient = async (req, res) => {
     const role = authRole(req);
     const uid = authUserId(req);
 
-    const { firstName, lastName, email, birthdate, address, name, documentFileData, documentName, ...rest } =
-      cleanedBody;
+    const {
+      firstName,
+      lastName,
+      email,
+      birthdate,
+      address,
+      name,
+      documentFileData,
+      documentName,
+      isInsured: rawInsured,
+      hmoProvider: rawHmo,
+      ...rest
+    } = cleanedBody;
 
     let resolvedFirstName = firstName;
     let resolvedLastName = lastName;
@@ -263,6 +279,16 @@ export const postPatient = async (req, res) => {
       parsedBirthdate = d;
     }
 
+    const insured = Boolean(rawInsured);
+    if (insured) {
+      const hmo = String(rawHmo || '').trim();
+      if (!hmo || !PHILIPPINES_HMO_PROVIDERS.includes(hmo)) {
+        return res.status(400).json({
+          error: 'When insured, select a valid HMO provider from the list.',
+        });
+      }
+    }
+
     const patientData = {
       ...rest,
       firstName: resolvedFirstName,
@@ -270,6 +296,8 @@ export const postPatient = async (req, res) => {
       email: email || '',
       birthdate: parsedBirthdate,
       address: typeof address === 'string' ? { address1: address } : address,
+      isInsured: insured,
+      hmoProvider: insured ? String(rawHmo || '').trim() : '',
     };
     if (documentFileData) {
       const uploaded = await uploadToCloudinary(documentFileData, {
@@ -290,10 +318,16 @@ export const postPatient = async (req, res) => {
       if (isDependent) {
         patientData.accountOwnerId = uid;
       } else {
-        const existingPrimary = await findPatientsByUserId(uid);
-        if (existingPrimary.length) {
+        const existingByUser = await findAnyPatientByUserId(uid);
+        if (existingByUser) {
+          if (isPatientDocActive(existingByUser)) {
+            return res.status(400).json({
+              error: 'A primary patient profile is already linked to this account.',
+            });
+          }
           return res.status(400).json({
-            error: 'A primary patient profile is already linked to this account.',
+            error:
+              'An archived patient record is still linked to this account. Contact the clinic to restore it before creating a new profile.',
           });
         }
         patientData.userId = uid;
@@ -334,7 +368,7 @@ export const postPatient = async (req, res) => {
 export const updatePatient = async (req, res) => {
   const { id } = req.params;
   const cleanedBody = sanitizeInput(req.body || {});
-  const updates = {
+    const updates = {
     ...cleanedBody,
     birthdate: cleanedBody.birthdate || cleanedBody.birthdate || undefined,
     address:
@@ -342,6 +376,22 @@ export const updatePatient = async (req, res) => {
         ? { address1: cleanedBody.address }
         : cleanedBody.address,
   };
+
+    if ('isInsured' in cleanedBody || 'hmoProvider' in cleanedBody) {
+      const insured = Boolean(cleanedBody.isInsured);
+      updates.isInsured = insured;
+      if (insured) {
+        const hmo = String(cleanedBody.hmoProvider || '').trim();
+        if (!PHILIPPINES_HMO_PROVIDERS.includes(hmo)) {
+          return res.status(400).json({
+            error: 'When insured, select a valid HMO provider from the list.',
+          });
+        }
+        updates.hmoProvider = hmo;
+      } else {
+        updates.hmoProvider = '';
+      }
+    }
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ error: 'Invalid patient ID format.' });
   }
@@ -419,15 +469,20 @@ export const deletePatient = async (req, res) => {
   }
 
   try {
-    const deletedPatient = await deletePatientByIdService(id);
-    if (!deletedPatient) {
+    const archivedPatient = await softDeletePatientByIdService(id);
+    if (!archivedPatient) {
       return res.status(404).json({ error: 'Patient not found.' });
     }
     console.log(
-      `[PATIENT]✅ DELETE /api/patients/${id} - Patient ${deletedPatient._id} successfully deleted`,
+      `[PATIENT]✅ DELETE /api/patients/${id} - Patient ${archivedPatient._id} soft-deleted (clinic removed; User unchanged)`,
     );
 
-    return res.status(200).json({ message: `Patient ${id} deleted.` });
+    return res.status(200).json({
+      message: 'Patient removed from active clinic records. Linked User account was not deleted.',
+      softDeleted: true,
+      patientId: String(archivedPatient._id),
+      deletedAt: archivedPatient.deletedAt,
+    });
   } catch (error) {
     return res
       .status(500)
@@ -444,12 +499,12 @@ export const searchPatients = async (req, res) => {
     const q = String(req.query.q || '').trim();
     if (!q) return res.status(200).json([]);
     const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    const matches = await findAllPatients().then((rows) =>
-      rows.filter((p) =>
+    const pool = await getScopedPatients(req);
+    const matches = pool.filter(
+      (p) =>
         regex.test(`${p.firstName || ''} ${p.lastName || ''}`) ||
         regex.test(String(p.email || '')) ||
         regex.test(String(p.phone || '')),
-      ),
     );
     return res.status(200).json(matches.slice(0, 10).map(mapPatientForClient));
   } catch (error) {
@@ -492,6 +547,14 @@ export const attachExistingPatientToCareTeam = async (req, res) => {
     return res.status(200).json(mapPatientForClient(patient));
   } catch (error) {
     return res.status(500).json({ error: 'Failed to attach existing patient.' });
+  }
+};
+
+export const getPhilippinesHmoProviders = async (req, res) => {
+  try {
+    return res.status(200).json({ providers: PHILIPPINES_HMO_PROVIDERS });
+  } catch (error) {
+    return res.status(500).json({ error: 'Failed to load HMO list.' });
   }
 };
 

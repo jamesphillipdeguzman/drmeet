@@ -19,6 +19,15 @@ const patientSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    /** false + deletedAt set = removed from clinic lists; User row unchanged. */
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
     firstName: {
       type: String,
       default: "unknown",
@@ -77,8 +86,19 @@ const patientSchema = new mongoose.Schema(
         ref: "Doctor",
       },
     ],
+    isInsured: {
+      type: Boolean,
+      default: false,
+    },
+    hmoProvider: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   { timestamps: true }
 );
+
+patientSchema.index({ deletedAt: 1, isActive: 1 });
 
 export default mongoose.model("Patient", patientSchema);

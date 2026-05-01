@@ -26,6 +26,12 @@ function readCredentialsFromEnv() {
   return { cloud_name, api_key, api_secret };
 }
 
+/** True when env (or CLOUDINARY_URL) provides all three values — use instead of cloudinary.config() return shape. */
+export function isCloudinaryConfigured() {
+  const { cloud_name, api_key, api_secret } = readCredentialsFromEnv();
+  return Boolean(cloud_name && api_key && api_secret);
+}
+
 /** Call before uploads; safe to call repeatedly (fixes ESM init order / late env). */
 export function syncCloudinaryFromEnv() {
   const { cloud_name, api_key, api_secret } = readCredentialsFromEnv();

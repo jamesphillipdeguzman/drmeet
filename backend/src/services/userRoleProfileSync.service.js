@@ -1,6 +1,8 @@
 import Doctor from '../models/doctor.model.js';
 import Patient from '../models/patient.model.js';
 
+import { isPatientDocActive, patientActiveQuery } from './patient.service.js';
+
 function cleanTitleForRole(role, incomingTitle = '') {
   const value = String(incomingTitle || '').trim();
   if (!value) return '';
@@ -45,7 +47,10 @@ export async function syncRoleProfilesForUser(user, options = {}) {
         ...(title ? { title } : {}),
       });
     }
-    await Patient.findOneAndDelete({ userId });
+    await Patient.updateMany(
+      { userId, ...patientActiveQuery },
+      { $set: { deletedAt: new Date(), isActive: false } },
+    );
     return;
   }
 
@@ -61,12 +66,14 @@ export async function syncRoleProfilesForUser(user, options = {}) {
         phone: user.phone || '',
       });
     } else {
+      const reactivate = !isPatientDocActive(existingPatient);
       await Patient.findByIdAndUpdate(existingPatient._id, {
         accountOwnerId: existingPatient.accountOwnerId || userId,
         firstName: user.firstName || existingPatient.firstName,
         lastName: user.lastName || existingPatient.lastName,
         email: user.email || existingPatient.email,
         phone: user.phone || existingPatient.phone,
+        ...(reactivate ? { deletedAt: null, isActive: true } : {}),
       });
     }
     await Doctor.findOneAndDelete({ userId });
@@ -75,5 +82,8 @@ export async function syncRoleProfilesForUser(user, options = {}) {
 
   // Receptionists/admins only live in Users table.
   await Doctor.findOneAndDelete({ userId });
-  await Patient.findOneAndDelete({ userId });
+  await Patient.updateMany(
+    { userId, ...patientActiveQuery },
+    { $set: { deletedAt: new Date(), isActive: false } },
+  );
 }

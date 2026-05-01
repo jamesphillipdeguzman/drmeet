@@ -13,6 +13,7 @@ jest.mock('../src/middlewares/validate.middleware.js', () => ({
 
 jest.mock('../src/middlewares/patient.validation.middleware.js', () => ({
     validatePatient: (req, res, next) => next(),
+    validatePatientUpdate: (req, res, next) => next(),
 }));
 
 jest.mock('../src/middlewares/common.middleware.js', () => ({
@@ -27,6 +28,10 @@ jest.mock('../src/controllers/patient.controller.js', () => ({
     postPatient: (req, res) => res.status(201).json({ created: true }),
     updatePatient: (req, res) => res.status(200).json({ updated: true }),
     deletePatient: (req, res) => res.status(200).json({ deleted: true }),
+    searchPatients: (req, res) => res.status(200).json([]),
+    attachExistingPatientToCareTeam: (req, res) => res.status(200).json({ ok: true }),
+    getPatientMessagingRecipient: (req, res) => res.status(200).json({ recipientUserId: 'u1' }),
+    getPhilippinesHmoProviders: (req, res) => res.status(200).json({ providers: [] }),
 }));
 
 const app = express();

@@ -1,4 +1,5 @@
 import Patient from '../models/patient.model.js';
+import { patientActiveQuery } from '../services/patient.service.js';
 import User from '../models/user.model.js';
 import { uploadToCloudinary } from '../services/cloudinary.service.js';
 import { findAppointmentsByDoctor } from '../services/appointment.service.js';
@@ -38,7 +39,7 @@ async function resolvePatientForRequest(req, requestedPatientId = '') {
   const userId = authUserId(req);
 
   if (role === 'patient') {
-    return Patient.findOne({ userId });
+    return Patient.findOne({ userId, ...patientActiveQuery });
   }
 
   if (requestedPatientId) {
@@ -126,9 +127,12 @@ export async function getMedicalHistory(req, res) {
       if (!linkedDoctorId) return res.status(200).json([]);
       const appointments = await findAppointmentsByDoctor(linkedDoctorId);
       const scopedPatientIds = [...new Set(appointments.map((a) => a.patient).filter(Boolean))];
-      patients = await Patient.find({ _id: { $in: scopedPatientIds } }).lean();
+      patients = await Patient.find({
+        _id: { $in: scopedPatientIds },
+        ...patientActiveQuery,
+      }).lean();
     } else {
-      patients = await Patient.find().lean();
+      patients = await Patient.find(patientActiveQuery).lean();
     }
     const rows = patients.map((p) => ({
       patientId: String(p._id),

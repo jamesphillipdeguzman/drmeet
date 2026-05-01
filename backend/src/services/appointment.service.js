@@ -2,8 +2,10 @@
 import Appointment from "../models/appointment.model.js";
 import Patient from "../models/patient.model.js";
 
+const apptSort = { date: -1, time: 1 };
+
 // Get all appointments
-export const findAllAppointments = async () => Appointment.find();
+export const findAllAppointments = async () => Appointment.find().sort(apptSort);
 
 function toTitleCase(value = "") {
   return String(value)
@@ -69,21 +71,21 @@ export const deleteAppointmentById = async (id) =>
 
 // Find all appointments by a specific doctor
 export const findAppointmentsByDoctor = async (doctorId) => {
-  const appointments = await Appointment.find({ doctor: String(doctorId) });
+  const appointments = await Appointment.find({ doctor: String(doctorId) }).sort(apptSort);
   return withPatientMeta(appointments);
 };
 
 // Find all appointments by a specific patient
 export const findAppointmentsByPatient = async (patientId) =>
-  Appointment.find({ patient: patientId });
+  Appointment.find({ patient: patientId }).sort(apptSort);
 
 export const findAppointmentsByDoctorForRoleScope = async (doctorId) => {
-  const appointments = await Appointment.find({ doctor: String(doctorId) });
+  const appointments = await Appointment.find({ doctor: String(doctorId) }).sort(apptSort);
   return withPatientMeta(appointments);
 };
 
 export const findAllAppointmentsWithPatientMeta = async () => {
-  const appointments = await Appointment.find();
+  const appointments = await Appointment.find().sort(apptSort);
   return withPatientMeta(appointments);
 };
 

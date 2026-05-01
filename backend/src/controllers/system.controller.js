@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 
+import { isCloudinaryConfigured } from '../config/cloudinary.js';
+
 export const getDiagnostics = async (req, res) => {
   try {
     const role = String(req.user?.role || '').toLowerCase();
@@ -25,13 +27,8 @@ export const getDiagnostics = async (req, res) => {
       {
         key: 'cloudinary_configured',
         label: 'Cloudinary Credentials',
-        status:
-          process.env.CLOUDINARY_CLOUD_NAME
-          && process.env.CLOUDINARY_API_KEY
-          && process.env.CLOUDINARY_API_SECRET
-            ? 'ok'
-            : 'error',
-        details: 'Checks env vars presence only.',
+        status: isCloudinaryConfigured() ? 'ok' : 'error',
+        details: 'CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME + API_KEY + API_SECRET.',
       },
       {
         key: 'resend_configured',

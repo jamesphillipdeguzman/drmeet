@@ -10,6 +10,50 @@ import {
 import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service.js';
 import { findDoctorByUserId } from '../services/doctor.service.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
+
+function csvEscape(val) {
+    const s = String(val ?? '');
+    if (/[",\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+}
+
+/**
+ * @route GET /api/users/export/csv
+ * @desc Admin-only CSV export (same ?q and ?role filters as GET /api/users).
+ */
+export const exportUsersCsv = async (req, res) => {
+    try {
+        const role = String(req.user?.role || '').toLowerCase();
+        if (role !== 'admin') {
+            return res.status(403).json({ error: 'Forbidden.' });
+        }
+        let users = await findAllUsers();
+        const q = String(req.query.q || '').trim().toLowerCase();
+        const roleFilter = String(req.query.role || '').trim().toLowerCase();
+        if (roleFilter) {
+            users = users.filter((u) => String(u.role || '').toLowerCase() === roleFilter);
+        }
+        if (q) {
+            users = users.filter((u) => {
+                const hay = `${u.firstName || ''} ${u.lastName || ''} ${u.email || ''} ${u.phone || ''}`.toLowerCase();
+                return hay.includes(q);
+            });
+        }
+        const headers = ['_id', 'email', 'firstName', 'lastName', 'role', 'phone', 'createdAt'];
+        const lines = [headers.join(',')];
+        for (const u of users) {
+            const plain = u?.toObject ? u.toObject() : u;
+            lines.push(headers.map((h) => csvEscape(plain[h] ?? '')).join(','));
+        }
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="users-export.csv"');
+        return res.status(200).send(lines.join('\n'));
+    } catch (error) {
+        console.error('exportUsersCsv', error);
+        return res.status(500).json({ error: 'Failed to export users.' });
+    }
+};
+
 /**
  * @route GET /api/users
  * @desc Fetch all users
@@ -33,6 +77,19 @@ export const getAllUsers = async (req, res) => {
                 );
             }
         }
+
+        const q = String(req.query.q || '').trim().toLowerCase();
+        const roleFilter = String(req.query.role || '').trim().toLowerCase();
+        if (roleFilter) {
+            users = users.filter((u) => String(u.role || '').toLowerCase() === roleFilter);
+        }
+        if (q) {
+            users = users.filter((u) => {
+                const hay = `${u.firstName || ''} ${u.lastName || ''} ${u.email || ''} ${u.phone || ''}`.toLowerCase();
+                return hay.includes(q);
+            });
+        }
+
         console.log('[USER]✅ GET /api/users was called.');
         return res.status(200).json(users);
     } catch (error) {
