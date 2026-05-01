@@ -1,5 +1,27 @@
-import cloudinary from '../config/cloudinary.js';
+import cloudinary, { syncCloudinaryFromEnv } from '../config/cloudinary.js';
 
+const UPLOAD_OPTION_KEYS = new Set([
+  'folder',
+  'resource_type',
+  'public_id',
+  'tags',
+  'overwrite',
+  'use_filename',
+  'unique_filename',
+  'format',
+  'invalidate',
+  'access_mode',
+  'context',
+  'metadata',
+]);
+
+function pickUploadOptions(options) {
+  const out = {};
+  for (const [k, v] of Object.entries(options || {})) {
+    if (UPLOAD_OPTION_KEYS.has(k) && v !== undefined) out[k] = v;
+  }
+  return out;
+}
 
 function normalizeUploadResult(result) {
   return {
@@ -12,15 +34,24 @@ export async function uploadToCloudinary(fileData, options = {}) {
   if (!fileData) {
     throw new Error('fileData is required');
   }
-  const result = await cloudinary.uploader.upload(fileData, {
+  syncCloudinaryFromEnv();
+  const cfg = cloudinary.config();
+  if (!cfg?.api_key) {
+    throw new Error(
+      'Cloudinary is not configured on the server. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.',
+    );
+  }
+  const uploadParams = pickUploadOptions({
+    folder: 'drmeet',
     resource_type: 'auto',
-    folder: options.folder || 'drmeet',
     ...options,
   });
+  const result = await cloudinary.uploader.upload(fileData, uploadParams);
   return normalizeUploadResult(result);
 }
 
 export async function deleteFromCloudinary(publicId) {
   if (!publicId) return null;
+  syncCloudinaryFromEnv();
   return cloudinary.uploader.destroy(publicId, { resource_type: 'auto' });
 }
