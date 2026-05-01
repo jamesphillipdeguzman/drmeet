@@ -25,11 +25,13 @@ const DASHBOARD_STATE_KEY = "drmeet-dashboard-state";
 const USER_CACHE_KEY = "drmeet-user-cache";
 const THEME_KEY = "drmeet-theme";
 const MESSAGES_API = `${API_BASE}/messages`;
+const DEFAULT_AVATAR_URL = "images/user-line.svg";
 const dashboardSubscribers = [];
 const dashboardState = {
   conversations: [],
   activeConversationId: "",
   messages: [],
+  typingByConversation: {},
   websocketActive: false,
   socketReconnecting: false,
   socketAwaitingFirstConnect: true,
@@ -145,6 +147,7 @@ function resetMessagingSocket() {
   dashboardState.websocketActive = false;
   dashboardState.socketReconnecting = false;
   dashboardState.socketAwaitingFirstConnect = true;
+  dashboardState.typingByConversation = {};
 }
 
 function buildHeaders(baseHeaders = {}) {
@@ -552,13 +555,13 @@ function bootstrapTheme() {
 function getSidebarRoleLabel(role) {
   switch (String(role || "").toLowerCase()) {
     case "patient":
-      return "I'm a patient!";
+      return "I'm a patient";
     case "doctor":
       return "I'm a doctor";
     case "receptionist":
       return "I'm a receptionist";
     case "admin":
-      return "I'm an admin!";
+      return "I'm an admin";
     default:
       return "My Account";
   }
@@ -578,12 +581,30 @@ function updateSidebarAccountInfo() {
   const roleLabel = getSidebarRoleLabel(role);
   const initial = (fullName || role || "U").charAt(0).toUpperCase();
   if (sidebarAvatarCircle) sidebarAvatarCircle.textContent = signedIn ? initial : "U";
-  if (sidebarAvatarName) sidebarAvatarName.textContent = signedIn ? roleLabel : "My Account";
+  if (sidebarAvatarName) sidebarAvatarName.textContent = signedIn ? (fullName || "My Account") : "My Account";
   if (sidebarAccountMeta) {
     sidebarAccountMeta.innerHTML = signedIn
-      ? `<strong>${fullName || "User"}</strong>`
+      ? `<strong>${escapeHtml(fullName || "User")} (${escapeHtml(roleLabel)})</strong>`
       : "Not signed in";
   }
+}
+
+function participantAvatarUrl(participant) {
+  const raw = String(participant?.avatarUrl || participant?.picture || "").trim();
+  return raw || DEFAULT_AVATAR_URL;
+}
+
+function participantDisplayName(participant) {
+  return participant
+    ? `${participant.firstName || ""} ${participant.lastName || ""}`.trim()
+    : "Conversation";
+}
+
+function conversationTypingLabel(conversationId, currentUserId) {
+  const typingSet = dashboardState.typingByConversation?.[String(conversationId)];
+  if (!typingSet || !(typingSet instanceof Set) || !typingSet.size) return "";
+  const othersTyping = [...typingSet].some((id) => String(id) !== String(currentUserId || ""));
+  return othersTyping ? "Typing..." : "";
 }
 
 async function resolveDoctorIdForPatientMessaging() {
@@ -1015,6 +1036,8 @@ function setupSocket() {
 
     const conversationId = String(incomingConversationId);
     const isActive = String(dashboardState.activeConversationId) === conversationId;
+    const typingSet = dashboardState.typingByConversation?.[conversationId];
+    if (typingSet instanceof Set) typingSet.clear();
 
     // Update conversation preview (last message + sorting).
     const idx = dashboardState.conversations.findIndex(
@@ -1044,6 +1067,19 @@ function setupSocket() {
     }
 
     persistDashboardState();
+    notifyDashboardSubscribers();
+  });
+
+  socket.on("typing:update", (payload = {}) => {
+    const conversationId = String(payload.conversationId || "");
+    const fromUserId = String(payload.userId || "");
+    if (!conversationId || !fromUserId) return;
+    if (!dashboardState.typingByConversation[conversationId]) {
+      dashboardState.typingByConversation[conversationId] = new Set();
+    }
+    const set = dashboardState.typingByConversation[conversationId];
+    if (payload.typing) set.add(fromUserId);
+    else set.delete(fromUserId);
     notifyDashboardSubscribers();
   });
 }
@@ -1103,6 +1139,8 @@ function renderPrivacy() {
 function renderHome() {
   setPageTone("");
   const signedIn = isLoggedIn();
+  const hasAnySummary = Array.isArray(dashboardState.conversations)
+    && dashboardState.conversations.some((c) => String(c?.lastMessage || "").trim());
   const bookCta =
     getCurrentUserRole() === "patient"
       ? `<p class="dashboard-book-teaser"><a href="#book" class="btn btn-primary">Book a visit</a> <span class="dashboard-book-hint">Search for a doctor and request an appointment.</span></p>`
@@ -1131,7 +1169,7 @@ function renderHome() {
         <p>DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates.</p>
         <p>Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.</p>
       </div>
-      <img class="why-drmeet-media" src="images/drmeet-pic1.png" alt="DrMeet technology in action" />
+      <img class="why-drmeet-media" src="images/drmeet-pic1.webp" alt="DrMeet technology in action" />
     </section>
     <section class="role-select card role-select-highlight">
       <h3 class="home-cta-title">Please select your profile type below</h3>
@@ -1166,7 +1204,7 @@ function renderHome() {
               </div>
               <div id="message-board-list" class="masonry-grid"></div>
             </article>
-            <article class="card sms-card">
+            <article class="card sms-card" style="${hasAnySummary ? "" : "display:none;"}">
               <div class="card-header">
                 <h3>Channel Summary</h3>
               </div>
@@ -1341,19 +1379,19 @@ function renderMessageBoard(container) {
             participants.find((p) => String(p._id) !== String(currentUserId)) ||
             participants[0] ||
             null;
-          const otherName = other
-            ? `${other.firstName || ""} ${other.lastName || ""}`.trim()
-            : "Conversation";
+          const otherName = participantDisplayName(other);
+          const otherAvatar = participantAvatarUrl(other);
           const lastAt = conv.lastMessageAt || conv.updatedAt;
           const lastMsg = conv.lastMessage || "";
+          const typingLabel = conversationTypingLabel(conv._id, currentUserId);
 
           return `
             <article class="message-card tailwind-card" data-conversation-id="${conv._id}">
               <div class="message-row">
-                <h4>${otherName}</h4>
+                <h4 class="message-person"><img src="${escapeHtml(otherAvatar)}" class="person-avatar" alt="${escapeHtml(otherName)} avatar" />${otherName}</h4>
                 <small>${lastAt ? formatRelativeTime(lastAt) : ""}</small>
               </div>
-              <p class="message-preview">${lastMsg || "No messages yet"}</p>
+              <p class="message-preview">${typingLabel || lastMsg || "No messages yet"}</p>
               <div class="quick-actions">
                 <button type="button" class="btn btn-secondary btn-sm" data-open-thread="${conv._id}">Open thread</button>
               </div>
@@ -1384,6 +1422,11 @@ function renderMessageBoard(container) {
 }
 
 function renderSmsFeed(container) {
+  const smsCard = container.closest(".sms-card");
+  const hasAnySummary = Array.isArray(dashboardState.conversations)
+    && dashboardState.conversations.some((c) => String(c?.lastMessage || "").trim());
+  if (smsCard) smsCard.style.display = hasAnySummary ? "" : "none";
+  if (!hasAnySummary) return;
   const containerEmptyState = `
     <div class="feedback">
       ${dashboardState.activeConversationId ? "Select a conversation to view messages." : "Select a conversation to view messages."}
@@ -1410,16 +1453,16 @@ function renderSmsFeed(container) {
   const currentUserId = getCurrentUserId();
   const other =
     participants.find((p) => String(p._id) !== String(currentUserId)) || participants[0] || null;
-  const otherName = other
-    ? `${other.firstName || ""} ${other.lastName || ""}`.trim()
-    : "Conversation";
+  const otherName = participantDisplayName(other);
+  const otherAvatar = participantAvatarUrl(other);
+  const typingLabel = conversationTypingLabel(dashboardState.activeConversationId, currentUserId);
 
   container.innerHTML = `
     <div class="chat-bubble">
       <div class="chat-head">
-        <strong>${otherName}</strong>
+        <strong class="message-person"><img src="${escapeHtml(otherAvatar)}" class="person-avatar" alt="${escapeHtml(otherName)} avatar" />${otherName}</strong>
       </div>
-      <p style="opacity:0.85">${(dashboardState.messages?.length || 0)} message(s)</p>
+      <p style="opacity:0.85">${typingLabel || `${(dashboardState.messages?.length || 0)} message(s)`}</p>
     </div>
   `;
 }
@@ -1447,17 +1490,18 @@ function renderThreadDrawer(drawer) {
   const currentUserId = getCurrentUserId();
   const other =
     participants.find((p) => String(p._id) !== String(currentUserId)) || participants[0] || null;
-  const otherName = other
-    ? `${other.firstName || ""} ${other.lastName || ""}`.trim()
-    : "Conversation";
+  const otherName = participantDisplayName(other);
+  const otherAvatar = participantAvatarUrl(other);
+  const typingLabel = conversationTypingLabel(conversationId, currentUserId);
 
   const threadMessages = Array.isArray(dashboardState.messages) ? dashboardState.messages : [];
   drawer.classList.remove("hidden");
   drawer.innerHTML = `
     <div class="thread-header">
-      <h3>${otherName}</h3>
+      <h3 class="message-person"><img src="${escapeHtml(otherAvatar)}" class="person-avatar" alt="${escapeHtml(otherName)} avatar" />${otherName}</h3>
       <button type="button" class="btn btn-secondary btn-sm" id="close-thread">Close</button>
     </div>
+    <p class="typing-indicator">${typingLabel || ""}</p>
     <div class="thread-list">
       ${
         dashboardState.socketReconnecting && !dashboardState.websocketActive
@@ -1528,6 +1572,31 @@ function renderThreadDrawer(drawer) {
     drawer.classList.add("hidden");
   });
 
+  const quickReplyInput = drawer.querySelector("#thread-quick-reply");
+  let typingStopTimer = null;
+  const emitTypingStart = () => {
+    if (!socket || !conversationId) return;
+    socket.emit("typing:start", { conversationId });
+  };
+  const emitTypingStop = () => {
+    if (!socket || !conversationId) return;
+    socket.emit("typing:stop", { conversationId });
+  };
+  quickReplyInput?.addEventListener("input", () => {
+    const hasText = String(quickReplyInput.value || "").trim().length > 0;
+    if (!hasText) {
+      emitTypingStop();
+      return;
+    }
+    emitTypingStart();
+    if (typingStopTimer) clearTimeout(typingStopTimer);
+    typingStopTimer = setTimeout(() => emitTypingStop(), 900);
+  });
+  quickReplyInput?.addEventListener("blur", () => {
+    if (typingStopTimer) clearTimeout(typingStopTimer);
+    emitTypingStop();
+  });
+
   drawer.querySelector("#thread-send-reply")?.addEventListener("click", async () => {
     const input = drawer.querySelector("#thread-quick-reply");
     const fileInput = drawer.querySelector("#thread-quick-file");
@@ -1545,6 +1614,8 @@ function renderThreadDrawer(drawer) {
       }
       if (input) input.value = "";
       if (fileInput) fileInput.value = "";
+      if (typingStopTimer) clearTimeout(typingStopTimer);
+      emitTypingStop();
     } catch (err) {
       showToast(err?.message || "Unable to send message", "error");
     }
@@ -2164,7 +2235,7 @@ async function renderPatients() {
         .map(
           (p) => `
             <tr>
-              <td>${p.firstName} ${p.lastName}</td>
+              <td><img src="${escapeHtml(String(p.photoUrl || DEFAULT_AVATAR_URL))}" alt="Patient avatar" class="doctor-avatar" />${p.firstName} ${p.lastName}</td>
               <td>${p.familyHeadName ? `Family Head: ${p.familyHeadName}` : (p.relationshipToAccountHolder ? `Dependent: ${p.relationshipToAccountHolder}` : "Primary")}${p.isCareTeamLinked ? ' <span class="pill-tag">Attached</span>' : ""}</td>
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
@@ -2326,6 +2397,9 @@ function showPatientForm(editId = null, familyMode = false) {
         </select>
       </label>
       <label>Address <input name="address" /></label>
+      <label>Profile Photo
+        <input name="profilePhotoFile" type="file" accept="image/*" />
+      </label>
       ${familyMode ? `<label>Relationship to Account Holder <input name="relationshipToAccountHolder" required placeholder="e.g. Son, Daughter, Spouse" /></label>` : ""}
       <label>Notes <textarea name="notes" placeholder="Medical notes or reminders"></textarea></label>
       <label>Medical History
@@ -2418,6 +2492,10 @@ function showPatientForm(editId = null, familyMode = false) {
     if (docFile) {
       patient.documentFileData = await fileToDataUrl(docFile);
       patient.documentName = docFile.name || "Patient attachment";
+    }
+    const profilePhotoFile = form.profilePhotoFile?.files?.[0];
+    if (profilePhotoFile) {
+      patient.photoFileData = await fileToDataUrl(profilePhotoFile);
     }
     if (familyMode) {
       patient.relationshipToAccountHolder = String(patient.relationshipToAccountHolder || "").trim();
@@ -2523,7 +2601,7 @@ async function renderDoctors() {
         <input type="search" id="doctor-filter-receptionist" placeholder="Filter by receptionist" />
         <input type="search" id="doctor-filter-clinic" placeholder="Filter by clinic" />
       </div>`}
-      <div id="doctors-specialty-groups"></div>
+      <div id="doctors-specialty-groups" class="full-width-groups"></div>
       <div id="doctor-form-modal" style="display:none"></div>
     `;
     const groupsEl = document.getElementById("doctors-specialty-groups");
@@ -3073,6 +3151,7 @@ async function renderUsers() {
     '<h2 class="page-title page-title-users">Users</h2><div class="feedback">Loading...</div>';
   try {
     const role = getCurrentUserRole();
+    const isReceptionist = role === "receptionist";
     const currentUserId = getCurrentUserId();
     let users = [];
     if (role === "patient" && currentUserId) {
@@ -3087,7 +3166,7 @@ async function renderUsers() {
     }
     mainContent.innerHTML = `
       <h2 class="page-title page-title-users">Users</h2>
-      <button class="cta-primary" onclick="window.showUserForm()">Add User</button>
+      ${isReceptionist ? "" : '<button class="cta-primary" onclick="window.showUserForm()">Add User</button>'}
       <hr class="section-divider" />
       <table>
         <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Receptionist Type</th><th>Specialty</th><th>Phone</th><th>Actions</th></tr></thead>
@@ -3103,8 +3182,8 @@ async function renderUsers() {
               <td>${u.specialty || "—"}</td>
               <td>${u.phone || ""}</td>
               <td>
-                <button class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button>
-                <button class="btn btn-action-delete" onclick="window.deleteUser('${u._id}')">Delete</button>
+                ${isReceptionist ? "—" : `<button class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button>
+                <button class="btn btn-action-delete" onclick="window.deleteUser('${u._id}')">Delete</button>`}
               </td>
             </tr>
           `

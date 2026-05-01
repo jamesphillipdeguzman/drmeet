@@ -10,6 +10,7 @@ import {
 import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service.js';
 import { findDoctorByUserId } from '../services/doctor.service.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
+import Doctor from '../models/doctor.model.js';
 
 function csvEscape(val) {
     const s = String(val ?? '');
@@ -76,6 +77,19 @@ export const getAllUsers = async (req, res) => {
                             String(u.linkedDoctorId || '') === doctorId),
                 );
             }
+        }
+        if (role === 'receptionist' && requesterId) {
+            const requester = users.find((u) => String(u._id) === requesterId);
+            const linkedDoctorId = String(requester?.linkedDoctorId || '');
+            let linkedDoctorUserId = '';
+            if (linkedDoctorId) {
+                const linkedDoctor = await Doctor.findById(linkedDoctorId).select('userId').lean();
+                linkedDoctorUserId = String(linkedDoctor?.userId || '');
+            }
+            users = users.filter((u) =>
+                String(u._id) === requesterId
+                || (linkedDoctorUserId && String(u._id) === linkedDoctorUserId),
+            );
         }
 
         const q = String(req.query.q || '').trim().toLowerCase();

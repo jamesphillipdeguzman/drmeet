@@ -1,14 +1,6 @@
 // Must run before any module that reads process.env (e.g. Cloudinary) — ESM hoists imports above other statements.
 import './src/config/loadEnv.js';
 
-console.log('🧪 RAW ENV CHECK (BEFORE EVERYTHING):', {
-  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
-  CLOUDINARY_URL: process.env.CLOUDINARY_URL,
-  NODE_ENV: process.env.NODE_ENV,
-});
-
 import http from 'http';
 import jwt from 'jsonwebtoken';
 import { Server as SocketIOServer } from 'socket.io';
@@ -70,6 +62,44 @@ const startServer = async () => {
 
       const conversations = await Conversation.find(filter).select('_id');
       conversations.forEach((c) => socket.join(String(c._id)));
+
+      socket.on('typing:start', async (payload = {}) => {
+        try {
+          const conversationId = String(payload.conversationId || '');
+          if (!conversationId) return;
+          const conversation = role === 'admin'
+            ? await Conversation.findById(conversationId)
+            : await Conversation.findOne({ _id: conversationId, participants: userId });
+          if (!conversation) return;
+          if (role !== 'admin' && !userMayAccessConversationType(role, conversation.conversationType)) return;
+          socket.to(conversationId).emit('typing:update', {
+            conversationId,
+            userId: String(userId),
+            typing: true,
+          });
+        } catch {
+          // ignore typing errors
+        }
+      });
+
+      socket.on('typing:stop', async (payload = {}) => {
+        try {
+          const conversationId = String(payload.conversationId || '');
+          if (!conversationId) return;
+          const conversation = role === 'admin'
+            ? await Conversation.findById(conversationId)
+            : await Conversation.findOne({ _id: conversationId, participants: userId });
+          if (!conversation) return;
+          if (role !== 'admin' && !userMayAccessConversationType(role, conversation.conversationType)) return;
+          socket.to(conversationId).emit('typing:update', {
+            conversationId,
+            userId: String(userId),
+            typing: false,
+          });
+        } catch {
+          // ignore typing errors
+        }
+      });
 
       socket.on('sendMessage', async (payload, ack) => {
         try {

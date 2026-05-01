@@ -245,6 +245,7 @@ export const postPatient = async (req, res) => {
       name,
       documentFileData,
       documentName,
+      photoFileData,
       isInsured: rawInsured,
       hmoProvider: rawHmo,
       ...rest
@@ -311,6 +312,13 @@ export const postPatient = async (req, res) => {
           uploadedAt: new Date(),
         },
       ];
+    }
+    if (photoFileData) {
+      const uploadedPhoto = await uploadToCloudinary(photoFileData, {
+        folder: 'drmeet/patients/profile',
+        resource_type: 'image',
+      });
+      patientData.photoUrl = uploadedPhoto.secure_url;
     }
 
     if (role === 'patient' && uid) {
@@ -415,6 +423,13 @@ export const updatePatient = async (req, res) => {
           uploadedAt: new Date(),
         },
       ];
+    }
+    if (cleanedBody.photoFileData) {
+      const uploadedPhoto = await uploadToCloudinary(cleanedBody.photoFileData, {
+        folder: 'drmeet/patients/profile',
+        resource_type: 'image',
+      });
+      updates.photoUrl = uploadedPhoto.secure_url;
     }
     const allowed = await patientVisibleToRequester(req, existing);
     if (!allowed) {

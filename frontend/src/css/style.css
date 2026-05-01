@@ -632,6 +632,7 @@ textarea {
 
 .doctor-specialty-group {
     margin-bottom: 1rem;
+    width: 100%;
 }
 
 .doctor-specialty-heading {
@@ -704,6 +705,10 @@ textarea {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 0.8rem;
+}
+
+.full-width-groups {
+    width: 100%;
 }
 
 .message-card {
@@ -856,6 +861,19 @@ textarea {
     justify-content: space-between;
     align-items: center;
     gap: 0.7rem;
+}
+.message-person {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+.person-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid #ccd9f6;
+    background: #e8efff;
 }
 .message-preview {
     margin: 0.5rem 0;
@@ -1403,7 +1421,7 @@ body.theme-dark .nav-link.nav-link-patient.active {
     min-height: 240px;
     background:
         linear-gradient(135deg, rgba(11, 26, 61, 0.86), rgba(34, 63, 129, 0.76)),
-        url("../images/hero.png") center/cover no-repeat;
+        url("../images/hero.webp") center/cover no-repeat;
 }
 
 .dashboard-hero h1,
@@ -1500,11 +1518,11 @@ body.theme-dark .nav-link.nav-link-patient.active {
 }
 
 .role-card-doctor {
-    background-image: url("../images/doctor-profile.png");
+    background-image: url("../images/doctor-profile.webp");
 }
 
 .role-card-patient {
-    background-image: url("../images/patient-profile.png");
+    background-image: url("../images/patient-profile.webp");
 }
 
 @media (max-width: 920px) {

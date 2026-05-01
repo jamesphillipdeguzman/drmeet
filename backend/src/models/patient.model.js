@@ -80,6 +80,10 @@ const patientSchema = new mongoose.Schema(
         uploadedAt: { type: Date, default: Date.now },
       },
     ],
+    photoUrl: {
+      type: String,
+      default: "",
+    },
     careTeamDoctorIds: [
       {
         type: mongoose.Schema.Types.ObjectId,

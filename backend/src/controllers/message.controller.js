@@ -151,6 +151,61 @@ async function assertUserIsParticipantOrAdmin({ req, conversationId }) {
   return conversation; // null means either not found or not a participant
 }
 
+async function attachParticipantAvatars(conversations = []) {
+  const rows = Array.isArray(conversations) ? conversations : [];
+  const userIds = [
+    ...new Set(
+      rows
+        .flatMap((c) => (Array.isArray(c?.participants) ? c.participants : []))
+        .map((p) => String(p?._id || ""))
+        .filter(Boolean),
+    ),
+  ];
+  if (!userIds.length) {
+    return rows.map((conversation) => {
+      const plainConversation = conversation?.toObject ? conversation.toObject() : conversation;
+      const participants = Array.isArray(plainConversation?.participants) ? plainConversation.participants : [];
+      return {
+        ...plainConversation,
+        participants: participants.map((participant) => ({
+          ...participant,
+          avatarUrl: String(participant?.picture || ""),
+        })),
+      };
+    });
+  }
+
+  const [doctors, patients] = await Promise.all([
+    Doctor.find({ userId: { $in: userIds } }).select("userId photoUrl").lean(),
+    Patient.find({ userId: { $in: userIds } }).select("userId photoUrl").lean(),
+  ]);
+
+  const avatarByUserId = new Map();
+  doctors.forEach((d) => {
+    if (d?.userId && d?.photoUrl) avatarByUserId.set(String(d.userId), String(d.photoUrl));
+  });
+  patients.forEach((p) => {
+    if (!p?.userId || !p?.photoUrl) return;
+    const key = String(p.userId);
+    if (!avatarByUserId.has(key)) avatarByUserId.set(key, String(p.photoUrl));
+  });
+
+  return rows.map((conversation) => {
+    const plainConversation = conversation?.toObject ? conversation.toObject() : conversation;
+    const participants = Array.isArray(plainConversation?.participants) ? plainConversation.participants : [];
+    return {
+      ...plainConversation,
+      participants: participants.map((participant) => {
+        const uid = String(participant?._id || "");
+        return {
+          ...participant,
+          avatarUrl: avatarByUserId.get(uid) || String(participant?.picture || ""),
+        };
+      }),
+    };
+  });
+}
+
 export const getUserConversations = async (req, res) => {
   try {
     const userId = getUserId(req);
@@ -160,9 +215,10 @@ export const getUserConversations = async (req, res) => {
 
     const conversations = await Conversation.find(filter)
       .sort({ lastMessageAt: -1, updatedAt: -1 })
-      .populate("participants", "firstName lastName email role");
+      .populate("participants", "firstName lastName email role picture");
 
-    return res.status(200).json({ conversations });
+    const serializedConversations = await attachParticipantAvatars(conversations);
+    return res.status(200).json({ conversations: serializedConversations });
   } catch (error) {
     return res.status(error.statusCode || 500).json({
       error: error.message || "Failed to fetch conversations",
@@ -293,12 +349,13 @@ export const sendMessage = async (req, res) => {
         lastMessageAt: new Date(),
       },
       { new: true },
-    ).populate("participants", "firstName lastName email role");
+    ).populate("participants", "firstName lastName email role picture");
+    const [serializedConversation] = await attachParticipantAvatars([updatedConversation]);
 
     return res.status(201).json({
       conversationId: conversation._id,
       message: newMessage,
-      conversation: updatedConversation,
+      conversation: serializedConversation,
     });
   } catch (error) {
     return res.status(error.statusCode || 500).json({
