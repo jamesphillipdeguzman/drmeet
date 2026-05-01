@@ -19,7 +19,7 @@ const isLocalHost =
   window.location.hostname === "127.0.0.1";
 const API_ORIGIN = isLocalHost
   ? "http://localhost:3001"
-  : "https://drmeet-api.onrender.com";
+  : "https://drmeet-wqws.onrender.com";
 const API_BASE = `${API_ORIGIN}/api`;
 const DASHBOARD_STATE_KEY = "drmeet-dashboard-state";
 const USER_CACHE_KEY = "drmeet-user-cache";
