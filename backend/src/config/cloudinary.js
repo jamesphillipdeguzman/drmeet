@@ -1,22 +1,37 @@
 import { v2 as cloudinary } from 'cloudinary';
 
+function trimEnv(value) {
+  if (value == null) return '';
+  let s = String(value).trim();
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith("'") && s.endsWith("'"))
+  ) {
+    s = s.slice(1, -1).trim();
+  }
+  return s;
+}
+
 /**
  * Reads credentials from discrete env vars, or fills gaps from CLOUDINARY_URL
  * (cloudinary://API_KEY:API_SECRET@CLOUD_NAME).
  */
 function readCredentialsFromEnv() {
-  let cloud_name = process.env.CLOUDINARY_CLOUD_NAME;
-  let api_key = process.env.CLOUDINARY_API_KEY;
-  let api_secret = process.env.CLOUDINARY_API_SECRET;
+  let cloud_name = trimEnv(process.env.CLOUDINARY_CLOUD_NAME);
+  let api_key = trimEnv(process.env.CLOUDINARY_API_KEY);
+  let api_secret = trimEnv(
+    process.env.CLOUDINARY_API_SECRET || process.env.CLOUDINARY_SECRET,
+  );
 
-  const url = process.env.CLOUDINARY_URL;
+  const url = trimEnv(process.env.CLOUDINARY_URL);
   if (url && (!cloud_name || !api_key || !api_secret)) {
     try {
       const u = new URL(url);
       if (u.protocol === 'cloudinary:') {
-        api_key = api_key || decodeURIComponent(u.username || '');
-        api_secret = api_secret || decodeURIComponent(u.password || '');
-        cloud_name = cloud_name || u.hostname || '';
+        api_key = api_key || trimEnv(decodeURIComponent(u.username || ''));
+        api_secret =
+          api_secret || trimEnv(decodeURIComponent(u.password || ''));
+        cloud_name = cloud_name || trimEnv(u.hostname || '');
       }
     } catch {
       // ignore invalid URL

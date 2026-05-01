@@ -40,7 +40,7 @@ export async function uploadToCloudinary(fileData, options = {}) {
   syncCloudinaryFromEnv();
   if (!isCloudinaryConfigured()) {
     throw new Error(
-      'Cloudinary is not configured on the server. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET on the host (e.g. Render environment variables).',
+      'Cloudinary is not configured on the server. Set CLOUDINARY_URL (recommended) or all of CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET on the host. Names must match exactly (no spaces). After changing env on Render, trigger a new deploy.',
     );
   }
   const uploadParams = pickUploadOptions({

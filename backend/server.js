@@ -1,6 +1,14 @@
 // Must run before any module that reads process.env (e.g. Cloudinary) — ESM hoists imports above other statements.
 import './src/config/loadEnv.js';
 
+console.log('🧪 RAW ENV CHECK (BEFORE EVERYTHING):', {
+  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
+  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
+  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
+  CLOUDINARY_URL: process.env.CLOUDINARY_URL,
+  NODE_ENV: process.env.NODE_ENV,
+});
+
 import http from 'http';
 import jwt from 'jsonwebtoken';
 import { Server as SocketIOServer } from 'socket.io';
