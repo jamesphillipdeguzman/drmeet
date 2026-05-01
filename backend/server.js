@@ -1,11 +1,5 @@
-import dotenv from 'dotenv';
-// Load environment variables from .env file
-dotenv.config();
-console.log('CLOUDINARY CHECK:', {
-  name: process.env.CLOUDINARY_CLOUD_NAME,
-  key: process.env.CLOUDINARY_API_KEY,
-  secret: process.env.CLOUDINARY_API_SECRET ? 'exists' : 'missing',
-});
+// Must run before any module that reads process.env (e.g. Cloudinary) — ESM hoists imports above other statements.
+import './src/config/loadEnv.js';
 
 import http from 'http';
 import jwt from 'jsonwebtoken';
