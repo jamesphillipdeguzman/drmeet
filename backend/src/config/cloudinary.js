@@ -1,5 +1,11 @@
 import { v2 as cloudinary } from 'cloudinary';
 
+console.log('CLOUDINARY ENV AT INIT:', {
+    cloud: process.env.CLOUDINARY_CLOUD_NAME,
+    key: process.env.CLOUDINARY_API_KEY,
+    secret: process.env.CLOUDINARY_API_SECRET,
+  });
+
 // ✅ Configure ONCE globally
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
