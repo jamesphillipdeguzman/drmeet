@@ -1,0 +1,18 @@
+DrMeet
+
+Issues
+Ensure that all other messages are hidden on patient login Websocker takes about 30 seconds to reconnect and hide the messages. 
+Sign up incorrectly defaults to User.  Replace with Patient as default. 
+Hint text says:"Quick reply to <same person who logged in> Hint text must say: "Quick reply to <other person you had a chat with>
+Patient and Doctor window includes all patient and doctor data Patient and Doctor data only reflects that of the patient and their own doctor
+
+
+
+CSS
+Buttons Make clear intentions for CTA
+Ham button Too close to edge of device
+Doctor icon Replace + with something else
+
+
+
+
