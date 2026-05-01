@@ -13,7 +13,9 @@ const sidebarAccountMeta = document.getElementById("sidebar-account-meta");
 const commandPalette = document.getElementById("command-palette");
 const commandInput = document.getElementById("command-input");
 const commandResults = document.getElementById("command-results");
-const commandPaletteTrigger = document.getElementById("command-palette-trigger");
+const commandPaletteTrigger = document.getElementById(
+  "command-palette-trigger",
+);
 const isLocalHost =
   window.location.hostname === "localhost" ||
   window.location.hostname === "127.0.0.1";
@@ -49,22 +51,139 @@ const googleAuthState = {
 };
 let sidebarClockIntervalId = null;
 const DOCTOR_SPECIALTIES = [
-  "Family Medicine","Fam Med","General Practice","GP","Internal Medicine","IM","Internist","Pediatrics","Pedia","Emergency Medicine","ER","Geriatric Medicine","Geriatrics",
-  "Cardiology","Cardio","Endocrinology, Diabetes & Metabolism","Endocrinology","Gastroenterology","GI","Hepatology","Liver Specialist","Infectious Diseases","ID",
-  "Nephrology","Kidney Specialist","Pulmonology","Pulmo","Rheumatology","Rheuma","Allergy & Immunology","Allergist","Hematology","Hema","Medical Oncology","Onco","Clinical Pharmacology",
-  "General Surgery","GS","Colorectal Surgery","Hepatobiliary & Pancreatic Surgery","HPB Surgery","Breast Surgery","Minimally Invasive / Laparoscopic Surgery","MIS",
-  "Orthopedic Surgery","Ortho","Neurosurgery","Neuro Surgery","Cardiothoracic Surgery","CTS","Vascular Surgery","Plastic & Reconstructive Surgery","Plastic Surgery","Hand Surgery","Urology","Uro",
-  "Obstetrics and Gynecology","OB-GYN","OB","Maternal-Fetal Medicine","High-Risk Pregnancy","Reproductive Endocrinology & Infertility","Fertility Specialist","Gynecologic Oncology","Gyne Onco","Urogynecology",
-  "Neonatology","NICU","Pediatric Cardiology","Pediatric Pulmonology","Pediatric Nephrology","Pediatric Gastroenterology","Pediatric Endocrinology","Pediatric Hematology-Oncology","Pedia Onco","Pediatric Infectious Diseases","Pediatric Neurology","Developmental & Behavioral Pediatrics","Dev Peds",
-  "Neurology","Neuro","Psychiatry","Psych","Child & Adolescent Psychiatry","Addiction Medicine","Ophthalmology","Eye Specialist","Otolaryngology – Head and Neck Surgery","ENT",
-  "Dermatology","Derma","Cosmetic Dermatology / Aesthetic Medicine","Aesthetic","Radiology","Diagnostic Radiology","Interventional Radiology","IR","Pathology","Lab Medicine","Nuclear Medicine","Anesthesiology","Anesthesia",
-  "Physical Medicine & Rehabilitation","Physiatry","Rehab Med","Pain Medicine","Pain Management","Palliative Medicine","Hospice Care","Occupational Medicine","Occ Med","Sports Medicine","Lifestyle Medicine","Preventive Medicine",
-  "Physical Therapy","PT","Occupational Therapy","OT","Speech-Language Pathology","Speech Therapy","Clinical Psychology","Nutrition & Dietetics","Dietitian","Respiratory Therapy","RT"
+  "Family Medicine",
+  "Fam Med",
+  "General Practice",
+  "GP",
+  "Internal Medicine",
+  "IM",
+  "Internist",
+  "Pediatrics",
+  "Pedia",
+  "Emergency Medicine",
+  "ER",
+  "Geriatric Medicine",
+  "Geriatrics",
+  "Cardiology",
+  "Cardio",
+  "Endocrinology, Diabetes & Metabolism",
+  "Endocrinology",
+  "Gastroenterology",
+  "GI",
+  "Hepatology",
+  "Liver Specialist",
+  "Infectious Diseases",
+  "ID",
+  "Nephrology",
+  "Kidney Specialist",
+  "Pulmonology",
+  "Pulmo",
+  "Rheumatology",
+  "Rheuma",
+  "Allergy & Immunology",
+  "Allergist",
+  "Hematology",
+  "Hema",
+  "Medical Oncology",
+  "Onco",
+  "Clinical Pharmacology",
+  "General Surgery",
+  "GS",
+  "Colorectal Surgery",
+  "Hepatobiliary & Pancreatic Surgery",
+  "HPB Surgery",
+  "Breast Surgery",
+  "Minimally Invasive / Laparoscopic Surgery",
+  "MIS",
+  "Orthopedic Surgery",
+  "Ortho",
+  "Neurosurgery",
+  "Neuro Surgery",
+  "Cardiothoracic Surgery",
+  "CTS",
+  "Vascular Surgery",
+  "Plastic & Reconstructive Surgery",
+  "Plastic Surgery",
+  "Hand Surgery",
+  "Urology",
+  "Uro",
+  "Obstetrics and Gynecology",
+  "OB-GYN",
+  "OB",
+  "Maternal-Fetal Medicine",
+  "High-Risk Pregnancy",
+  "Reproductive Endocrinology & Infertility",
+  "Fertility Specialist",
+  "Gynecologic Oncology",
+  "Gyne Onco",
+  "Urogynecology",
+  "Neonatology",
+  "NICU",
+  "Pediatric Cardiology",
+  "Pediatric Pulmonology",
+  "Pediatric Nephrology",
+  "Pediatric Gastroenterology",
+  "Pediatric Endocrinology",
+  "Pediatric Hematology-Oncology",
+  "Pedia Onco",
+  "Pediatric Infectious Diseases",
+  "Pediatric Neurology",
+  "Developmental & Behavioral Pediatrics",
+  "Dev Peds",
+  "Neurology",
+  "Neuro",
+  "Psychiatry",
+  "Psych",
+  "Child & Adolescent Psychiatry",
+  "Addiction Medicine",
+  "Ophthalmology",
+  "Eye Specialist",
+  "Otolaryngology – Head and Neck Surgery",
+  "ENT",
+  "Dermatology",
+  "Derma",
+  "Cosmetic Dermatology / Aesthetic Medicine",
+  "Aesthetic",
+  "Radiology",
+  "Diagnostic Radiology",
+  "Interventional Radiology",
+  "IR",
+  "Pathology",
+  "Lab Medicine",
+  "Nuclear Medicine",
+  "Anesthesiology",
+  "Anesthesia",
+  "Physical Medicine & Rehabilitation",
+  "Physiatry",
+  "Rehab Med",
+  "Pain Medicine",
+  "Pain Management",
+  "Palliative Medicine",
+  "Hospice Care",
+  "Occupational Medicine",
+  "Occ Med",
+  "Sports Medicine",
+  "Lifestyle Medicine",
+  "Preventive Medicine",
+  "Physical Therapy",
+  "PT",
+  "Occupational Therapy",
+  "OT",
+  "Speech-Language Pathology",
+  "Speech Therapy",
+  "Clinical Psychology",
+  "Nutrition & Dietetics",
+  "Dietitian",
+  "Respiratory Therapy",
+  "RT",
 ];
 
 function normalizeFetchErrorMessage(err, fallbackMessage) {
   const message = String(err?.message || "");
-  if (message.toLowerCase().includes("failed to fetch") || err instanceof TypeError) {
+  if (
+    message.toLowerCase().includes("failed to fetch") ||
+    err instanceof TypeError
+  ) {
     return "Unable to reach the server right now. Please check your connection and try again.";
   }
   return message || fallbackMessage;
@@ -88,7 +207,9 @@ function clearGoogleAuthLoading(message, isError = false) {
   }
   if (googleAuthState.feedbackEl && message) {
     googleAuthState.feedbackEl.textContent = message;
-    googleAuthState.feedbackEl.className = isError ? "feedback error" : "feedback";
+    googleAuthState.feedbackEl.className = isError
+      ? "feedback error"
+      : "feedback";
   }
 }
 
@@ -105,7 +226,8 @@ function consumeOauthErrorFromHash() {
   const messages = {
     missing_code: "Google login could not be completed. Please try again.",
     failed: "Google login failed. Please try again.",
-    session_error: "Google login failed while creating your session. Please try again.",
+    session_error:
+      "Google login failed while creating your session. Please try again.",
     callback_timeout: "Google login timed out. Please try again.",
   };
   return messages[code] || "Google login failed. Please try again.";
@@ -170,7 +292,10 @@ async function getApiErrorMessage(res, fallbackMessage) {
       return `Missing required fields: ${payload.missingFields.join(", ")}`;
     }
     if (Array.isArray(payload?.errors) && payload.errors.length) {
-      return payload.errors.map((item) => item.msg || item.message).filter(Boolean).join(", ");
+      return payload.errors
+        .map((item) => item.msg || item.message)
+        .filter(Boolean)
+        .join(", ");
     }
     if (Array.isArray(payload?.details) && payload.details.length) {
       return payload.details.join(", ");
@@ -208,7 +333,7 @@ function buildDoctorAvailabilityLabel(doctor) {
     .map((slot) =>
       slot.timeRange
         ? `${slot.day || "Day"} ${slot.timeRange}`
-        : `${slot.day || "Day"} ${slot.startTime || "--:--"}-${slot.endTime || "--:--"}`
+        : `${slot.day || "Day"} ${slot.startTime || "--:--"}-${slot.endTime || "--:--"}`,
     )
     .join(" | ");
 }
@@ -232,7 +357,7 @@ window.addEventListener("DOMContentLoaded", () => {
   checkAuthStatus();
   updateAuthNav();
   renderPage();
-  window.addEventListener('message', handleGoogleAuthMessage);
+  window.addEventListener("message", handleGoogleAuthMessage);
 });
 
 function setupShellInteractions() {
@@ -261,7 +386,10 @@ function setupCommandPalette() {
       event.preventDefault();
       openCommandPalette();
     }
-    if (event.key === "Escape" && !commandPalette.classList.contains("hidden")) {
+    if (
+      event.key === "Escape" &&
+      !commandPalette.classList.contains("hidden")
+    ) {
       closeCommandPalette();
     }
   });
@@ -273,15 +401,35 @@ function getSearchableCommands() {
   if (!isLoggedIn()) {
     return [
       { id: "home", label: "Go to Home", action: () => navigateTo("#home") },
-      { id: "book", label: "Book a visit (patients)", action: () => navigateTo("#book") },
+      {
+        id: "book",
+        label: "Book a visit (patients)",
+        action: () => navigateTo("#book"),
+      },
     ];
   }
   const staticCommands = [
     { id: "home", label: "Go to Home", action: () => navigateTo("#home") },
-    { id: "book", label: "Book a visit (patients)", action: () => navigateTo("#book") },
-    { id: "patients", label: "Go to Patients", action: () => navigateTo("#patients") },
-    { id: "doctors", label: "Go to Doctors", action: () => navigateTo("#doctors") },
-    { id: "appointments", label: "Go to Appointments", action: () => navigateTo("#appointments") },
+    {
+      id: "book",
+      label: "Book a visit (patients)",
+      action: () => navigateTo("#book"),
+    },
+    {
+      id: "patients",
+      label: "Go to Patients",
+      action: () => navigateTo("#patients"),
+    },
+    {
+      id: "doctors",
+      label: "Go to Doctors",
+      action: () => navigateTo("#doctors"),
+    },
+    {
+      id: "appointments",
+      label: "Go to Appointments",
+      action: () => navigateTo("#appointments"),
+    },
     { id: "users", label: "Go to Users", action: () => navigateTo("#users") },
   ];
   return staticCommands;
@@ -301,16 +449,20 @@ function closeCommandPalette() {
 function renderCommandResults() {
   const query = commandInput.value.trim().toLowerCase();
   const matches = getSearchableCommands().filter((item) =>
-    item.label.toLowerCase().includes(query)
+    item.label.toLowerCase().includes(query),
   );
-  commandResults.innerHTML = matches
-    .map(
-      (item) => `<li><button type="button" data-command-id="${item.id}" class="command-item">${item.label}</button></li>`
-    )
-    .join("") || '<li class="empty">No matches found.</li>';
+  commandResults.innerHTML =
+    matches
+      .map(
+        (item) =>
+          `<li><button type="button" data-command-id="${item.id}" class="command-item">${item.label}</button></li>`,
+      )
+      .join("") || '<li class="empty">No matches found.</li>';
   commandResults.querySelectorAll("[data-command-id]").forEach((button) => {
     button.addEventListener("click", () => {
-      const command = matches.find((entry) => entry.id === button.dataset.commandId);
+      const command = matches.find(
+        (entry) => entry.id === button.dataset.commandId,
+      );
       if (!command) return;
       command.action();
       closeCommandPalette();
@@ -364,10 +516,15 @@ function renderTopbarBreadcrumbs() {
 
 function loadDashboardState() {
   try {
-    const parsed = JSON.parse(localStorage.getItem(DASHBOARD_STATE_KEY) || "{}");
-    if (Array.isArray(parsed.conversations)) dashboardState.conversations = parsed.conversations;
-    if (typeof parsed.activeConversationId === "string") dashboardState.activeConversationId = parsed.activeConversationId;
-    if (Array.isArray(parsed.messages)) dashboardState.messages = parsed.messages;
+    const parsed = JSON.parse(
+      localStorage.getItem(DASHBOARD_STATE_KEY) || "{}",
+    );
+    if (Array.isArray(parsed.conversations))
+      dashboardState.conversations = parsed.conversations;
+    if (typeof parsed.activeConversationId === "string")
+      dashboardState.activeConversationId = parsed.activeConversationId;
+    if (Array.isArray(parsed.messages))
+      dashboardState.messages = parsed.messages;
   } catch (error) {
     console.warn("Unable to load dashboard state", error);
   }
@@ -580,17 +737,23 @@ function updateSidebarAccountInfo() {
   const timeText = now.toLocaleTimeString("en-PH");
   const roleLabel = getSidebarRoleLabel(role);
   const initial = (fullName || role || "U").charAt(0).toUpperCase();
-  if (sidebarAvatarCircle) sidebarAvatarCircle.textContent = signedIn ? initial : "U";
-  if (sidebarAvatarName) sidebarAvatarName.textContent = signedIn ? (fullName || "My Account") : "My Account";
+  if (sidebarAvatarCircle)
+    sidebarAvatarCircle.textContent = signedIn ? initial : "U";
+  if (sidebarAvatarName)
+    sidebarAvatarName.textContent = signedIn
+      ? fullName || "My Account"
+      : "My Account";
   if (sidebarAccountMeta) {
     sidebarAccountMeta.innerHTML = signedIn
-      ? `<strong>${escapeHtml(fullName || "User")} (${escapeHtml(roleLabel)})</strong>`
+      ? `<strong>${escapeHtml(fullName || "User")}</strong><br>(${escapeHtml(roleLabel)})`
       : "Not signed in";
   }
 }
 
 function participantAvatarUrl(participant) {
-  const raw = String(participant?.avatarUrl || participant?.picture || "").trim();
+  const raw = String(
+    participant?.avatarUrl || participant?.picture || "",
+  ).trim();
   return raw || DEFAULT_AVATAR_URL;
 }
 
@@ -601,9 +764,12 @@ function participantDisplayName(participant) {
 }
 
 function conversationTypingLabel(conversationId, currentUserId) {
-  const typingSet = dashboardState.typingByConversation?.[String(conversationId)];
+  const typingSet =
+    dashboardState.typingByConversation?.[String(conversationId)];
   if (!typingSet || !(typingSet instanceof Set) || !typingSet.size) return "";
-  const othersTyping = [...typingSet].some((id) => String(id) !== String(currentUserId || ""));
+  const othersTyping = [...typingSet].some(
+    (id) => String(id) !== String(currentUserId || ""),
+  );
   return othersTyping ? "Typing..." : "";
 }
 
@@ -618,7 +784,9 @@ async function resolveDoctorIdForPatientMessaging() {
     if (Array.isArray(list) && list.length) {
       const row = list.find((a) => a.doctor);
       if (row?.doctor) {
-        const profile = doctors.find((d) => String(d._id) === String(row.doctor));
+        const profile = doctors.find(
+          (d) => String(d._id) === String(row.doctor),
+        );
         if (profile?.userId) return String(profile.userId);
       }
     }
@@ -630,7 +798,9 @@ async function resolveDoctorIdForPatientMessaging() {
 async function resolvePatientMessageRecipient(patient) {
   if (!patient?._id) return null;
   try {
-    const res = await apiRequest(`${API_BASE}/patients/${patient._id}/messaging-recipient`);
+    const res = await apiRequest(
+      `${API_BASE}/patients/${patient._id}/messaging-recipient`,
+    );
     if (!res.ok) return null;
     const payload = await res.json();
     return payload?.recipientUserId ? String(payload.recipientUserId) : null;
@@ -694,19 +864,27 @@ function showDangerConfirm(message) {
       modal.remove();
       resolve(value);
     };
-    modal.querySelector("#danger-confirm-ok")?.addEventListener("click", () => close(true));
-    modal.querySelector("#danger-confirm-cancel")?.addEventListener("click", () => close(false));
+    modal
+      .querySelector("#danger-confirm-ok")
+      ?.addEventListener("click", () => close(true));
+    modal
+      .querySelector("#danger-confirm-cancel")
+      ?.addEventListener("click", () => close(false));
   });
 }
 
 function enforcePhoneInputs(scope = document) {
-  const inputs = scope.querySelectorAll('input[name="phone"], input[name="receptionistPhone"]');
+  const inputs = scope.querySelectorAll(
+    'input[name="phone"], input[name="receptionistPhone"]',
+  );
   inputs.forEach((input) => {
     input.setAttribute("inputmode", "numeric");
     input.setAttribute("maxlength", "11");
     input.setAttribute("pattern", "[0-9]{10,11}");
     input.addEventListener("input", () => {
-      const cleaned = String(input.value || "").replace(/\D+/g, "").slice(0, 11);
+      const cleaned = String(input.value || "")
+        .replace(/\D+/g, "")
+        .slice(0, 11);
       input.value = cleaned;
     });
   });
@@ -730,7 +908,7 @@ function addInlineTooltips(scope = document) {
 
 function attachClearButtons(scope = document) {
   const fields = scope.querySelectorAll(
-    'input[type="text"], input[type="email"], input[type="search"], input[type="password"], input[type="date"], input[type="time"], textarea, select'
+    'input[type="text"], input[type="email"], input[type="search"], input[type="password"], input[type="date"], input[type="time"], textarea, select',
   );
   fields.forEach((field) => {
     if (field.closest(".field-input-wrap")) return;
@@ -779,7 +957,13 @@ function fileToDataUrl(file) {
   });
 }
 
-async function sendDocumentMessage({ conversationId = "", patientId = "", doctorId = "", text = "", file }) {
+async function sendDocumentMessage({
+  conversationId = "",
+  patientId = "",
+  doctorId = "",
+  text = "",
+  file,
+}) {
   const fileData = await fileToDataUrl(file);
   return sendMessage(text, {
     conversationId,
@@ -792,7 +976,9 @@ async function sendDocumentMessage({ conversationId = "", patientId = "", doctor
 }
 
 function doctorMatchesPatientSearch(doctor, q) {
-  const needle = String(q || "").trim().toLowerCase();
+  const needle = String(q || "")
+    .trim()
+    .toLowerCase();
   if (!needle) return true;
   const blob = [
     doctor.firstName,
@@ -823,11 +1009,18 @@ async function loadConversations() {
     const res = await apiRequest(`${MESSAGES_API}/conversations`);
     if (!res.ok) throw new Error("Failed to load conversations");
     const data = await res.json();
-    dashboardState.conversations = Array.isArray(data?.conversations) ? data.conversations : [];
+    dashboardState.conversations = Array.isArray(data?.conversations)
+      ? data.conversations
+      : [];
 
     // Default: load first conversation.
-    if (!dashboardState.activeConversationId && dashboardState.conversations.length) {
-      dashboardState.activeConversationId = String(dashboardState.conversations[0]._id);
+    if (
+      !dashboardState.activeConversationId &&
+      dashboardState.conversations.length
+    ) {
+      dashboardState.activeConversationId = String(
+        dashboardState.conversations[0]._id,
+      );
       await loadMessages(dashboardState.activeConversationId);
     }
 
@@ -849,7 +1042,9 @@ async function loadMessages(conversationId) {
     );
     if (!res.ok) throw new Error("Failed to load messages");
     const data = await res.json();
-    dashboardState.messages = Array.isArray(data?.messages) ? data.messages : [];
+    dashboardState.messages = Array.isArray(data?.messages)
+      ? data.messages
+      : [];
 
     // Mark as read for the current user.
     await apiRequest(`${MESSAGES_API}/conversations/${conversationId}/read`, {
@@ -875,7 +1070,7 @@ async function createOrGetConversation(patientId, doctorId) {
         patientId,
         doctorId,
       }),
-    }
+    },
   );
 
   if (!res.ok) {
@@ -889,7 +1084,8 @@ async function createOrGetConversation(patientId, doctorId) {
 }
 
 async function sendMessage(text, options = {}) {
-  let conversationId = options.conversationId || dashboardState.activeConversationId;
+  let conversationId =
+    options.conversationId || dashboardState.activeConversationId;
 
   const userId = getCurrentUserId();
   const role = getCurrentUserRole();
@@ -902,12 +1098,18 @@ async function sendMessage(text, options = {}) {
     if (role !== "patient" && !(options.patientId && options.doctorId)) {
       throw new Error("Select a conversation before sending a message.");
     }
-    const doctorId = options.doctorId || await resolveDoctorIdForPatientMessaging();
+    const doctorId =
+      options.doctorId || (await resolveDoctorIdForPatientMessaging());
     const patientId = options.patientId || userId;
     if (!doctorId) {
-      throw new Error("No assigned doctor found. Book an appointment first so messaging can be enabled.");
+      throw new Error(
+        "No assigned doctor found. Book an appointment first so messaging can be enabled.",
+      );
     }
-    const createdConversationId = await createOrGetConversation(patientId, doctorId);
+    const createdConversationId = await createOrGetConversation(
+      patientId,
+      doctorId,
+    );
 
     conversationId = createdConversationId;
     dashboardState.activeConversationId = conversationId;
@@ -934,18 +1136,15 @@ async function sendMessage(text, options = {}) {
   const data = await res.json();
 
   dashboardState.activeConversationId = String(
-    data?.conversationId || conversationId
+    data?.conversationId || conversationId,
   );
 
   if (data?.message) {
-    dashboardState.messages = [
-      ...dashboardState.messages,
-      data.message,
-    ];
+    dashboardState.messages = [...dashboardState.messages, data.message];
   }
 
   const idx = dashboardState.conversations.findIndex(
-    (c) => String(c._id) === String(conversationId)
+    (c) => String(c._id) === String(conversationId),
   );
 
   if (idx !== -1 && data?.conversation) {
@@ -1035,7 +1234,8 @@ function setupSocket() {
     if (!incomingConversationId) return;
 
     const conversationId = String(incomingConversationId);
-    const isActive = String(dashboardState.activeConversationId) === conversationId;
+    const isActive =
+      String(dashboardState.activeConversationId) === conversationId;
     const typingSet = dashboardState.typingByConversation?.[conversationId];
     if (typingSet instanceof Set) typingSet.clear();
 
@@ -1046,8 +1246,10 @@ function setupSocket() {
     if (idx !== -1) {
       dashboardState.conversations[idx] = {
         ...dashboardState.conversations[idx],
-        lastMessage: msg?.message || dashboardState.conversations[idx].lastMessage,
-        lastMessageAt: msg?.createdAt || dashboardState.conversations[idx].lastMessageAt,
+        lastMessage:
+          msg?.message || dashboardState.conversations[idx].lastMessage,
+        lastMessageAt:
+          msg?.createdAt || dashboardState.conversations[idx].lastMessageAt,
       };
     }
 
@@ -1055,12 +1257,19 @@ function setupSocket() {
       // Avoid duplicates by message id when possible.
       const incomingId = msg?._id || msg?.id;
       const alreadyExists =
-        incomingId && dashboardState.messages.some((m) => String(m._id || m.id) === String(incomingId));
-      if (!alreadyExists) dashboardState.messages = [...dashboardState.messages, msg];
+        incomingId &&
+        dashboardState.messages.some(
+          (m) => String(m._id || m.id) === String(incomingId),
+        );
+      if (!alreadyExists)
+        dashboardState.messages = [...dashboardState.messages, msg];
 
       // Keep read receipts current for open conversations.
       try {
-        await apiRequest(`${MESSAGES_API}/conversations/${conversationId}/read`, { method: "POST" });
+        await apiRequest(
+          `${MESSAGES_API}/conversations/${conversationId}/read`,
+          { method: "POST" },
+        );
       } catch (e) {
         // ignore
       }
@@ -1120,7 +1329,12 @@ function renderPage() {
 
 function setPageTone(kind) {
   if (!mainContent) return;
-  mainContent.classList.remove("page-tone-patients", "page-tone-doctors", "page-tone-appointments", "page-tone-users");
+  mainContent.classList.remove(
+    "page-tone-patients",
+    "page-tone-doctors",
+    "page-tone-appointments",
+    "page-tone-users",
+  );
   if (kind) mainContent.classList.add(`page-tone-${kind}`);
 }
 
@@ -1139,8 +1353,11 @@ function renderPrivacy() {
 function renderHome() {
   setPageTone("");
   const signedIn = isLoggedIn();
-  const hasAnySummary = Array.isArray(dashboardState.conversations)
-    && dashboardState.conversations.some((c) => String(c?.lastMessage || "").trim());
+  const hasAnySummary =
+    Array.isArray(dashboardState.conversations) &&
+    dashboardState.conversations.some((c) =>
+      String(c?.lastMessage || "").trim(),
+    );
   const bookCta =
     getCurrentUserRole() === "patient"
       ? `<p class="dashboard-book-teaser"><a href="#book" class="btn btn-primary">Book a visit</a> <span class="dashboard-book-hint">Search for a doctor and request an appointment.</span></p>`
@@ -1228,7 +1445,10 @@ function renderHome() {
     mainContent.appendChild(host);
     apiRequest(`${API_BASE}/system/diagnostics`)
       .then(async (res) => {
-        if (!res.ok) throw new Error(await getApiErrorMessage(res, "Diagnostics unavailable"));
+        if (!res.ok)
+          throw new Error(
+            await getApiErrorMessage(res, "Diagnostics unavailable"),
+          );
         return res.json();
       })
       .then((payload) => {
@@ -1237,11 +1457,16 @@ function renderHome() {
         if (!container) return;
         container.className = "feedback";
         container.innerHTML = checks
-          .map((c) => `<div class="status-row"><span class="status-pill status-${c.status}">${c.status}</span><strong>${escapeHtml(c.label || c.key)}</strong><span>${escapeHtml(c.details || "")}</span></div>`)
+          .map(
+            (c) =>
+              `<div class="status-row"><span class="status-pill status-${c.status}">${c.status}</span><strong>${escapeHtml(c.label || c.key)}</strong><span>${escapeHtml(c.details || "")}</span></div>`,
+          )
           .join("");
-        document.getElementById("export-diagnostics-csv")?.addEventListener("click", () => {
-          downloadCsv(`diagnostics-${Date.now()}.csv`, checks);
-        });
+        document
+          .getElementById("export-diagnostics-csv")
+          ?.addEventListener("click", () => {
+            downloadCsv(`diagnostics-${Date.now()}.csv`, checks);
+          });
       })
       .catch((err) => {
         const container = document.getElementById("diagnostics-status");
@@ -1250,24 +1475,28 @@ function renderHome() {
         container.textContent = err.message || "Unable to load diagnostics.";
       });
   }
-  document.getElementById("role-select-doctor")?.addEventListener("click", () => {
-    if (!isLoggedIn()) {
-      window.location.hash = "#signup?role=doctor";
-      renderSignup();
-      return;
-    }
-    window.location.hash = "#doctors";
-    renderDoctors();
-  });
-  document.getElementById("role-select-patient")?.addEventListener("click", () => {
-    if (!isLoggedIn()) {
-      window.location.hash = "#signup?role=patient";
-      renderSignup();
-      return;
-    }
-    window.location.hash = "#book";
-    renderPatientBooking();
-  });
+  document
+    .getElementById("role-select-doctor")
+    ?.addEventListener("click", () => {
+      if (!isLoggedIn()) {
+        window.location.hash = "#signup?role=doctor";
+        renderSignup();
+        return;
+      }
+      window.location.hash = "#doctors";
+      renderDoctors();
+    });
+  document
+    .getElementById("role-select-patient")
+    ?.addEventListener("click", () => {
+      if (!isLoggedIn()) {
+        window.location.hash = "#signup?role=patient";
+        renderSignup();
+        return;
+      }
+      window.location.hash = "#book";
+      renderPatientBooking();
+    });
   if (signedIn) mountDashboardWidgets();
 }
 
@@ -1279,7 +1508,7 @@ function createSkeletonRows(total = 3) {
           <div class="skeleton-line w-60"></div>
           <div class="skeleton-line w-90"></div>
         </div>
-      `
+      `,
     )
     .join("");
 }
@@ -1303,14 +1532,20 @@ function showComposeMessageModal(onSubmit) {
   `;
   document.body.appendChild(modal);
   const closeModal = () => modal.remove();
-  modal.querySelector("#compose-message-cancel")?.addEventListener("click", closeModal);
-  modal.querySelector("#compose-message-form")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const text = String(modal.querySelector("#compose-message-text")?.value || "").trim();
-    if (!text) return;
-    await onSubmit(text);
-    closeModal();
-  });
+  modal
+    .querySelector("#compose-message-cancel")
+    ?.addEventListener("click", closeModal);
+  modal
+    .querySelector("#compose-message-form")
+    ?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const text = String(
+        modal.querySelector("#compose-message-text")?.value || "",
+      ).trim();
+      if (!text) return;
+      await onSubmit(text);
+      closeModal();
+    });
 }
 
 function mountDashboardWidgets() {
@@ -1334,7 +1569,9 @@ function mountDashboardWidgets() {
     showComposeMessageModal(async (note) => {
       try {
         if (dashboardState.conversations.length > 0) {
-          dashboardState.activeConversationId = String(dashboardState.conversations[0]._id);
+          dashboardState.activeConversationId = String(
+            dashboardState.conversations[0]._id,
+          );
           await loadMessages(dashboardState.activeConversationId);
         } else {
           dashboardState.activeConversationId = "";
@@ -1351,7 +1588,8 @@ function mountDashboardWidgets() {
   dashboardSubscribers.length = 0;
   subscribeDashboard(() => {
     const liveBadge = document.querySelector(".live-badge");
-    if (liveBadge) liveBadge.classList.toggle("active", dashboardState.websocketActive);
+    if (liveBadge)
+      liveBadge.classList.toggle("active", dashboardState.websocketActive);
     const drawer = document.getElementById("thread-drawer");
     renderMessageBoard(boardContainer);
     renderSmsFeed(smsContainer);
@@ -1374,7 +1612,9 @@ function renderMessageBoard(container) {
   container.innerHTML = sorted.length
     ? sorted
         .map((conv) => {
-          const participants = Array.isArray(conv.participants) ? conv.participants : [];
+          const participants = Array.isArray(conv.participants)
+            ? conv.participants
+            : [];
           const other =
             participants.find((p) => String(p._id) !== String(currentUserId)) ||
             participants[0] ||
@@ -1423,8 +1663,11 @@ function renderMessageBoard(container) {
 
 function renderSmsFeed(container) {
   const smsCard = container.closest(".sms-card");
-  const hasAnySummary = Array.isArray(dashboardState.conversations)
-    && dashboardState.conversations.some((c) => String(c?.lastMessage || "").trim());
+  const hasAnySummary =
+    Array.isArray(dashboardState.conversations) &&
+    dashboardState.conversations.some((c) =>
+      String(c?.lastMessage || "").trim(),
+    );
   if (smsCard) smsCard.style.display = hasAnySummary ? "" : "none";
   if (!hasAnySummary) return;
   const containerEmptyState = `
@@ -1449,20 +1692,27 @@ function renderSmsFeed(container) {
   const conv = dashboardState.conversations.find(
     (c) => String(c._id) === String(dashboardState.activeConversationId),
   );
-  const participants = Array.isArray(conv?.participants) ? conv.participants : [];
+  const participants = Array.isArray(conv?.participants)
+    ? conv.participants
+    : [];
   const currentUserId = getCurrentUserId();
   const other =
-    participants.find((p) => String(p._id) !== String(currentUserId)) || participants[0] || null;
+    participants.find((p) => String(p._id) !== String(currentUserId)) ||
+    participants[0] ||
+    null;
   const otherName = participantDisplayName(other);
   const otherAvatar = participantAvatarUrl(other);
-  const typingLabel = conversationTypingLabel(dashboardState.activeConversationId, currentUserId);
+  const typingLabel = conversationTypingLabel(
+    dashboardState.activeConversationId,
+    currentUserId,
+  );
 
   container.innerHTML = `
     <div class="chat-bubble">
       <div class="chat-head">
         <strong class="message-person"><img src="${escapeHtml(otherAvatar)}" class="person-avatar" alt="${escapeHtml(otherName)} avatar" />${otherName}</strong>
       </div>
-      <p style="opacity:0.85">${typingLabel || `${(dashboardState.messages?.length || 0)} message(s)`}</p>
+      <p style="opacity:0.85">${typingLabel || `${dashboardState.messages?.length || 0} message(s)`}</p>
     </div>
   `;
 }
@@ -1486,15 +1736,21 @@ function renderThreadDrawer(drawer) {
   const conv = dashboardState.conversations.find(
     (c) => String(c._id) === String(conversationId),
   );
-  const participants = Array.isArray(conv?.participants) ? conv.participants : [];
+  const participants = Array.isArray(conv?.participants)
+    ? conv.participants
+    : [];
   const currentUserId = getCurrentUserId();
   const other =
-    participants.find((p) => String(p._id) !== String(currentUserId)) || participants[0] || null;
+    participants.find((p) => String(p._id) !== String(currentUserId)) ||
+    participants[0] ||
+    null;
   const otherName = participantDisplayName(other);
   const otherAvatar = participantAvatarUrl(other);
   const typingLabel = conversationTypingLabel(conversationId, currentUserId);
 
-  const threadMessages = Array.isArray(dashboardState.messages) ? dashboardState.messages : [];
+  const threadMessages = Array.isArray(dashboardState.messages)
+    ? dashboardState.messages
+    : [];
   drawer.classList.remove("hidden");
   drawer.innerHTML = `
     <div class="thread-header">
@@ -1507,36 +1763,46 @@ function renderThreadDrawer(drawer) {
         dashboardState.socketReconnecting && !dashboardState.websocketActive
           ? `<div class="feedback">Connecting... messages reload automatically when live sync returns.</div>`
           : threadMessages.length
-          ? threadMessages
-              .map((msg) => {
-                const sender = msg.senderId || {};
-                const senderId = msg.senderId?._id || msg.senderId || null;
-                const isYou = senderId ? String(senderId) === String(currentUserId) : false;
-                const senderName = sender
-                  ? `${sender.firstName || ""} ${sender.lastName || ""}`.trim()
-                  : "Unknown";
-                const displayName = isYou ? "You" : senderName;
+            ? threadMessages
+                .map((msg) => {
+                  const sender = msg.senderId || {};
+                  const senderId = msg.senderId?._id || msg.senderId || null;
+                  const isYou = senderId
+                    ? String(senderId) === String(currentUserId)
+                    : false;
+                  const senderName = sender
+                    ? `${sender.firstName || ""} ${sender.lastName || ""}`.trim()
+                    : "Unknown";
+                  const displayName = isYou ? "You" : senderName;
 
-                const senderRole = String(sender.role || "").toLowerCase();
-                const roleClass =
-                  senderRole === "patient"
-                    ? "role-patient"
-                    : senderRole === "doctor" || senderRole === "receptionist"
-                      ? "role-staff"
-                      : "role-default";
+                  const senderRole = String(sender.role || "").toLowerCase();
+                  const roleClass =
+                    senderRole === "patient"
+                      ? "role-patient"
+                      : senderRole === "doctor" || senderRole === "receptionist"
+                        ? "role-staff"
+                        : "role-default";
 
-                const attachmentMarkup = msg.attachmentUrl
-                  ? (() => {
-                    const type = String(msg.attachmentType || "").toLowerCase();
-                    const url = escapeHtml(msg.attachmentUrl);
-                    const name = escapeHtml(msg.attachmentName || "Open attachment");
-                    const isImage = type.startsWith("image/") || /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(String(msg.attachmentUrl || ""));
-                    return isImage
-                      ? `<div class="thread-attachment-wrap"><a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${name}" class="thread-attachment-image" /></a><p><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p></div>`
-                      : `<p><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p>`;
-                  })()
-                  : "";
-                return `
+                  const attachmentMarkup = msg.attachmentUrl
+                    ? (() => {
+                        const type = String(
+                          msg.attachmentType || "",
+                        ).toLowerCase();
+                        const url = escapeHtml(msg.attachmentUrl);
+                        const name = escapeHtml(
+                          msg.attachmentName || "Open attachment",
+                        );
+                        const isImage =
+                          type.startsWith("image/") ||
+                          /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(
+                            String(msg.attachmentUrl || ""),
+                          );
+                        return isImage
+                          ? `<div class="thread-attachment-wrap"><a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${name}" class="thread-attachment-image" /></a><p><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p></div>`
+                          : `<p><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p>`;
+                      })()
+                    : "";
+                  return `
                   <div class="thread-item ${roleClass}">
                     <div class="thread-item-header">
                       <strong>${displayName}</strong>
@@ -1546,9 +1812,9 @@ function renderThreadDrawer(drawer) {
                     ${attachmentMarkup}
                   </div>
                 `;
-              })
-              .join("")
-          : `<div class="feedback">No messages yet.</div>`
+                })
+                .join("")
+            : `<div class="feedback">No messages yet.</div>`
       }
     </div>
     <div class="thread-drawer-reply">
@@ -1597,29 +1863,33 @@ function renderThreadDrawer(drawer) {
     emitTypingStop();
   });
 
-  drawer.querySelector("#thread-send-reply")?.addEventListener("click", async () => {
-    const input = drawer.querySelector("#thread-quick-reply");
-    const fileInput = drawer.querySelector("#thread-quick-file");
-    const file = fileInput?.files?.[0];
-    const content = input?.value?.trim();
-    if ((!content && !file) || !conversationId) return;
-    if (String(dashboardState.activeConversationId) !== String(conversationId)) {
-      dashboardState.activeConversationId = String(conversationId);
-    }
-    try {
-      if (file) {
-        await sendDocumentMessage({ conversationId, text: content, file });
-      } else {
-        await sendMessage(content);
+  drawer
+    .querySelector("#thread-send-reply")
+    ?.addEventListener("click", async () => {
+      const input = drawer.querySelector("#thread-quick-reply");
+      const fileInput = drawer.querySelector("#thread-quick-file");
+      const file = fileInput?.files?.[0];
+      const content = input?.value?.trim();
+      if ((!content && !file) || !conversationId) return;
+      if (
+        String(dashboardState.activeConversationId) !== String(conversationId)
+      ) {
+        dashboardState.activeConversationId = String(conversationId);
       }
-      if (input) input.value = "";
-      if (fileInput) fileInput.value = "";
-      if (typingStopTimer) clearTimeout(typingStopTimer);
-      emitTypingStop();
-    } catch (err) {
-      showToast(err?.message || "Unable to send message", "error");
-    }
-  });
+      try {
+        if (file) {
+          await sendDocumentMessage({ conversationId, text: content, file });
+        } else {
+          await sendMessage(content);
+        }
+        if (input) input.value = "";
+        if (fileInput) fileInput.value = "";
+        if (typingStopTimer) clearTimeout(typingStopTimer);
+        emitTypingStop();
+      } catch (err) {
+        showToast(err?.message || "Unable to send message", "error");
+      }
+    });
 }
 
 // --- Authentication ---
@@ -1701,16 +1971,16 @@ function renderLogin() {
     <button id="google-login-btn" type="button" class="btn btn-google" style="margin-top:1rem;">Continue with Google</button>
     <div id="login-feedback"></div>
   `;
-  const googleLoginBtn = document.getElementById('google-login-btn');
-  const form = document.getElementById('login-form');
-  const feedback = document.getElementById('login-feedback');
+  const googleLoginBtn = document.getElementById("google-login-btn");
+  const form = document.getElementById("login-form");
+  const feedback = document.getElementById("login-feedback");
   const oauthSuccessToken = consumeOauthSuccessTokenFromHash();
   if (oauthSuccessToken) {
     clearGoogleAuthLoading("Google sign-in successful.");
     resetMessagingSocket();
-    localStorage.setItem('token', oauthSuccessToken);
+    localStorage.setItem("token", oauthSuccessToken);
     updateAuthNav();
-    window.location.hash = '#home';
+    window.location.hash = "#home";
     renderHome();
     return;
   }
@@ -1722,36 +1992,36 @@ function renderLogin() {
   }
   googleLoginBtn.onclick = () =>
     googleLogin({ feedbackEl: feedback, buttonEl: googleLoginBtn });
-  form.onsubmit = async e => {
+  form.onsubmit = async (e) => {
     e.preventDefault();
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.disabled = true;
-    feedback.textContent = 'Logging in...';
+    feedback.textContent = "Logging in...";
     const creds = Object.fromEntries(new FormData(form));
     try {
       const res = await fetch(`${API_ORIGIN}/auth/login`, {
-        method: 'POST',
+        method: "POST",
         credentials: "include",
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(creds)
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(creds),
       });
-      if (!res.ok) throw new Error('Invalid credentials');
+      if (!res.ok) throw new Error("Invalid credentials");
       const data = await res.json();
       if (data.token) {
         resetMessagingSocket();
-        localStorage.setItem('token', data.token);
-        feedback.textContent = 'Login successful!';
+        localStorage.setItem("token", data.token);
+        feedback.textContent = "Login successful!";
         updateAuthNav();
         setTimeout(() => {
-          window.location.hash = '#home';
+          window.location.hash = "#home";
           renderHome();
         }, 800);
       } else {
-        throw new Error('No token received');
+        throw new Error("No token received");
       }
     } catch (err) {
       feedback.textContent = normalizeFetchErrorMessage(err, "Login failed.");
-      feedback.className = 'feedback error';
+      feedback.className = "feedback error";
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }
@@ -1773,9 +2043,10 @@ function renderSignup() {
     selectedRole === "doctor"
       ? "Doctor sign-up gives you access to schedule, patient communication, and care workflows."
       : "New accounts are registered as patients so you can book visits and message your care team.";
-  const titleOptions = selectedRole === "doctor"
-    ? `<option value="">(blank)</option><option value="Dr.">Dr.</option><option value="Dra.">Dra.</option>`
-    : `<option value="">(blank)</option><option value="Mr.">Mr.</option><option value="Ms.">Ms.</option><option value="Mrs.">Mrs.</option>`;
+  const titleOptions =
+    selectedRole === "doctor"
+      ? `<option value="">(blank)</option><option value="Dr.">Dr.</option><option value="Dra.">Dra.</option>`
+      : `<option value="">(blank)</option><option value="Mr.">Mr.</option><option value="Ms.">Ms.</option><option value="Mrs.">Mrs.</option>`;
   mainContent.innerHTML = `
     <h2>${signupTitle}</h2>
     <p class="signup-lead">${signupLead}</p>
@@ -1805,17 +2076,17 @@ function renderSignup() {
     <p class="signup-lead" style="margin-top:0.75rem;">Already registered? <a href="#login">Go to Login</a></p>
     <div id="signup-feedback"></div>
   `;
-  const form = document.getElementById('signup-form');
+  const form = document.getElementById("signup-form");
   addInlineTooltips(form);
   enforcePhoneInputs(form);
-  const feedback = document.getElementById('signup-feedback');
+  const feedback = document.getElementById("signup-feedback");
   const oauthSuccessToken = consumeOauthSuccessTokenFromHash();
   if (oauthSuccessToken) {
     clearGoogleAuthLoading("Google sign-in successful.");
     resetMessagingSocket();
-    localStorage.setItem('token', oauthSuccessToken);
+    localStorage.setItem("token", oauthSuccessToken);
     updateAuthNav();
-    window.location.hash = '#home';
+    window.location.hash = "#home";
     renderHome();
     return;
   }
@@ -1825,19 +2096,19 @@ function renderSignup() {
     feedback.textContent = oauthError;
     feedback.className = "feedback error";
   }
-  form.onsubmit = async e => {
+  form.onsubmit = async (e) => {
     e.preventDefault();
     const submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.disabled = true;
-    feedback.textContent = 'Signing up...';
+    feedback.textContent = "Signing up...";
     const user = Object.fromEntries(new FormData(form));
     if (selectedRole) user.role = selectedRole;
     try {
       const res = await fetch(`${API_ORIGIN}/auth/signup`, {
-        method: 'POST',
+        method: "POST",
         credentials: "include",
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user)
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(user),
       });
       if (!res.ok) {
         throw new Error(await getApiErrorMessage(res, "Signup failed."));
@@ -1845,19 +2116,19 @@ function renderSignup() {
       const data = await res.json();
       if (data.token) {
         resetMessagingSocket();
-        localStorage.setItem('token', data.token);
-        feedback.textContent = 'Signup successful!';
+        localStorage.setItem("token", data.token);
+        feedback.textContent = "Signup successful!";
         updateAuthNav();
         setTimeout(() => {
-          window.location.hash = '#home';
+          window.location.hash = "#home";
           renderHome();
         }, 800);
       } else {
-        throw new Error('No token received');
+        throw new Error("No token received");
       }
     } catch (err) {
       feedback.textContent = normalizeFetchErrorMessage(err, "Signup failed.");
-      feedback.className = 'feedback error';
+      feedback.className = "feedback error";
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }
@@ -1880,11 +2151,13 @@ function googleLogin({ feedbackEl = null, buttonEl = null } = {}) {
   }
 
   const requestedRole = getSignupRoleFromHash();
-  const roleQuery = requestedRole ? `?role=${encodeURIComponent(requestedRole)}` : "";
+  const roleQuery = requestedRole
+    ? `?role=${encodeURIComponent(requestedRole)}`
+    : "";
   const popup = window.open(
     `${API_ORIGIN}/auth/google${roleQuery}`,
-    'googleLogin',
-    'width=500,height=600'
+    "googleLogin",
+    "width=500,height=600",
   );
   if (!popup) {
     clearGoogleAuthLoading("Popup blocked. Allow popups and try again.", true);
@@ -1904,7 +2177,10 @@ function googleLogin({ feedbackEl = null, buttonEl = null } = {}) {
     if (googleAuthState.popup && googleAuthState.popup.closed) {
       setTimeout(() => {
         if (googleAuthState.inProgress) {
-          clearGoogleAuthLoading("Google sign-in was closed before completion.", true);
+          clearGoogleAuthLoading(
+            "Google sign-in was closed before completion.",
+            true,
+          );
         }
       }, 1000);
     }
@@ -1913,17 +2189,20 @@ function googleLogin({ feedbackEl = null, buttonEl = null } = {}) {
 
 function handleGoogleAuthMessage(event) {
   if (!event.data) return;
-  if (event.data.type === 'GOOGLE_AUTH_SUCCESS' && event.data.token) {
+  if (event.data.type === "GOOGLE_AUTH_SUCCESS" && event.data.token) {
     clearGoogleAuthLoading("Google sign-in successful.");
     resetMessagingSocket();
-    localStorage.setItem('token', event.data.token);
+    localStorage.setItem("token", event.data.token);
     updateAuthNav();
-    window.location.hash = '#home';
+    window.location.hash = "#home";
     renderHome();
     return;
   }
-  if (event.data.type === 'GOOGLE_AUTH_FAILURE') {
-    clearGoogleAuthLoading(event.data.message || "Google sign-in failed.", true);
+  if (event.data.type === "GOOGLE_AUTH_FAILURE") {
+    clearGoogleAuthLoading(
+      event.data.message || "Google sign-in failed.",
+      true,
+    );
   }
 }
 
@@ -2033,41 +2312,46 @@ async function renderPatientBooking() {
       return;
     }
     const grouped = list.reduce((acc, doctor) => {
-      const specialtyKey = String(doctor.specialty || "General").trim() || "General";
+      const specialtyKey =
+        String(doctor.specialty || "General").trim() || "General";
       if (!acc[specialtyKey]) acc[specialtyKey] = [];
       acc[specialtyKey].push(doctor);
       return acc;
     }, {});
     grid.innerHTML = Object.entries(grouped)
       .filter(([, items]) => Array.isArray(items) && items.length)
-      .map(([specialtyKey, items]) => `
+      .map(
+        ([specialtyKey, items]) => `
         <section class="doctor-specialty-group">
           <h3 class="doctor-specialty-heading">${escapeHtml(specialtyKey)}</h3>
           <div class="patient-doctor-grid">
-            ${items.map((d) => {
-        const name = formatDoctorDisplayName(d);
-        const spec = d.specialty || "Specialty not listed";
-        const subSpec = String(d.subSpecialization || d.subSpecialty || "").trim();
-        const subSpecBadge = subSpec
-          ? `<span class="pill-tag" style="margin-left:0;">${escapeHtml(subSpec)}</span>`
-          : "";
-        const dept = d.department
-          ? `<p class="doctor-pick-meta">${d.department}</p>`
-          : "";
-        const clinic = d.affiliatedClinics
-          ? `<p class="doctor-pick-clinic">${d.affiliatedClinics}</p>`
-          : "";
-        const receptionistName = d.receptionistName
-          ? `<p class="doctor-pick-reception">Receptionist: ${d.receptionistName}</p>`
-          : "";
-        const receptionistPhone = d.receptionistPhone
-          ? `<p class="doctor-pick-reception">Contact: ${d.receptionistPhone}</p>`
-          : "";
-        const receptionistEmail = d.receptionistEmail
-          ? `<p class="doctor-pick-reception">Email: ${d.receptionistEmail}</p>`
-          : "";
-        const avail = buildDoctorAvailabilityLabel(d);
-        return `
+            ${items
+              .map((d) => {
+                const name = formatDoctorDisplayName(d);
+                const spec = d.specialty || "Specialty not listed";
+                const subSpec = String(
+                  d.subSpecialization || d.subSpecialty || "",
+                ).trim();
+                const subSpecBadge = subSpec
+                  ? `<span class="pill-tag" style="margin-left:0;">${escapeHtml(subSpec)}</span>`
+                  : "";
+                const dept = d.department
+                  ? `<p class="doctor-pick-meta">${d.department}</p>`
+                  : "";
+                const clinic = d.affiliatedClinics
+                  ? `<p class="doctor-pick-clinic">${d.affiliatedClinics}</p>`
+                  : "";
+                const receptionistName = d.receptionistName
+                  ? `<p class="doctor-pick-reception">Receptionist: ${d.receptionistName}</p>`
+                  : "";
+                const receptionistPhone = d.receptionistPhone
+                  ? `<p class="doctor-pick-reception">Contact: ${d.receptionistPhone}</p>`
+                  : "";
+                const receptionistEmail = d.receptionistEmail
+                  ? `<p class="doctor-pick-reception">Email: ${d.receptionistEmail}</p>`
+                  : "";
+                const avail = buildDoctorAvailabilityLabel(d);
+                return `
           <article class="doctor-pick-card">
             <h3 class="doctor-pick-name">${name}</h3>
             <p class="doctor-pick-specialty">${spec}</p>
@@ -2080,9 +2364,10 @@ async function renderPatientBooking() {
             <p class="doctor-pick-avail">${avail}</p>
             <button type="button" class="btn btn-primary btn-sm doctor-pick-book" data-book-doctor="${d._id}">Book with this doctor</button>
           </article>`;
-      }).join("")}
+              })
+              .join("")}
           </div>
-        </section>`
+        </section>`,
       )
       .join("");
   }
@@ -2103,7 +2388,8 @@ async function renderPatientBooking() {
     }
     const d = doctors.find((x) => String(x._id) === String(doctorId));
     const displayName = formatDoctorDisplayName(d) || "your doctor";
-    document.getElementById("patient-booking-doctor-title").textContent = `Book with ${displayName}`;
+    document.getElementById("patient-booking-doctor-title").textContent =
+      `Book with ${displayName}`;
     feedbackEl.style.display = "none";
     feedbackEl.textContent = "";
     bookingForm.reset();
@@ -2181,7 +2467,10 @@ async function renderPatients() {
     const isPatient = role === "patient";
     const isReceptionist = role === "receptionist";
     const patientOptions = patients
-      .map((p) => `<option value="${p._id}">${p.firstName || ""} ${p.lastName || ""}</option>`)
+      .map(
+        (p) =>
+          `<option value="${p._id}">${p.firstName || ""} ${p.lastName || ""}</option>`,
+      )
       .join("");
     const isDoctor = role === "doctor";
     let canReceptionistSendDocs = false;
@@ -2191,8 +2480,12 @@ async function renderPatients() {
         if (docsRes.ok) {
           const doctorRows = await docsRes.json();
           const linkedDoctorId = getCurrentLinkedDoctorId();
-          const linked = doctorRows.find((d) => String(d._id) === String(linkedDoctorId));
-          canReceptionistSendDocs = Boolean(linked?.allowReceptionistSendDocuments);
+          const linked = doctorRows.find(
+            (d) => String(d._id) === String(linkedDoctorId),
+          );
+          canReceptionistSendDocs = Boolean(
+            linked?.allowReceptionistSendDocuments,
+          );
         }
       } catch (e) {
         canReceptionistSendDocs = false;
@@ -2207,7 +2500,9 @@ async function renderPatients() {
         ${isPatient ? '<button class="cta-primary" onclick="window.sendMyDocumentToClinic()">Send Document to Clinic</button>' : ""}
         ${isAdminUser ? '<button class="cta-primary btn-secondary" id="export-patients-csv">Export CSV</button>' : ""}
       </div>
-      ${isPatient && patients.length ? `
+      ${
+        isPatient && patients.length
+          ? `
       <div class="list-filters">
         <label>Switch Profile
           <select id="patient-switch-profile">
@@ -2215,7 +2510,9 @@ async function renderPatients() {
             ${patientOptions}
           </select>
         </label>
-      </div>` : ""}
+      </div>`
+          : ""
+      }
       <hr class="section-divider" />
       <div class="list-filters">
         <input type="search" id="patient-filter-name" placeholder="Filter by name" />
@@ -2236,7 +2533,7 @@ async function renderPatients() {
           (p) => `
             <tr>
               <td><img src="${escapeHtml(String(p.photoUrl || DEFAULT_AVATAR_URL))}" alt="Patient avatar" class="doctor-avatar" />${p.firstName} ${p.lastName}</td>
-              <td>${p.familyHeadName ? `Family Head: ${p.familyHeadName}` : (p.relationshipToAccountHolder ? `Dependent: ${p.relationshipToAccountHolder}` : "Primary")}${p.isCareTeamLinked ? ' <span class="pill-tag">Attached</span>' : ""}</td>
+              <td>${p.familyHeadName ? `Family Head: ${p.familyHeadName}` : p.relationshipToAccountHolder ? `Dependent: ${p.relationshipToAccountHolder}` : "Primary"}${p.isCareTeamLinked ? ' <span class="pill-tag">Attached</span>' : ""}</td>
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
               <td>${formatDateDisplay(p.birthdate) || ""}</td>
@@ -2246,15 +2543,31 @@ async function renderPatients() {
                 ${isDoctor || (isReceptionist && canReceptionistSendDocs) ? `<button class="btn btn-primary btn-action-edit" onclick="window.sendPatientDocumentFromDoctor('${p._id}')">Send Document</button>` : ""}
               </td>
             </tr>
-          `
+          `,
         )
         .join("");
     };
     const applyPatientFilters = () => {
-      const nameQ = String(document.getElementById("patient-filter-name")?.value || "").toLowerCase().trim();
-      const emailQ = String(document.getElementById("patient-filter-email")?.value || "").toLowerCase().trim();
-      const phoneQ = String(document.getElementById("patient-filter-phone")?.value || "").toLowerCase().trim();
-      const dobQ = String(document.getElementById("patient-filter-dob")?.value || "").toLowerCase().trim();
+      const nameQ = String(
+        document.getElementById("patient-filter-name")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const emailQ = String(
+        document.getElementById("patient-filter-email")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const phoneQ = String(
+        document.getElementById("patient-filter-phone")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const dobQ = String(
+        document.getElementById("patient-filter-dob")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
       const filtered = patients.filter((p) => {
         const name = `${p.firstName || ""} ${p.lastName || ""}`.toLowerCase();
         const email = String(p.email || "").toLowerCase();
@@ -2269,46 +2582,65 @@ async function renderPatients() {
       });
       renderRows(filtered);
     };
-    ["patient-filter-name", "patient-filter-email", "patient-filter-phone", "patient-filter-dob"].forEach((id) => {
-      document.getElementById(id)?.addEventListener("input", applyPatientFilters);
+    [
+      "patient-filter-name",
+      "patient-filter-email",
+      "patient-filter-phone",
+      "patient-filter-dob",
+    ].forEach((id) => {
+      document
+        .getElementById(id)
+        ?.addEventListener("input", applyPatientFilters);
     });
-    document.getElementById("patient-switch-profile")?.addEventListener("change", (event) => {
-      const selectedId = String(event.target.value || "");
-      if (!selectedId) {
-        applyPatientFilters();
-        return;
-      }
-      const picked = patients.filter((p) => String(p._id) === selectedId);
-      renderRows(picked);
-    });
+    document
+      .getElementById("patient-switch-profile")
+      ?.addEventListener("change", (event) => {
+        const selectedId = String(event.target.value || "");
+        if (!selectedId) {
+          applyPatientFilters();
+          return;
+        }
+        const picked = patients.filter((p) => String(p._id) === selectedId);
+        renderRows(picked);
+      });
     renderRows(patients);
-    document.getElementById("export-patients-csv")?.addEventListener("click", () => {
-      downloadCsv(
-        `patients-${Date.now()}.csv`,
-        patients.map((p) => ({
-          name: `${p.firstName || ""} ${p.lastName || ""}`.trim(),
-          email: p.email || "",
-          phone: p.phone || "",
-          dob: formatDateForInput(p.birthdate),
-        }))
-      );
-    });
+    document
+      .getElementById("export-patients-csv")
+      ?.addEventListener("click", () => {
+        downloadCsv(
+          `patients-${Date.now()}.csv`,
+          patients.map((p) => ({
+            name: `${p.firstName || ""} ${p.lastName || ""}`.trim(),
+            email: p.email || "",
+            phone: p.phone || "",
+            dob: formatDateForInput(p.birthdate),
+          })),
+        );
+      });
     window.showPatientForm = showPatientForm;
     window.showFamilyMemberForm = () => showPatientForm(null, true);
     window.editPatient = editPatient;
     window.deletePatient = deletePatient;
     window.sendMyDocumentToClinic = async () => {
-      const selectedId = String(document.getElementById("patient-switch-profile")?.value || "");
+      const selectedId = String(
+        document.getElementById("patient-switch-profile")?.value || "",
+      );
       const patientProfile = selectedId
         ? patients.find((p) => String(p._id) === selectedId)
         : patients.find((p) => !p.relationshipToAccountHolder) || patients[0];
       if (!patientProfile?.userId) {
-        showToast("No messaging profile found for the selected patient.", "error");
+        showToast(
+          "No messaging profile found for the selected patient.",
+          "error",
+        );
         return;
       }
       const doctorUserId = await resolveDoctorIdForPatientMessaging();
       if (!doctorUserId) {
-        showToast("No linked doctor found yet. Book an appointment first.", "error");
+        showToast(
+          "No linked doctor found yet. Book an appointment first.",
+          "error",
+        );
         return;
       }
       const fileInput = document.createElement("input");
@@ -2335,7 +2667,10 @@ async function renderPatients() {
       const patient = patients.find((p) => String(p._id) === String(patientId));
       const recipientId = await resolvePatientMessageRecipient(patient);
       if (!recipientId) {
-        showToast("Patient must have a linked app account or matching user email to receive documents.", "error");
+        showToast(
+          "Patient must have a linked app account or matching user email to receive documents.",
+          "error",
+        );
         return;
       }
       const fileInput = document.createElement("input");
@@ -2366,12 +2701,15 @@ async function renderPatients() {
 function showPatientForm(editId = null, familyMode = false) {
   const modal = document.getElementById("patient-form-modal");
   const role = getCurrentUserRole();
-  const canAttachExisting = !editId && (role === "doctor" || role === "receptionist");
+  const canAttachExisting =
+    !editId && (role === "doctor" || role === "receptionist");
   modal.style.display = "block";
   modal.innerHTML = `
     <form id="patient-form">
       <h3>${editId ? "Edit" : familyMode ? "Register Family Member" : "Add"} Patient</h3>
-      ${canAttachExisting ? `
+      ${
+        canAttachExisting
+          ? `
       <section class="card" style="padding:0.75rem;">
         <h4 style="margin:0 0 0.45rem;">Search Existing Patient</h4>
         <label>Search by name, email, or phone
@@ -2379,7 +2717,9 @@ function showPatientForm(editId = null, familyMode = false) {
         </label>
         <div id="patient-existing-results" class="feedback" style="display:none"></div>
       </section>
-      ` : ""}
+      `
+          : ""
+      }
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" ${familyMode ? "" : "required"} /></label>
@@ -2430,36 +2770,53 @@ function showPatientForm(editId = null, familyMode = false) {
       resultEl.style.display = "none";
       if (q.length < 2) return;
       try {
-        const res = await apiRequest(`${API_BASE}/patients/search?q=${encodeURIComponent(q)}`);
+        const res = await apiRequest(
+          `${API_BASE}/patients/search?q=${encodeURIComponent(q)}`,
+        );
         if (!res.ok) throw new Error("Search failed");
         const matches = await res.json();
         if (!matches.length) {
           resultEl.style.display = "block";
           resultEl.className = "feedback";
-          resultEl.textContent = "No duplicate match found. You may create a new patient record.";
+          resultEl.textContent =
+            "No duplicate match found. You may create a new patient record.";
           return;
         }
         resultEl.style.display = "block";
         resultEl.className = "feedback error";
         resultEl.innerHTML = matches
-          .map((m) => `
+          .map(
+            (m) => `
             <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
               <span>${escapeHtml(m.firstName)} ${escapeHtml(m.lastName)} (${escapeHtml(m.email || m.phone || "No contact")})</span>
               <button type="button" class="btn btn-secondary btn-sm" data-attach-patient="${m._id}">Add Existing</button>
             </div>
-          `)
+          `,
+          )
           .join("");
         resultEl.querySelectorAll("[data-attach-patient]").forEach((btn) => {
           btn.addEventListener("click", async () => {
             pickedExistingPatientId = btn.getAttribute("data-attach-patient");
             try {
-              const attachRes = await apiRequest(`${API_BASE}/patients/${pickedExistingPatientId}/attach`, { method: "POST" });
-              if (!attachRes.ok) throw new Error(await getApiErrorMessage(attachRes, "Failed to attach patient"));
+              const attachRes = await apiRequest(
+                `${API_BASE}/patients/${pickedExistingPatientId}/attach`,
+                { method: "POST" },
+              );
+              if (!attachRes.ok)
+                throw new Error(
+                  await getApiErrorMessage(
+                    attachRes,
+                    "Failed to attach patient",
+                  ),
+                );
               modal.style.display = "none";
               renderPatients();
               showToast("Existing patient was added to your Patients tab.");
             } catch (error) {
-              showToast(error.message || "Unable to attach existing patient.", "error");
+              showToast(
+                error.message || "Unable to attach existing patient.",
+                "error",
+              );
             }
           });
         });
@@ -2482,7 +2839,9 @@ function showPatientForm(editId = null, familyMode = false) {
         form.gender.value = data.gender || "";
         form.address.value = data.address || "";
         form.notes.value = data.notes || "";
-        form.medicalHistory.value = Array.isArray(data.medicalHistory) ? data.medicalHistory.join("\n") : "";
+        form.medicalHistory.value = Array.isArray(data.medicalHistory)
+          ? data.medicalHistory.join("\n")
+          : "";
       });
   }
   form.onsubmit = async (e) => {
@@ -2498,7 +2857,9 @@ function showPatientForm(editId = null, familyMode = false) {
       patient.photoFileData = await fileToDataUrl(profilePhotoFile);
     }
     if (familyMode) {
-      patient.relationshipToAccountHolder = String(patient.relationshipToAccountHolder || "").trim();
+      patient.relationshipToAccountHolder = String(
+        patient.relationshipToAccountHolder || "",
+      ).trim();
     }
     patient.medicalHistory = String(patient.medicalHistory || "")
       .split("\n")
@@ -2512,7 +2873,9 @@ function showPatientForm(editId = null, familyMode = false) {
         if (duplicateRes.ok) {
           const dupes = await duplicateRes.json();
           if (Array.isArray(dupes) && dupes.length) {
-            throw new Error("Possible duplicate exists. Use 'Search Existing Patient' and click Add Existing.");
+            throw new Error(
+              "Possible duplicate exists. Use 'Search Existing Patient' and click Add Existing.",
+            );
           }
         }
       }
@@ -2522,10 +2885,12 @@ function showPatientForm(editId = null, familyMode = false) {
           method: editId ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(patient),
-        }
+        },
       );
       if (!res.ok) {
-        throw new Error(await getApiErrorMessage(res, "Failed to save patient"));
+        throw new Error(
+          await getApiErrorMessage(res, "Failed to save patient"),
+        );
       }
       modal.style.display = "none";
       renderPatients();
@@ -2541,7 +2906,9 @@ function editPatient(id) {
 async function deletePatient(id) {
   if (!(await showDangerConfirm("Delete this patient?"))) return;
   try {
-    const res = await apiRequest(`${API_BASE}/patients/${id}`, { method: "DELETE" });
+    const res = await apiRequest(`${API_BASE}/patients/${id}`, {
+      method: "DELETE",
+    });
     if (!res.ok) throw new Error("Failed to delete patient");
     renderPatients();
   } catch (err) {
@@ -2563,10 +2930,13 @@ async function renderDoctors() {
     const isDoctor = role === "doctor";
     const isReceptionist = role === "receptionist";
     const receptionistType = getCurrentReceptionistType();
-    const hideDoctorFilters = isDoctor || (isReceptionist && receptionistType === "small_clinic");
+    const hideDoctorFilters =
+      isDoctor || (isReceptionist && receptionistType === "small_clinic");
     const currentUserId = getCurrentUserId();
     const doctors = isDoctor
-      ? allDoctors.filter((d) => String(d.userId || "") === String(currentUserId || ""))
+      ? allDoctors.filter(
+          (d) => String(d.userId || "") === String(currentUserId || ""),
+        )
       : allDoctors;
     mainContent.innerHTML = `
       <h2 class="page-title page-title-doctors">Doctors</h2>
@@ -2592,7 +2962,10 @@ async function renderDoctors() {
           : ""
       }
       <hr class="section-divider" />
-      ${hideDoctorFilters ? "" : `<div class="list-filters">
+      ${
+        hideDoctorFilters
+          ? ""
+          : `<div class="list-filters">
         <input type="search" id="doctor-filter-name" placeholder="Filter by name" />
         <input type="search" id="doctor-filter-email" placeholder="Filter by email" />
         <input type="search" id="doctor-filter-specialty" placeholder="Filter by specialty" />
@@ -2600,7 +2973,8 @@ async function renderDoctors() {
         <input type="search" id="doctor-filter-phone" placeholder="Filter by phone" />
         <input type="search" id="doctor-filter-receptionist" placeholder="Filter by receptionist" />
         <input type="search" id="doctor-filter-clinic" placeholder="Filter by clinic" />
-      </div>`}
+      </div>`
+      }
       <div id="doctors-specialty-groups" class="full-width-groups"></div>
       <div id="doctor-form-modal" style="display:none"></div>
     `;
@@ -2644,31 +3018,62 @@ async function renderDoctors() {
                             }
                           </td>
                         </tr>
-                      `
+                      `,
                     )
                     .join("")}
                 </tbody>
               </table>
             </section>
-          `
+          `,
         )
         .join("");
     };
     const applyDoctorFilters = () => {
-      const nameQ = String(document.getElementById("doctor-filter-name")?.value || "").toLowerCase().trim();
-      const emailQ = String(document.getElementById("doctor-filter-email")?.value || "").toLowerCase().trim();
-      const specialtyQ = String(document.getElementById("doctor-filter-specialty")?.value || "").toLowerCase().trim();
-      const availabilityQ = String(document.getElementById("doctor-filter-availability")?.value || "").toLowerCase().trim();
-      const phoneQ = String(document.getElementById("doctor-filter-phone")?.value || "").toLowerCase().trim();
-      const receptionistQ = String(document.getElementById("doctor-filter-receptionist")?.value || "").toLowerCase().trim();
-      const clinicQ = String(document.getElementById("doctor-filter-clinic")?.value || "").toLowerCase().trim();
+      const nameQ = String(
+        document.getElementById("doctor-filter-name")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const emailQ = String(
+        document.getElementById("doctor-filter-email")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const specialtyQ = String(
+        document.getElementById("doctor-filter-specialty")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const availabilityQ = String(
+        document.getElementById("doctor-filter-availability")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const phoneQ = String(
+        document.getElementById("doctor-filter-phone")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const receptionistQ = String(
+        document.getElementById("doctor-filter-receptionist")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const clinicQ = String(
+        document.getElementById("doctor-filter-clinic")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
       const filtered = doctors.filter((d) => {
         const name = `${d.firstName || ""} ${d.lastName || ""}`.toLowerCase();
         const email = String(d.email || "").toLowerCase();
         const specialty = String(d.specialty || "").toLowerCase();
-        const availability = String(buildDoctorAvailabilityLabel(d) || "").toLowerCase();
+        const availability = String(
+          buildDoctorAvailabilityLabel(d) || "",
+        ).toLowerCase();
         const phone = String(d.phone || "").toLowerCase();
-        const receptionist = `${d.receptionistName || ""} ${d.receptionistPhone || ""} ${d.receptionistEmail || ""}`.toLowerCase();
+        const receptionist =
+          `${d.receptionistName || ""} ${d.receptionistPhone || ""} ${d.receptionistEmail || ""}`.toLowerCase();
         const clinic = String(d.affiliatedClinics || "").toLowerCase();
         return (
           (!nameQ || name.includes(nameQ)) &&
@@ -2683,23 +3088,35 @@ async function renderDoctors() {
       renderRows(filtered);
     };
     if (!hideDoctorFilters) {
-      ["doctor-filter-name", "doctor-filter-email", "doctor-filter-specialty", "doctor-filter-availability", "doctor-filter-phone", "doctor-filter-receptionist", "doctor-filter-clinic"].forEach((id) => {
-        document.getElementById(id)?.addEventListener("input", applyDoctorFilters);
+      [
+        "doctor-filter-name",
+        "doctor-filter-email",
+        "doctor-filter-specialty",
+        "doctor-filter-availability",
+        "doctor-filter-phone",
+        "doctor-filter-receptionist",
+        "doctor-filter-clinic",
+      ].forEach((id) => {
+        document
+          .getElementById(id)
+          ?.addEventListener("input", applyDoctorFilters);
       });
     }
     renderRows(doctors);
-    document.getElementById("export-doctors-csv")?.addEventListener("click", () => {
-      downloadCsv(
-        `doctors-${Date.now()}.csv`,
-        doctors.map((d) => ({
-          name: `${d.firstName || ""} ${d.lastName || ""}`.trim(),
-          email: d.email || "",
-          specialty: d.specialty || "",
-          clinic: d.affiliatedClinics || "",
-          receptionist: d.receptionistName || "",
-        }))
-      );
-    });
+    document
+      .getElementById("export-doctors-csv")
+      ?.addEventListener("click", () => {
+        downloadCsv(
+          `doctors-${Date.now()}.csv`,
+          doctors.map((d) => ({
+            name: `${d.firstName || ""} ${d.lastName || ""}`.trim(),
+            email: d.email || "",
+            specialty: d.specialty || "",
+            clinic: d.affiliatedClinics || "",
+            receptionist: d.receptionistName || "",
+          })),
+        );
+      });
     window.showDoctorForm = showDoctorForm;
     window.editDoctor = editDoctor;
     window.deleteDoctor = deleteDoctor;
@@ -2707,44 +3124,65 @@ async function renderDoctors() {
       window.location.hash = "#book";
       renderPatientBooking();
     };
-    document.getElementById("invite-receptionist-form")?.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      const feedback = document.getElementById("invite-receptionist-feedback");
-      const email = String(new FormData(form).get("email") || "").trim();
-      if (!email) return;
-      feedback.style.display = "block";
-      feedback.className = "feedback";
-      feedback.textContent = "Inviting receptionist...";
-      try {
-        const inviteRes = await apiRequest(`${API_BASE}/doctors/clinic-staff/invite`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email }),
-        });
-        if (!inviteRes.ok) {
-          throw new Error(await getApiErrorMessage(inviteRes, "Failed to invite receptionist"));
+    document
+      .getElementById("invite-receptionist-form")
+      ?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const feedback = document.getElementById(
+          "invite-receptionist-feedback",
+        );
+        const email = String(new FormData(form).get("email") || "").trim();
+        if (!email) return;
+        feedback.style.display = "block";
+        feedback.className = "feedback";
+        feedback.textContent = "Inviting receptionist...";
+        try {
+          const inviteRes = await apiRequest(
+            `${API_BASE}/doctors/clinic-staff/invite`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email }),
+            },
+          );
+          if (!inviteRes.ok) {
+            throw new Error(
+              await getApiErrorMessage(
+                inviteRes,
+                "Failed to invite receptionist",
+              ),
+            );
+          }
+          feedback.className = "feedback success";
+          feedback.textContent = "Receptionist linked successfully.";
+          form.reset();
+        } catch (error) {
+          feedback.className = "feedback error";
+          feedback.textContent =
+            error.message || "Failed to invite receptionist.";
         }
-        feedback.className = "feedback success";
-        feedback.textContent = "Receptionist linked successfully.";
-        form.reset();
-      } catch (error) {
-        feedback.className = "feedback error";
-        feedback.textContent = error.message || "Failed to invite receptionist.";
-      }
-    });
+      });
     if (isDoctor && doctors[0]) {
       const toggle = document.getElementById("doctor-allow-receptionist-docs");
       if (toggle) {
         toggle.checked = Boolean(doctors[0].allowReceptionistSendDocuments);
         toggle.addEventListener("change", async () => {
           try {
-            const upRes = await apiRequest(`${API_BASE}/doctors/${doctors[0]._id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ allowReceptionistSendDocuments: toggle.checked }),
-            });
-            if (!upRes.ok) throw new Error(await getApiErrorMessage(upRes, "Failed to update permission"));
+            const upRes = await apiRequest(
+              `${API_BASE}/doctors/${doctors[0]._id}`,
+              {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  allowReceptionistSendDocuments: toggle.checked,
+                }),
+              },
+            );
+            if (!upRes.ok)
+              throw new Error(
+                await getApiErrorMessage(upRes, "Failed to update permission"),
+              );
             showToast("Receptionist document permission updated.");
           } catch (error) {
             toggle.checked = !toggle.checked;
@@ -2818,16 +3256,15 @@ function showDoctorForm(editId = null) {
           data.availabilityText ||
           (Array.isArray(data.availability)
             ? data.availability
-              .map((slot) =>
-                slot.timeRange
-                  ? `${slot.day || ""} ${slot.timeRange}`.trim()
-                  : `${slot.day || ""} ${slot.startTime || ""}-${slot.endTime || ""}`.trim()
-              )
-              .join("\n")
+                .map((slot) =>
+                  slot.timeRange
+                    ? `${slot.day || ""} ${slot.timeRange}`.trim()
+                    : `${slot.day || ""} ${slot.startTime || ""}-${slot.endTime || ""}`.trim(),
+                )
+                .join("\n")
             : "");
         form.room.value = data.room || "";
-        form.affiliatedClinics.value =
-          data.affiliatedClinics || "";
+        form.affiliatedClinics.value = data.affiliatedClinics || "";
         form.phone.value = data.phone || "";
         form.receptionistName.value = data.receptionistName || "";
         form.receptionistPhone.value = data.receptionistPhone || "";
@@ -2853,7 +3290,9 @@ function showDoctorForm(editId = null) {
       .map((row) => row.trim())
       .filter(Boolean)
       .map((row) => {
-        const match = row.match(/^(.+?)\s+(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2})$/);
+        const match = row.match(
+          /^(.+?)\s+(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2})$/,
+        );
         if (match) {
           return {
             day: match[1].trim(),
@@ -2882,7 +3321,7 @@ function showDoctorForm(editId = null) {
           method: editId ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(doctorPayload),
-        }
+        },
       );
       if (!res.ok) {
         throw new Error(await getApiErrorMessage(res, "Failed to save doctor"));
@@ -2901,7 +3340,9 @@ function editDoctor(id) {
 async function deleteDoctor(id) {
   if (!(await showDangerConfirm("Delete this doctor?"))) return;
   try {
-    const res = await apiRequest(`${API_BASE}/doctors/${id}`, { method: "DELETE" });
+    const res = await apiRequest(`${API_BASE}/doctors/${id}`, {
+      method: "DELETE",
+    });
     if (!res.ok) throw new Error("Failed to delete doctor");
     renderDoctors();
   } catch (err) {
@@ -2928,13 +3369,13 @@ async function renderAppointments() {
       doctors.map((doctor) => [
         String(doctor._id),
         `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim(),
-      ])
+      ]),
     );
     const patientLookup = new Map(
       patients.map((patient) => [
         String(patient._id),
         `${patient.firstName || ""} ${patient.lastName || ""}`.trim(),
-      ])
+      ]),
     );
     mainContent.innerHTML = `
       <h2 class="page-title page-title-appointments">Appointments</h2>
@@ -2966,25 +3407,53 @@ async function renderAppointments() {
               <td>${a.time || ""}</td>
               <td><span class="status-pill status-${String(a.status || "pending").toLowerCase()}">${a.status || ""}</span></td>
               <td>
-                <button class="btn btn-secondary btn-action-edit" onclick="window.editAppointment('${a._id
-            }')">Edit</button>
-                <button class="btn btn-action-delete" onclick="window.deleteAppointment('${a._id
-            }')">Delete</button>
+                <button class="btn btn-secondary btn-action-edit" onclick="window.editAppointment('${
+                  a._id
+                }')">Edit</button>
+                <button class="btn btn-action-delete" onclick="window.deleteAppointment('${
+                  a._id
+                }')">Delete</button>
               </td>
             </tr>
-          `
+          `,
         )
         .join("");
     };
     const applyAppointmentFilters = () => {
-      const doctorQ = String(document.getElementById("appt-filter-doctor")?.value || "").toLowerCase().trim();
-      const patientQ = String(document.getElementById("appt-filter-patient")?.value || "").toLowerCase().trim();
-      const dateQ = String(document.getElementById("appt-filter-date")?.value || "").toLowerCase().trim();
-      const timeQ = String(document.getElementById("appt-filter-time")?.value || "").toLowerCase().trim();
-      const statusQ = String(document.getElementById("appt-filter-status")?.value || "").toLowerCase().trim();
+      const doctorQ = String(
+        document.getElementById("appt-filter-doctor")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const patientQ = String(
+        document.getElementById("appt-filter-patient")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const dateQ = String(
+        document.getElementById("appt-filter-date")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const timeQ = String(
+        document.getElementById("appt-filter-time")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
+      const statusQ = String(
+        document.getElementById("appt-filter-status")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
       const filtered = appointments.filter((a) => {
-        const doctor = String(doctorLookup.get(String(a.doctor?._id || a.doctor)) || a.doctor || "").toLowerCase();
-        const patient = String(patientLookup.get(String(a.patient?._id || a.patient)) || a.patient || "").toLowerCase();
+        const doctor = String(
+          doctorLookup.get(String(a.doctor?._id || a.doctor)) || a.doctor || "",
+        ).toLowerCase();
+        const patient = String(
+          patientLookup.get(String(a.patient?._id || a.patient)) ||
+            a.patient ||
+            "",
+        ).toLowerCase();
         const date = formatDateForInput(a.date).toLowerCase();
         const time = String(a.time || "").toLowerCase();
         const status = String(a.status || "").toLowerCase();
@@ -2998,22 +3467,38 @@ async function renderAppointments() {
       });
       renderRows(filtered);
     };
-    ["appt-filter-doctor", "appt-filter-patient", "appt-filter-date", "appt-filter-time", "appt-filter-status"].forEach((id) => {
-      document.getElementById(id)?.addEventListener("input", applyAppointmentFilters);
+    [
+      "appt-filter-doctor",
+      "appt-filter-patient",
+      "appt-filter-date",
+      "appt-filter-time",
+      "appt-filter-status",
+    ].forEach((id) => {
+      document
+        .getElementById(id)
+        ?.addEventListener("input", applyAppointmentFilters);
     });
     renderRows(appointments);
-    document.getElementById("export-appointments-csv")?.addEventListener("click", () => {
-      downloadCsv(
-        `appointments-${Date.now()}.csv`,
-        appointments.map((a) => ({
-          doctor: doctorLookup.get(String(a.doctor?._id || a.doctor)) || a.doctor || "",
-          patient: a.patientId?.name || patientLookup.get(String(a.patient?._id || a.patient)) || "Unknown Patient",
-          date: formatDateForInput(a.date),
-          time: a.time || "",
-          status: a.status || "",
-        }))
-      );
-    });
+    document
+      .getElementById("export-appointments-csv")
+      ?.addEventListener("click", () => {
+        downloadCsv(
+          `appointments-${Date.now()}.csv`,
+          appointments.map((a) => ({
+            doctor:
+              doctorLookup.get(String(a.doctor?._id || a.doctor)) ||
+              a.doctor ||
+              "",
+            patient:
+              a.patientId?.name ||
+              patientLookup.get(String(a.patient?._id || a.patient)) ||
+              "Unknown Patient",
+            date: formatDateForInput(a.date),
+            time: a.time || "",
+            status: a.status || "",
+          })),
+        );
+      });
     window.showAppointmentForm = showAppointmentForm;
     window.editAppointment = editAppointment;
     window.deleteAppointment = deleteAppointment;
@@ -3042,7 +3527,8 @@ async function showAppointmentForm(editId = null) {
 
   const doctorOptions = doctors
     .map((doctor) => {
-      const fullName = `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim();
+      const fullName =
+        `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim();
       const specialty = doctor.specialty || "No specialty";
       const availability = buildDoctorAvailabilityLabel(doctor);
       return `<option value="${doctor._id}">${fullName} - ${specialty} (${availability})</option>`;
@@ -3051,7 +3537,8 @@ async function showAppointmentForm(editId = null) {
 
   const patientOptions = patients
     .map((patient) => {
-      const fullName = `${patient.firstName || ""} ${patient.lastName || ""}`.trim();
+      const fullName =
+        `${patient.firstName || ""} ${patient.lastName || ""}`.trim();
       return `<option value="${patient._id}">${fullName} (${patient.email || "No email"})</option>`;
     })
     .join("");
@@ -3117,7 +3604,7 @@ async function showAppointmentForm(editId = null) {
           method: editId ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(appointment),
-        }
+        },
       );
       if (!res.ok) throw new Error("Failed to save appointment");
       modal.style.display = "none";
@@ -3172,8 +3659,8 @@ async function renderUsers() {
         <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Receptionist Type</th><th>Specialty</th><th>Phone</th><th>Actions</th></tr></thead>
         <tbody>
           ${users
-        .map(
-          (u) => `
+            .map(
+              (u) => `
             <tr>
               <td>${u.title ? `${u.title} ` : ""}${u.firstName} ${u.lastName}</td>
               <td>${u.email || ""}</td>
@@ -3182,13 +3669,17 @@ async function renderUsers() {
               <td>${u.specialty || "—"}</td>
               <td>${u.phone || ""}</td>
               <td>
-                ${isReceptionist ? "—" : `<button class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button>
-                <button class="btn btn-action-delete" onclick="window.deleteUser('${u._id}')">Delete</button>`}
+                ${
+                  isReceptionist
+                    ? "—"
+                    : `<button class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button>
+                <button class="btn btn-action-delete" onclick="window.deleteUser('${u._id}')">Delete</button>`
+                }
               </td>
             </tr>
-          `
-        )
-        .join("")}
+          `,
+            )
+            .join("")}
         </tbody>
       </table>
       <div id="user-form-modal" style="display:none"></div>
@@ -3257,11 +3748,15 @@ function showUserForm(editId = null) {
   attachClearButtons(form);
   enforcePhoneInputs(form);
   const specialtyWrap = form.querySelector("#user-specialty-wrap");
-  const receptionistTypeWrap = form.querySelector("#user-receptionist-type-wrap");
+  const receptionistTypeWrap = form.querySelector(
+    "#user-receptionist-type-wrap",
+  );
   const roleSelect = form.querySelector('select[name="role"]');
   const syncSpecialtyVisibility = () => {
-    const isDoctorRole = String(roleSelect?.value || "").toLowerCase() === "doctor";
-    const isReceptionistRole = String(roleSelect?.value || "").toLowerCase() === "receptionist";
+    const isDoctorRole =
+      String(roleSelect?.value || "").toLowerCase() === "doctor";
+    const isReceptionistRole =
+      String(roleSelect?.value || "").toLowerCase() === "receptionist";
     specialtyWrap.style.display = isDoctorRole ? "" : "none";
     receptionistTypeWrap.style.display = isReceptionistRole ? "" : "none";
   };
@@ -3294,7 +3789,7 @@ function showUserForm(editId = null) {
           method: editId ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(user),
-        }
+        },
       );
       if (!res.ok) throw new Error("Failed to save user");
       modal.style.display = "none";
@@ -3311,7 +3806,9 @@ function editUser(id) {
 async function deleteUser(id) {
   if (!(await showDangerConfirm("Delete this user?"))) return;
   try {
-    const res = await apiRequest(`${API_BASE}/users/${id}`, { method: "DELETE" });
+    const res = await apiRequest(`${API_BASE}/users/${id}`, {
+      method: "DELETE",
+    });
     if (!res.ok) throw new Error("Failed to delete user");
     renderUsers();
   } catch (err) {
