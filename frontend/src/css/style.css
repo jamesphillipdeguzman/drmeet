@@ -2440,7 +2440,7 @@ body.theme-dark .messenger-thread-close-x:hover {
   overflow-x: hidden;
   /* Extra bottom room so last bubble clears the composer + FAB */
   padding: 0.85rem 1rem 7.25rem;
-  scroll-padding-bottom: 240px;
+  scroll-padding-bottom: 100px;
   min-height: 0;
   min-width: 0;
   max-width: 100%;
