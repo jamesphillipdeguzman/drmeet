@@ -1,17 +1,13 @@
+# Dependencies
 node_modules/
+
+# Environment files
 .env
+
+# IDE / system files
 .vscode/
 .DS_Store
-package-lock.json
 
-# Ignore backend dependencies and config files
-/backend/node_modules/
-/backend/.env
-/backend/.vscode/
-/backend/.DS_Store
-
-# Ignore root level stuff if needed
-node_modules/
-.env
-.vscode/
-.DS_Store
+# Backend sensitive/generated data
+backend/src/constants/doctors.json
+backend/src/constants/providers.json
