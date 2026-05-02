@@ -2809,6 +2809,10 @@ function renderMessengerConversationList(rootEl) {
   });
 }
 
+function isNearBottom(el, threshold = 100) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+}
+
 function renderMessengerThread(rootEl) {
   if (!rootEl || !isLoggedIn()) return;
   wireMessengerShell(rootEl);
@@ -2850,7 +2854,12 @@ function renderMessengerThread(rootEl) {
       dashboardState.messages,
       currentUserId,
     );
-    ui.scroll.scrollTop = ui.scroll.scrollHeight;
+  
+    if (isNearBottom(ui.scroll)) {
+      ui.scroll.scrollTop = ui.scroll.scrollHeight;
+    } else {
+      showNewMessageBadge();
+    }
   }
 
   const conversationIdRef = String(conversationId);
