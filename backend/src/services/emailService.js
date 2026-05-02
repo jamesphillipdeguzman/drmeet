@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 
 const CLIENT_ORIGIN =
   process.env.CLIENT_ORIGIN || 'https://mydrmeet.netlify.app';
-const FROM_EMAIL = 'DrMeet <notifications@send.jamesdeguzman.com>';
+const FROM_EMAIL = 'DrMeet <notifications@jamesdeguzman.com>';
 
 function getResendClient() {
   const apiKey = process.env.RESEND_API_KEY;
