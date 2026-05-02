@@ -94,23 +94,25 @@
                                     <button type="button" class="btn btn-secondary btn-sm messenger-clear-thread" data-messenger-clear type="button">Close</button>
                                 </header>
                                 <p class="typing-indicator messenger-typing" data-messenger-typing></p>
-                                <div class="messenger-thread-scroll thread-list" data-messenger-scroll></div>
-                                <footer class="messenger-compose-footer thread-drawer-reply">
-                                    <label class="sr-only" for="floating-messenger-reply">Message</label>
-                                    <div class="messenger-compose-row">
-                                        <textarea id="floating-messenger-reply" class="messenger-compose-input" data-messenger-reply-text rows="3" placeholder="Type a message…" autocomplete="off"></textarea>
-                                        <div class="messenger-compose-actions">
-                                            <label class="messenger-file-upload" title="Attach file">
-                                                <img src="images/chat-upload-line.svg" alt="" width="22" height="22" />
-                                                <span class="sr-only">Attach file</span>
-                                                <input type="file" data-messenger-file-input accept="image/*,.pdf,.doc,.docx,.txt" />
-                                            </label>
-                                            <button type="button" class="messenger-send-icon-btn" data-messenger-send aria-label="Send message" title="Send">
-                                                <img src="images/send-plane-2-line.svg" alt="" width="22" height="22" class="messenger-send-icon-img" />
-                                            </button>
+                                <div class="messenger-thread-body">
+                                    <div class="messenger-thread-scroll thread-list" data-messenger-scroll></div>
+                                    <footer class="messenger-compose-footer thread-drawer-reply">
+                                        <label class="sr-only" for="floating-messenger-reply">Message</label>
+                                        <div class="messenger-compose-row">
+                                            <textarea id="floating-messenger-reply" class="messenger-compose-input" data-messenger-reply-text rows="3" placeholder="Type a message…" autocomplete="off"></textarea>
+                                            <div class="messenger-compose-actions">
+                                                <label class="messenger-file-upload" title="Attach file">
+                                                    <img src="images/chat-upload-line.svg" alt="" class="messenger-action-icon messenger-action-icon--upload" width="22" height="22" />
+                                                    <span class="sr-only">Attach file</span>
+                                                    <input type="file" data-messenger-file-input accept="image/*,.pdf,.doc,.docx,.txt" />
+                                                </label>
+                                                <button type="button" class="messenger-send-icon-btn" data-messenger-send aria-label="Send message" title="Send">
+                                                    <img src="images/send-plane-2-line.svg" alt="" width="22" height="22" class="messenger-action-icon messenger-action-icon--send messenger-send-icon-img" />
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                </footer>
+                                    </footer>
+                                </div>
                             </div>
                         </section>
                     </div>

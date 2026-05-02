@@ -2695,7 +2695,6 @@ function renderMessengerConversationList(rootEl) {
             null;
           const otherName = participantDisplayName(other);
           const otherAvatar = participantAvatarUrl(other);
-          const lastAt = conv.lastMessageAt || conv.updatedAt;
           const lastMsg = conv.lastMessage || "";
           const typingLabel = conversationTypingLabel(conv._id, currentUserId);
           const active =
@@ -2707,7 +2706,6 @@ function renderMessengerConversationList(rootEl) {
                 <span class="messenger-conv-name">${escapeHtml(otherName)}</span>
                 <span class="messenger-conv-preview">${escapeHtml(typingLabel || lastMsg || "No messages yet")}</span>
               </div>
-              <time class="messenger-conv-time">${lastAt ? escapeHtml(formatRelativeTime(lastAt)) : ""}</time>
             </button>`;
         })
         .join("")
