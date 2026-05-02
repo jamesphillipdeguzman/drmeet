@@ -26,6 +26,10 @@ const API_BASE = `${API_ORIGIN}/api`;
 const DASHBOARD_STATE_KEY = "drmeet-dashboard-state";
 const USER_CACHE_KEY = "drmeet-user-cache";
 const THEME_KEY = "drmeet-theme";
+const DOCTOR_OVERVIEW_CACHE_KEY = "drmeet-doctor-overview";
+const DOCTOR_OVERVIEW_TTL_MS = 45000;
+const DASH_TAG_HOME = "home";
+const DASH_TAG_FLOAT = "float";
 const MESSAGES_API = `${API_BASE}/messages`;
 const DEFAULT_AVATAR_URL = "images/user-line.svg";
 const dashboardSubscribers = [];
@@ -498,6 +502,13 @@ function getSearchableCommands() {
       action: () => navigateTo("#settings"),
     },
   ];
+  if (getCurrentUserRole() === "doctor") {
+    staticCommands.splice(1, 0, {
+      id: "doctor-dashboard",
+      label: "Clinical dashboard",
+      action: () => navigateTo("#doctor-dashboard"),
+    });
+  }
   return staticCommands;
 }
 
@@ -547,6 +558,7 @@ function renderTopbarBreadcrumbs() {
   const route = getHashRoute();
   const pages = [
     { hash: "#home", label: "Home" },
+    { hash: "#doctor-dashboard", label: "Clinical" },
     { hash: "#book", label: "Book" },
     { hash: "#patients", label: "Patients" },
     { hash: "#doctors", label: "Doctors" },
@@ -608,6 +620,14 @@ function persistDashboardState() {
 
 function subscribeDashboard(listener) {
   dashboardSubscribers.push(listener);
+}
+
+function pruneDashboardSubscribers(tag) {
+  for (let i = dashboardSubscribers.length - 1; i >= 0; i--) {
+    if (dashboardSubscribers[i]._dashTag === tag) {
+      dashboardSubscribers.splice(i, 1);
+    }
+  }
 }
 
 function notifyDashboardSubscribers() {
@@ -1382,11 +1402,403 @@ function setupSocket() {
   });
 }
 
+const doctorDashUI = { activeTab: "overview", loaded: {} };
+
+function readDoctorOverviewCache() {
+  try {
+    const raw = sessionStorage.getItem(DOCTOR_OVERVIEW_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Date.now() - parsed.at > DOCTOR_OVERVIEW_TTL_MS) return null;
+    return parsed.data;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeDoctorOverviewCache(data) {
+  try {
+    sessionStorage.setItem(
+      DOCTOR_OVERVIEW_CACHE_KEY,
+      JSON.stringify({ at: Date.now(), data }),
+    );
+  } catch (e) {
+    /* ignore */
+  }
+}
+
+async function fetchDoctorOverviewFresh() {
+  const res = await apiRequest(`${API_BASE}/doctors/me/overview`);
+  if (!res.ok)
+    throw new Error(await getApiErrorMessage(res, "Unable to load overview."));
+  const data = await res.json();
+  writeDoctorOverviewCache(data);
+  return data;
+}
+
+async function getDoctorOverviewForUi() {
+  const cached = readDoctorOverviewCache();
+  if (cached) return { data: cached, fromCache: true };
+  const data = await fetchDoctorOverviewFresh();
+  return { data, fromCache: false };
+}
+
+async function showClinicalTab(tab) {
+  const panel = document.getElementById("clinical-tab-panel");
+  if (!panel) return;
+  panel.innerHTML = `<p class="feedback clinical-loading">Loading…</p>`;
+
+  try {
+    if (tab === "overview") {
+      const { data, fromCache } = await getDoctorOverviewForUi();
+      const s = data.stats || {};
+      panel.innerHTML = `
+        <div class="clinical-overview-rows">
+          <article class="card clinical-stat-card"><h4>Assigned patients</h4><p class="clinical-stat-value">${escapeHtml(String(s.assignedPatientCount ?? 0))}</p></article>
+          <article class="card clinical-stat-card"><h4>Upcoming visits</h4><p class="clinical-stat-value">${escapeHtml(String(s.upcomingAppointmentCount ?? 0))}</p></article>
+          <article class="card clinical-stat-card"><h4>Past visits</h4><p class="clinical-stat-value">${escapeHtml(String(s.pastAppointmentCount ?? 0))}</p></article>
+          <article class="card clinical-stat-card"><h4>Message threads</h4><p class="clinical-stat-value">${escapeHtml(String(s.messageThreads ?? 0))}</p></article>
+        </div>
+        <section class="card clinical-detail-card">
+          <h4>Practice details</h4>
+          <p><strong>Professional license</strong><br /><span class="clinical-muted">${escapeHtml(data.licenseNumber || "—")}</span></p>
+          <p><strong>Clinic / facility</strong><br /><span class="clinical-muted">${escapeHtml(data.clinic || "—")}</span></p>
+          <p><strong>Room</strong><br /><span class="clinical-muted">${escapeHtml(data.room || "—")}</span></p>
+          ${fromCache ? `<p class="clinical-cache-note">Summary cached for faster loading. Use Refresh to sync.</p>` : ""}
+          <button type="button" class="btn btn-secondary btn-sm" id="clinical-refresh-overview">Refresh summary</button>
+        </section>
+      `;
+      document.getElementById("clinical-refresh-overview")?.addEventListener("click", async () => {
+        sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
+        doctorDashUI.loaded.overview = false;
+        await fetchDoctorOverviewFresh();
+        await showClinicalTab("overview");
+      });
+      doctorDashUI.loaded.overview = true;
+      return;
+    }
+
+    if (tab === "patients") {
+      const prevSearch = document.getElementById("clinical-patient-search");
+      const q = prevSearch?.value?.trim() || "";
+      const url = new URL(`${API_BASE}/doctors/me/patients`, window.location.origin);
+      if (q) url.searchParams.set("q", q);
+      const res = await apiRequest(url.toString());
+      if (!res.ok)
+        throw new Error(await getApiErrorMessage(res, "Unable to load patients."));
+      const payload = await res.json();
+      const rows = Array.isArray(payload.patients) ? payload.patients : [];
+      panel.innerHTML = `
+        <label class="clinical-search-label">Search patients
+          <input type="search" id="clinical-patient-search" class="clinical-search-input" placeholder="Name or email" value="${escapeHtml(q)}" />
+        </label>
+        <ul class="clinical-patient-list">
+          ${rows.length ? rows.map((p) => `
+            <li class="clinical-patient-row card">
+              <div>
+                <strong>${escapeHtml(`${p.firstName || ""} ${p.lastName || ""}`.trim() || "Patient")}</strong>
+                <p class="clinical-muted">${escapeHtml(p.email || "")} · ${escapeHtml(p.phone || "")}</p>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm clinical-patient-quick" data-patient-quick="${escapeHtml(String(p._id))}">Quick view</button>
+            </li>`).join("") : `<li class="feedback">No patients match your assignment yet.</li>`}
+        </ul>
+      `;
+      const search = document.getElementById("clinical-patient-search");
+      search?.addEventListener("change", () => {
+        void showClinicalTab("patients");
+      });
+      search?.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter") {
+          ev.preventDefault();
+          void showClinicalTab("patients");
+        }
+      });
+      panel.querySelectorAll("[data-patient-quick]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-patient-quick");
+          const row = rows.find((r) => String(r._id) === String(id));
+          if (!row) return;
+          showToast(
+            `${row.firstName || ""} ${row.lastName || ""} · ${row.email || "no email"}`,
+          );
+        });
+      });
+      doctorDashUI.loaded.patients = true;
+      return;
+    }
+
+    if (tab === "appointments") {
+      const res = await apiRequest(`${API_BASE}/doctors/me/appointments?scope=all`);
+      if (!res.ok)
+        throw new Error(await getApiErrorMessage(res, "Unable to load appointments."));
+      const payload = await res.json();
+      const upcoming = Array.isArray(payload.upcoming) ? payload.upcoming : [];
+      const past = Array.isArray(payload.past) ? payload.past : [];
+
+      const renderApptRow = (a) => {
+        const pname =
+          typeof a.patientId === "object" && a.patientId?.name
+            ? a.patientId.name
+            : "";
+        const dt = a.date ? new Date(a.date).toLocaleString() : "";
+        const statusOpts = ["pending", "confirmed", "completed", "cancelled"]
+          .map(
+            (st) =>
+              `<option value="${st}" ${String(a.status) === st ? "selected" : ""}>${st}</option>`,
+          )
+          .join("");
+        return `
+          <tr data-appt-id="${escapeHtml(String(a._id))}">
+            <td>${escapeHtml(dt)}</td>
+            <td>${escapeHtml(String(a.time || ""))}</td>
+            <td>${escapeHtml(pname || "Unknown patient")}</td>
+            <td>${escapeHtml(String(a.reason || ""))}</td>
+            <td>
+              <select class="clinical-appt-status" aria-label="Appointment status">
+                ${statusOpts}
+              </select>
+            </td>
+          </tr>`;
+      };
+
+      panel.innerHTML = `
+        <section class="card clinical-appt-section">
+          <h4>Upcoming</h4>
+          <div class="clinical-table-wrap">
+            <table class="clinical-table">
+              <thead><tr><th>When</th><th>Time</th><th>Patient</th><th>Reason</th><th>Status</th></tr></thead>
+              <tbody>${upcoming.length ? upcoming.map(renderApptRow).join("") : `<tr><td colspan="5" class="clinical-muted">No upcoming appointments.</td></tr>`}</tbody>
+            </table>
+          </div>
+        </section>
+        <section class="card clinical-appt-section">
+          <h4>Past</h4>
+          <div class="clinical-table-wrap">
+            <table class="clinical-table">
+              <thead><tr><th>When</th><th>Time</th><th>Patient</th><th>Reason</th><th>Status</th></tr></thead>
+              <tbody>${past.length ? past.map(renderApptRow).join("") : `<tr><td colspan="5" class="clinical-muted">No past appointments.</td></tr>`}</tbody>
+            </table>
+          </div>
+        </section>
+      `;
+
+      panel.querySelectorAll(".clinical-appt-status").forEach((sel) => {
+        sel.addEventListener("change", async () => {
+          const tr = sel.closest("tr");
+          const id = tr?.getAttribute("data-appt-id");
+          if (!id) return;
+          try {
+            const resAp = await apiRequest(
+              `${API_BASE}/doctors/me/appointments/${id}/status`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: sel.value }),
+              },
+            );
+            if (!resAp.ok)
+              throw new Error(await getApiErrorMessage(resAp, "Update failed."));
+            showToast("Appointment updated.");
+            sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
+          } catch (err) {
+            showToast(err?.message || "Unable to update.", "error");
+          }
+        });
+      });
+      doctorDashUI.loaded.appointments = true;
+      return;
+    }
+
+    if (tab === "documents") {
+      const res = await apiRequest(`${API_BASE}/doctors/me/documents`);
+      if (!res.ok)
+        throw new Error(await getApiErrorMessage(res, "Unable to load documents."));
+      const payload = await res.json();
+      const docs = Array.isArray(payload.documents) ? payload.documents : [];
+      panel.innerHTML = `
+        <p class="clinical-muted clinical-doc-hint">Clinic files and chart uploads from assigned patients. Filter by patient or source from the API query params as needed.</p>
+        <section class="card">
+          <h4>Upload</h4>
+          <form id="clinical-doc-upload" class="clinical-upload-form">
+            <label>Scope
+              <select name="scope">
+                <option value="clinic">Clinic library</option>
+                <option value="patient">Patient chart</option>
+              </select>
+            </label>
+            <label>Patient id (required for chart uploads)
+              <input name="patientId" type="text" placeholder="Patient profile id" />
+            </label>
+            <label>Label
+              <input name="documentName" type="text" required placeholder="File label" />
+            </label>
+            <label>File
+              <input name="file" type="file" required />
+            </label>
+            <button type="submit" class="btn btn-primary">Upload</button>
+          </form>
+        </section>
+        <ul class="clinical-doc-list">
+          ${docs.length ? docs.map((d) => `
+            <li class="card clinical-doc-row">
+              <div>
+                <strong>${escapeHtml(d.name || "Document")}</strong>
+                <p class="clinical-muted">${escapeHtml(d.source || "")}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
+                <p class="clinical-muted">${d.uploadedAt ? escapeHtml(new Date(d.uploadedAt).toLocaleString()) : ""}</p>
+              </div>
+              <a class="btn btn-secondary btn-sm" href="${escapeHtml(d.fileUrl || d.url || "#")}" target="_blank" rel="noopener noreferrer">Open</a>
+            </li>`).join("") : `<li class="feedback">No documents yet.</li>`}
+        </ul>
+      `;
+
+      document.getElementById("clinical-doc-upload")?.addEventListener("submit", async (ev) => {
+        ev.preventDefault();
+        const form = ev.target;
+        const fd = new FormData(form);
+        const file = fd.get("file");
+        if (!(file instanceof File) || !file.size) {
+          showToast("Choose a file to upload.", "error");
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = async () => {
+          try {
+            const base64 = reader.result?.split?.(",")?.[1];
+            if (!base64) throw new Error("Unable to read file.");
+            const body = {
+              scope: fd.get("scope") || "clinic",
+              patientId: fd.get("patientId"),
+              documentName: fd.get("documentName"),
+              documentFileData: base64,
+            };
+            const resUp = await apiRequest(`${API_BASE}/doctors/me/documents`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            if (!resUp.ok)
+              throw new Error(await getApiErrorMessage(resUp, "Upload failed."));
+            showToast("Document uploaded.");
+            sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
+            await showClinicalTab("documents");
+          } catch (err) {
+            showToast(err?.message || "Upload failed.", "error");
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+      doctorDashUI.loaded.documents = true;
+      return;
+    }
+
+    if (tab === "settings") {
+      const res = await apiRequest(`${API_BASE}/doctors/me/overview`);
+      if (!res.ok)
+        throw new Error(await getApiErrorMessage(res, "Unable to load settings."));
+      const overview = await res.json();
+      const prefs = overview.notificationPrefs || {};
+      panel.innerHTML = `
+        <section class="card">
+          <h4>Notifications</h4>
+          <label><input type="checkbox" id="clinical-pref-appt" ${prefs.emailAppointments !== false ? "checked" : ""} /> Appointment-related email (beta)</label>
+          <label><input type="checkbox" id="clinical-pref-msg" ${prefs.emailMessages !== false ? "checked" : ""} /> Message-related email (beta)</label>
+          <button type="button" class="btn btn-primary" id="clinical-save-prefs">Save preferences</button>
+        </section>
+        <section class="card">
+          <h4>Account</h4>
+          <p class="clinical-muted">Theme, password, and profile fields stay in <a href="#settings">global settings</a>.</p>
+        </section>
+      `;
+      document.getElementById("clinical-save-prefs")?.addEventListener("click", async () => {
+        const emailAppointments = document.getElementById("clinical-pref-appt")?.checked ?? true;
+        const emailMessages = document.getElementById("clinical-pref-msg")?.checked ?? true;
+        try {
+          const resP = await apiRequest(`${API_BASE}/doctors/me/notification-prefs`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ emailAppointments, emailMessages }),
+          });
+          if (!resP.ok)
+            throw new Error(await getApiErrorMessage(resP, "Save failed."));
+          showToast("Preferences saved.");
+          sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
+        } catch (err) {
+          showToast(err?.message || "Unable to save.", "error");
+        }
+      });
+      doctorDashUI.loaded.settings = true;
+      return;
+    }
+
+    panel.innerHTML = `<div class="feedback error">Unknown tab.</div>`;
+  } catch (err) {
+    panel.innerHTML = `<div class="feedback error">${escapeHtml(err?.message || "Unable to load tab.")}</div>`;
+  }
+}
+
+function renderDoctorDashboard() {
+  setPageTone("doctors");
+  if (!isLoggedIn() || getCurrentUserRole() !== "doctor") {
+    mainContent.innerHTML = `<div class="feedback error">The clinical dashboard is available to doctor accounts.</div>`;
+    return;
+  }
+
+  const tab = doctorDashUI.activeTab || "overview";
+  const tabs = [
+    { id: "overview", label: "Overview" },
+    { id: "patients", label: "Patients" },
+    { id: "appointments", label: "Appointments" },
+    { id: "documents", label: "Documents" },
+    { id: "settings", label: "Settings" },
+  ];
+
+  mainContent.innerHTML = `
+    <div class="clinical-dashboard" data-clinical-root>
+      <header class="clinical-dash-header">
+        <div class="clinical-dash-identity">
+          <p class="clinical-dash-kicker">Clinical workspace</p>
+          <h2 class="clinical-dash-title">Doctor dashboard</h2>
+          <p class="clinical-muted">Lazy-loaded tabs · Overview stats cached briefly for speed</p>
+        </div>
+      </header>
+      <nav class="clinical-dash-tabs" role="tablist" aria-label="Clinical sections">
+        ${tabs
+          .map(
+            (t) =>
+              `<button type="button" role="tab" class="clinical-tab ${tab === t.id ? "clinical-tab-active" : ""}" data-clinical-tab="${t.id}" aria-selected="${tab === t.id ? "true" : "false"}">${escapeHtml(t.label)}</button>`,
+          )
+          .join("")}
+      </nav>
+      <div id="clinical-tab-panel" class="clinical-tab-panel" role="tabpanel"></div>
+    </div>
+  `;
+
+  mainContent.querySelector(".clinical-dashboard")?.addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-clinical-tab]");
+    if (!btn) return;
+    const next = btn.getAttribute("data-clinical-tab");
+    if (!next || next === doctorDashUI.activeTab) return;
+    doctorDashUI.activeTab = next;
+    mainContent.querySelectorAll("[data-clinical-tab]").forEach((b) => {
+      const id = b.getAttribute("data-clinical-tab");
+      const active = id === next;
+      b.classList.toggle("clinical-tab-active", active);
+      b.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    void showClinicalTab(next);
+  });
+
+  void showClinicalTab(tab);
+}
+
 function renderPage() {
   const route = getHashRoute();
   setActiveNav(route);
   renderTopbarBreadcrumbs();
   switch (route) {
+    case "#doctor-dashboard":
+      renderDoctorDashboard();
+      break;
     case "#settings":
       renderSettings();
       break;
@@ -1724,8 +2136,8 @@ function mountDashboardWidgets() {
     });
   });
 
-  dashboardSubscribers.length = 0;
-  subscribeDashboard(() => {
+  pruneDashboardSubscribers(DASH_TAG_HOME);
+  const homeDashboardListener = () => {
     const liveBadge = document.querySelector(".live-badge");
     if (liveBadge)
       liveBadge.classList.toggle("active", dashboardState.websocketActive);
@@ -1733,7 +2145,9 @@ function mountDashboardWidgets() {
     renderMessageBoard(boardContainer);
     renderSmsFeed(smsContainer);
     renderThreadDrawer(drawer);
-  });
+  };
+  homeDashboardListener._dashTag = DASH_TAG_HOME;
+  subscribeDashboard(homeDashboardListener);
   loadConversations();
 
   if (window.__drmeetMessagePoll) {
@@ -1750,6 +2164,70 @@ function mountDashboardWidgets() {
       /* ignore */
     }
   }, 2800);
+}
+
+function mountFloatingChatWidget() {
+  if (!isLoggedIn()) return;
+  const root = document.getElementById("floating-chat-widget");
+  const panel = document.getElementById("floating-chat-panel");
+  const toggleBtn = document.getElementById("floating-chat-toggle");
+  const closeBtn = document.getElementById("floating-chat-close");
+  const boardContainer = document.getElementById("floating-message-board-list");
+  const drawerEl = document.getElementById("floating-thread-drawer");
+  if (!root || !panel || !boardContainer || !drawerEl) return;
+
+  root.classList.remove("hidden");
+  root.setAttribute("aria-hidden", "false");
+
+  setupSocket();
+
+  pruneDashboardSubscribers(DASH_TAG_FLOAT);
+  const floatListener = () => {
+    renderMessageBoard(boardContainer);
+    renderThreadDrawer(drawerEl);
+  };
+  floatListener._dashTag = DASH_TAG_FLOAT;
+  subscribeDashboard(floatListener);
+
+  renderMessageBoard(boardContainer);
+  renderThreadDrawer(drawerEl);
+
+  if (!root.dataset.drmeetFloatReady) {
+    root.dataset.drmeetFloatReady = "1";
+    toggleBtn?.addEventListener("click", () => {
+      panel.classList.toggle("hidden");
+      const visible = !panel.classList.contains("hidden");
+      if (visible) {
+        loadConversations().then(() => {
+          renderMessageBoard(boardContainer);
+          renderThreadDrawer(drawerEl);
+        });
+      }
+      toggleBtn?.setAttribute("aria-expanded", visible ? "true" : "false");
+    });
+    closeBtn?.addEventListener("click", () => {
+      panel.classList.add("hidden");
+      toggleBtn?.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  loadConversations().then(() => {
+    renderMessageBoard(boardContainer);
+    renderThreadDrawer(drawerEl);
+  });
+}
+
+function hideFloatingChatWidget() {
+  const root = document.getElementById("floating-chat-widget");
+  const panel = document.getElementById("floating-chat-panel");
+  const toggleBtn = document.getElementById("floating-chat-toggle");
+  if (root) {
+    root.classList.add("hidden");
+    root.setAttribute("aria-hidden", "true");
+  }
+  panel?.classList.add("hidden");
+  toggleBtn?.setAttribute("aria-expanded", "false");
+  pruneDashboardSubscribers(DASH_TAG_FLOAT);
 }
 
 function renderMessageBoard(container) {
@@ -2055,6 +2533,16 @@ function updateAuthNav() {
   const loginLink = document.getElementById("login-link");
   const signedIn = isLoggedIn();
   const role = getCurrentUserRole();
+  const doctorDashLi = document.querySelector(".nav-li-doctor-dash");
+  if (doctorDashLi) {
+    doctorDashLi.style.display =
+      signedIn && role === "doctor" ? "" : "none";
+  }
+  if (signedIn) {
+    mountFloatingChatWidget();
+  } else {
+    hideFloatingChatWidget();
+  }
   if (!loginLink) return;
   navLinks.forEach((link) => {
     const href = link.getAttribute("href");

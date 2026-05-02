@@ -93,6 +93,46 @@ const doctorSchema = new mongoose.Schema(
       default: "",
     },
 
+    /** Professional license identifier (e.g. PRC ID) shown on clinical profile. */
+    licenseNumber: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    /**
+     * Explicitly pinned patients; merged with appointment/care-team discovery in APIs.
+     */
+    assignedPatients: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Patient",
+      },
+    ],
+
+    notificationPrefs: {
+      emailAppointments: { type: Boolean, default: true },
+      emailMessages: { type: Boolean, default: true },
+    },
+
+    documents: [
+      {
+        name: { type: String, default: "" },
+        url: { type: String, default: "" },
+        fileUrl: { type: String, default: "" },
+        docType: { type: String, default: "clinic" },
+        uploadedAt: { type: Date, default: Date.now },
+        uploaderId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        receiverId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+      },
+    ],
+
     availability: [
       {
         day: {

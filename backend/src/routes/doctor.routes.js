@@ -8,10 +8,70 @@ import {
   deleteDoctor,
   inviteReceptionist,
 } from '../controllers/doctor.controller.js';
+import {
+  getDoctorDashboardOverview,
+  getDoctorDashboardPatients,
+  getDoctorDashboardAppointments,
+  patchDoctorDashboardAppointmentStatus,
+  getDoctorDashboardDocuments,
+  postDoctorDashboardDocument,
+  getDoctorDashboardMessagesSummary,
+  patchDoctorNotificationPrefs,
+} from '../controllers/doctorDashboard.controller.js';
 import { validateDoctor } from '../middlewares/doctor.validation.middleware.js';
 import { validateMongoIdParam } from '../middlewares/common.middleware.js';
 
 const router = express.Router();
+
+router.get(
+  '/me/overview',
+  hybridAuth,
+  requireRoles(['doctor']),
+  getDoctorDashboardOverview,
+);
+router.get(
+  '/me/patients',
+  hybridAuth,
+  requireRoles(['doctor']),
+  getDoctorDashboardPatients,
+);
+router.get(
+  '/me/appointments',
+  hybridAuth,
+  requireRoles(['doctor']),
+  getDoctorDashboardAppointments,
+);
+router.patch(
+  '/me/appointments/:id/status',
+  hybridAuth,
+  requireRoles(['doctor']),
+  ...validateMongoIdParam,
+  patchDoctorDashboardAppointmentStatus,
+);
+router.get(
+  '/me/documents',
+  hybridAuth,
+  requireRoles(['doctor']),
+  getDoctorDashboardDocuments,
+);
+router.post(
+  '/me/documents',
+  hybridAuth,
+  requireRoles(['doctor']),
+  postDoctorDashboardDocument,
+);
+router.get(
+  '/me/messages-summary',
+  hybridAuth,
+  requireRoles(['doctor']),
+  getDoctorDashboardMessagesSummary,
+);
+router.patch(
+  '/me/notification-prefs',
+  hybridAuth,
+  requireRoles(['doctor']),
+  patchDoctorNotificationPrefs,
+);
 
 /**
  * @swagger

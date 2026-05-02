@@ -33,6 +33,7 @@
             </div>
             <ul class="nav-links">
                 <li><a href="#home" class="nav-link active"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1z"/></svg></span><span class="nav-label">Home</span></a></li>
+                <li class="nav-li-doctor-dash" style="display:none"><a href="#doctor-dashboard" class="nav-link nav-link-doctor-dash"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4V5zm2 4h12v2H6V9zm0 4h8v2H6v-2zm0 4h12v2H6v-2z"/></svg></span><span class="nav-label">Clinical</span></a></li>
                 <li><a href="#book" class="nav-link nav-link-patient"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm2 6h4v4H7v-4z"/></svg></span><span class="nav-label">Book a visit</span></a></li>
                 <li><a href="#patients" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-8 2-8 4.5V21h16v-2.5C20 16 16.4 14 12 14z"/></svg></span><span class="nav-label">Patients</span></a></li>
                 <li><a href="#doctors" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5h-3.17l-1.41-2.12A2 2 0 0 0 12.75 2h-1.5a2 2 0 0 0-1.67.88L8.17 5H5a2 2 0 0 0-2 2v10a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V7a2 2 0 0 0-2-2zm-7 12a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0-8.5c-1.93 0-3.5 1.57-3.5 3.5s1.57 3.5 3.5 3.5 3.5-1.57 3.5-3.5S13.93 8.5 12 8.5z"/></svg></span><span class="nav-label">Doctors</span></a></li>
@@ -57,6 +58,19 @@
         <div class="command-panel">
             <input id="command-input" type="text" placeholder="Jump to pages, doctors, patients, appointments..." />
             <ul id="command-results"></ul>
+        </div>
+    </div>
+    <div id="floating-chat-widget" class="floating-chat-widget hidden" aria-hidden="true">
+        <button type="button" id="floating-chat-toggle" class="floating-chat-fab" aria-label="Open messages" aria-expanded="false">💬</button>
+        <div id="floating-chat-panel" class="floating-chat-panel hidden" role="dialog" aria-label="Messages">
+            <div class="floating-chat-panel-head">
+                <span>Messages</span>
+                <button type="button" id="floating-chat-close" class="btn btn-secondary btn-sm" aria-label="Close">×</button>
+            </div>
+            <div class="floating-chat-body">
+                <div id="floating-message-board-list" class="floating-msg-board"></div>
+                <aside id="floating-thread-drawer" class="floating-thread-drawer hidden"></aside>
+            </div>
         </div>
     </div>
     <footer>
