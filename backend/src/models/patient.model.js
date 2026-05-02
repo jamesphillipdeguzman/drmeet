@@ -77,7 +77,16 @@ const patientSchema = new mongoose.Schema(
       {
         name: { type: String, default: "" },
         url: { type: String, default: "" },
+        fileUrl: { type: String, default: "" },
         uploadedAt: { type: Date, default: Date.now },
+        uploaderId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        receiverId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
       },
     ],
     photoUrl: {
@@ -95,6 +104,11 @@ const patientSchema = new mongoose.Schema(
       default: false,
     },
     hmoProvider: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    registrationFacility: {
       type: String,
       default: "",
       trim: true,

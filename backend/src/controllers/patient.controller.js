@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 
+import Patient from '../models/patient.model.js';
 import {
   findAllPatients,
   findPatientById,
@@ -12,9 +13,10 @@ import {
   findPatientsByDoctorCareTeam,
   findAnyPatientByUserId,
   isPatientDocActive,
+  patientActiveQuery,
 } from '../services/patient.service.js';
 import { PHILIPPINES_HMO_PROVIDERS } from '../constants/philippinesHmo.js';
-import { findDoctorByUserId } from '../services/doctor.service.js';
+import { findDoctorByUserId, findDoctorById } from '../services/doctor.service.js';
 import User from '../models/user.model.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
 import { uploadToCloudinary } from '../services/cloudinary.service.js';
@@ -33,7 +35,37 @@ function authRole(req) {
   return String(req.user?.role || '').toLowerCase();
 }
 
-const mapPatientForClient = (patient) => {
+function normalizePatientDocEntry(d) {
+  if (!d) return d;
+  const o = d.toObject ? d.toObject() : d;
+  const url = o.url || o.fileUrl || '';
+  return {
+    ...o,
+    url,
+    fileUrl: o.fileUrl || o.url || '',
+  };
+}
+
+function filterDocumentsForRequester(req, plain) {
+  const raw = Array.isArray(plain.documents) ? plain.documents : [];
+  const uid = authUserId(req);
+  const role = authRole(req);
+  if (role === 'admin') {
+    return raw.map(normalizePatientDocEntry);
+  }
+  return raw
+    .filter((d) => {
+      const row = d.toObject ? d.toObject() : d;
+      const up = row.uploaderId ? String(row.uploaderId) : '';
+      const rec = row.receiverId ? String(row.receiverId) : '';
+      if (!up && !rec) return true;
+      if (!uid) return false;
+      return up === uid || rec === uid;
+    })
+    .map(normalizePatientDocEntry);
+}
+
+const mapPatientForClient = (patient, req = null) => {
   const plain = patient?.toObject ? patient.toObject() : patient;
   const addressText =
     typeof plain.address === 'string'
@@ -49,6 +81,12 @@ const mapPatientForClient = (patient) => {
           .filter(Boolean)
           .join(', ');
 
+  const documents = req
+    ? filterDocumentsForRequester(req, plain)
+    : Array.isArray(plain.documents)
+      ? plain.documents.map(normalizePatientDocEntry)
+      : [];
+
   return {
     ...plain,
     birthdate: plain.birthdate || null,
@@ -57,11 +95,31 @@ const mapPatientForClient = (patient) => {
     isDependent: Boolean(plain.accountOwnerId) && String(plain.userId || '') !== String(plain.accountOwnerId || ''),
     familyHeadName: plain.familyHeadName || '',
     isCareTeamLinked: Array.isArray(plain.careTeamDoctorIds) && plain.careTeamDoctorIds.length > 0,
-    documents: Array.isArray(plain.documents) ? plain.documents : [],
+    documents,
     isInsured: Boolean(plain.isInsured),
     hmoProvider: plain.isInsured ? String(plain.hmoProvider || '').trim() : '',
+    registrationFacility: String(plain.registrationFacility || '').trim(),
   };
 };
+
+async function doctorMayAccessPatientDoctorScope(doctorMongoId, patientDoc) {
+  if (!patientDoc || !doctorMongoId) return false;
+  const pid = String(patientDoc._id);
+  const appt = await appointmentExistsForDoctorPatient(String(doctorMongoId), pid);
+  if (appt) return true;
+  const ids = Array.isArray(patientDoc.careTeamDoctorIds)
+    ? patientDoc.careTeamDoctorIds.map(String)
+    : [];
+  return ids.includes(String(doctorMongoId));
+}
+
+async function primaryCareDoctorUserIdForPatient(patientLike) {
+  const plain = patientLike?.toObject ? patientLike.toObject() : patientLike;
+  const ids = Array.isArray(plain?.careTeamDoctorIds) ? plain.careTeamDoctorIds : [];
+  if (!ids.length) return null;
+  const d = await findDoctorById(ids[0]);
+  return d?.userId ? String(d.userId) : null;
+}
 
 async function getScopedPatients(req) {
   const role = authRole(req);
@@ -139,7 +197,7 @@ async function patientVisibleToRequester(req, patientDoc) {
       ? String(receptionist.linkedDoctorId)
       : '';
     if (!linkedDoctorId) return false;
-    return appointmentExistsForDoctorPatient(linkedDoctorId, pid);
+    return doctorMayAccessPatientDoctorScope(linkedDoctorId, patientDoc);
   }
 
   if (role === 'patient' && uid) {
@@ -152,7 +210,7 @@ async function patientVisibleToRequester(req, patientDoc) {
   if (role === 'doctor' && uid) {
     const doctor = await findDoctorByUserId(uid);
     if (!doctor) return false;
-    return appointmentExistsForDoctorPatient(String(doctor._id), pid);
+    return doctorMayAccessPatientDoctorScope(String(doctor._id), patientDoc);
   }
 
   return false;
@@ -165,7 +223,7 @@ async function patientVisibleToRequester(req, patientDoc) {
 export const getAllPatients = async (req, res) => {
   try {
     const patients = await getScopedPatients(req);
-    let normalizedPatients = patients.map(mapPatientForClient);
+    let normalizedPatients = patients.map((p) => mapPatientForClient(p, req));
     if (authRole(req) === 'doctor' || authRole(req) === 'receptionist' || authRole(req) === 'admin') {
       const ownerIds = [
         ...new Set(
@@ -217,7 +275,7 @@ export const getPatientById = async (req, res) => {
       return res.status(403).json({ error: 'Forbidden.' });
     }
     console.log(`[PATIENT]✅ GET /api/patients/${id} was called`);
-    return res.status(200).json(mapPatientForClient(patient));
+    return res.status(200).json(mapPatientForClient(patient, req));
   } catch (error) {
     console.log(`Error fetching the patient with ${id}:`, error);
     return res
@@ -290,6 +348,8 @@ export const postPatient = async (req, res) => {
       }
     }
 
+    const registrationFacility = String(cleanedBody.registrationFacility || '').trim();
+
     const patientData = {
       ...rest,
       firstName: resolvedFirstName,
@@ -299,27 +359,8 @@ export const postPatient = async (req, res) => {
       address: typeof address === 'string' ? { address1: address } : address,
       isInsured: insured,
       hmoProvider: insured ? String(rawHmo || '').trim() : '',
+      registrationFacility,
     };
-    if (documentFileData) {
-      const uploaded = await uploadToCloudinary(documentFileData, {
-        folder: 'drmeet/patients',
-        resource_type: 'auto',
-      });
-      patientData.documents = [
-        {
-          name: String(documentName || 'Patient attachment'),
-          url: uploaded.secure_url,
-          uploadedAt: new Date(),
-        },
-      ];
-    }
-    if (photoFileData) {
-      const uploadedPhoto = await uploadToCloudinary(photoFileData, {
-        folder: 'drmeet/patients/profile',
-        resource_type: 'image',
-      });
-      patientData.photoUrl = uploadedPhoto.secure_url;
-    }
 
     if (role === 'patient' && uid) {
       const isDependent = Boolean(patientData.relationshipToAccountHolder);
@@ -345,6 +386,89 @@ export const postPatient = async (req, res) => {
       delete patientData.userId;
     }
 
+    if (role === 'doctor' && uid) {
+      const doctor = await findDoctorByUserId(uid);
+      if (doctor) {
+        const cur = Array.isArray(patientData.careTeamDoctorIds)
+          ? patientData.careTeamDoctorIds.map(String)
+          : [];
+        const did = String(doctor._id);
+        if (!cur.includes(did)) {
+          patientData.careTeamDoctorIds = [...(patientData.careTeamDoctorIds || []), doctor._id];
+        }
+      }
+    } else if (role === 'receptionist' && uid) {
+      const ru = await User.findById(uid).select('linkedDoctorId').lean();
+      if (ru?.linkedDoctorId) {
+        const cur = Array.isArray(patientData.careTeamDoctorIds)
+          ? patientData.careTeamDoctorIds.map(String)
+          : [];
+        const did = String(ru.linkedDoctorId);
+        if (!cur.includes(did)) {
+          patientData.careTeamDoctorIds = [...(patientData.careTeamDoctorIds || []), ru.linkedDoctorId];
+        }
+      }
+    }
+
+    const emailNorm = String(email || '').trim().toLowerCase();
+    if (emailNorm && parsedBirthdate && registrationFacility) {
+      const start = new Date(parsedBirthdate);
+      start.setUTCHours(0, 0, 0, 0);
+      const end = new Date(parsedBirthdate);
+      end.setUTCHours(23, 59, 59, 999);
+      const esc = emailNorm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const dup = await Patient.findOne({
+        ...patientActiveQuery,
+        birthdate: { $gte: start, $lte: end },
+        registrationFacility,
+        email: new RegExp(`^${esc}$`, 'i'),
+      });
+      if (dup) {
+        return res.status(400).json({
+          error:
+            'A patient with this email, date of birth, and registration facility already exists.',
+        });
+      }
+    }
+
+    if (photoFileData) {
+      const uploadedPhoto = await uploadToCloudinary(photoFileData, {
+        folder: 'drmeet/patients/profile',
+        resource_type: 'image',
+      });
+      patientData.photoUrl = uploadedPhoto.secure_url;
+    }
+
+    if (documentFileData) {
+      const uploaded = await uploadToCloudinary(documentFileData, {
+        folder: 'drmeet/patients',
+        resource_type: 'auto',
+      });
+      const secureUrl = uploaded.secure_url;
+      const docEntry = {
+        name: String(documentName || 'Patient attachment'),
+        url: secureUrl,
+        fileUrl: secureUrl,
+        uploadedAt: new Date(),
+      };
+      if (uid && mongoose.Types.ObjectId.isValid(uid)) {
+        docEntry.uploaderId = new mongoose.Types.ObjectId(uid);
+      }
+      if (role === 'patient' && uid) {
+        const recv = await primaryCareDoctorUserIdForPatient(patientData);
+        if (recv && mongoose.Types.ObjectId.isValid(recv)) {
+          docEntry.receiverId = new mongoose.Types.ObjectId(recv);
+        }
+      } else if (['doctor', 'receptionist', 'admin'].includes(role) && patientData.userId) {
+        docEntry.receiverId = patientData.userId;
+      }
+      patientData.documents = [docEntry];
+      console.log('[PATIENT][documents] POST create upload', {
+        hasUploader: Boolean(docEntry.uploaderId),
+        hasReceiver: Boolean(docEntry.receiverId),
+      });
+    }
+
     const newPatient = await createPatientService(patientData);
     if (newPatient.userId) {
       await User.findByIdAndUpdate(
@@ -359,7 +483,9 @@ export const postPatient = async (req, res) => {
       );
     }
 
-    return res.status(201).json(newPatient);
+    console.log('[PATIENT]✅ POST /api/patients created', String(newPatient._id));
+
+    return res.status(201).json(mapPatientForClient(newPatient, req));
   } catch (error) {
     console.error('CREATE PATIENT ERROR:', error);
 
@@ -414,15 +540,33 @@ export const updatePatient = async (req, res) => {
         folder: 'drmeet/patients',
         resource_type: 'auto',
       });
+      const secureUrl = uploaded.secure_url;
       const docs = Array.isArray(existing?.documents) ? existing.documents : [];
-      updates.documents = [
-        ...docs,
-        {
-          name: String(cleanedBody.documentName || 'Patient attachment'),
-          url: uploaded.secure_url,
-          uploadedAt: new Date(),
-        },
-      ];
+      const uid = authUserId(req);
+      const role = authRole(req);
+      const docEntry = {
+        name: String(cleanedBody.documentName || 'Patient attachment'),
+        url: secureUrl,
+        fileUrl: secureUrl,
+        uploadedAt: new Date(),
+      };
+      if (uid && mongoose.Types.ObjectId.isValid(uid)) {
+        docEntry.uploaderId = new mongoose.Types.ObjectId(uid);
+      }
+      if (role === 'patient' && uid) {
+        const recv = await primaryCareDoctorUserIdForPatient(existing);
+        if (recv && mongoose.Types.ObjectId.isValid(recv)) {
+          docEntry.receiverId = new mongoose.Types.ObjectId(recv);
+        }
+      } else if (['doctor', 'receptionist', 'admin'].includes(role) && existing.userId) {
+        docEntry.receiverId = existing.userId;
+      }
+      updates.documents = [...docs, docEntry];
+      console.log('[PATIENT][documents] PUT append', {
+        patientId: id,
+        hasUploader: Boolean(docEntry.uploaderId),
+        hasReceiver: Boolean(docEntry.receiverId),
+      });
     }
     if (cleanedBody.photoFileData) {
       const uploadedPhoto = await uploadToCloudinary(cleanedBody.photoFileData, {
@@ -460,7 +604,7 @@ export const updatePatient = async (req, res) => {
     }
     console.log(`[PATIENT]✅ PUT /api/patients/${id} was called`);
 
-    return res.status(200).json(updatedPatient);
+    return res.status(200).json(mapPatientForClient(updatedPatient, req));
   } catch (error) {
     console.log(`Error updating the patient with ${id}:`, error);
     return res
@@ -521,7 +665,9 @@ export const searchPatients = async (req, res) => {
         regex.test(String(p.email || '')) ||
         regex.test(String(p.phone || '')),
     );
-    return res.status(200).json(matches.slice(0, 10).map(mapPatientForClient));
+    return res
+      .status(200)
+      .json(matches.slice(0, 10).map((p) => mapPatientForClient(p, req)));
   } catch (error) {
     return res.status(500).json({ error: 'Failed to search patients.' });
   }
@@ -559,7 +705,7 @@ export const attachExistingPatientToCareTeam = async (req, res) => {
       patient.careTeamDoctorIds = [...existing, doctorId];
       await patient.save();
     }
-    return res.status(200).json(mapPatientForClient(patient));
+    return res.status(200).json(mapPatientForClient(patient, req));
   } catch (error) {
     return res.status(500).json({ error: 'Failed to attach existing patient.' });
   }

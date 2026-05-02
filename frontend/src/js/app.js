@@ -39,6 +39,8 @@ const dashboardState = {
   socketAwaitingFirstConnect: true,
 };
 
+let authSessionExpired = false;
+
 let socket = null;
 let socketInitialized = false;
 const googleAuthState = {
@@ -279,9 +281,63 @@ function buildHeaders(baseHeaders = {}) {
     : { ...baseHeaders };
 }
 
+function showSessionExpiredBanner() {
+  const el = document.getElementById("session-expired-banner");
+  if (!el) return;
+  el.hidden = false;
+  el.innerHTML =
+    'Session expired. Please log in again. <a href="#login" class="session-expired-login-link">Log in</a>';
+  el.querySelector(".session-expired-login-link")?.addEventListener(
+    "click",
+    () => {
+      localStorage.removeItem("token");
+      localStorage.removeItem(USER_CACHE_KEY);
+      authSessionExpired = false;
+      el.hidden = true;
+      el.innerHTML = "";
+      resetMessagingSocket();
+      updateAuthNav();
+    },
+  );
+}
+
+function clearSessionExpiredState() {
+  authSessionExpired = false;
+  const el = document.getElementById("session-expired-banner");
+  if (el) {
+    el.hidden = true;
+    el.innerHTML = "";
+  }
+}
+
 async function apiRequest(url, options = {}) {
+  const urlStr = typeof url === "string" ? url : "";
+  const skipAuthBlock =
+    /\/auth\/(login|signup|status)/.test(urlStr) ||
+    urlStr.includes("/auth/google");
+  if (authSessionExpired && !skipAuthBlock) {
+    return new Response(JSON.stringify({ error: "Session expired.", code: "TOKEN_EXPIRED" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
   const headers = buildHeaders(options.headers || {});
-  return fetch(url, { ...options, headers, credentials: "include" });
+  const res = await fetch(url, { ...options, headers, credentials: "include" });
+  if (res.status === 401 && !skipAuthBlock) {
+    try {
+      const data = await res.clone().json();
+      if (
+        data?.code === "TOKEN_EXPIRED" ||
+        /session expired/i.test(String(data?.message || ""))
+      ) {
+        authSessionExpired = true;
+        showSessionExpiredBanner();
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+  return res;
 }
 
 async function getApiErrorMessage(res, fallbackMessage) {
@@ -367,8 +423,13 @@ function setupShellInteractions() {
   });
   sidebarUserTrigger?.addEventListener("click", () => {});
   sidebarLogoutBtn?.addEventListener("click", () => {
+    if (window.__drmeetMessagePoll) {
+      clearInterval(window.__drmeetMessagePoll);
+      window.__drmeetMessagePoll = null;
+    }
     localStorage.removeItem("token");
     localStorage.removeItem(USER_CACHE_KEY);
+    clearSessionExpiredState();
     resetMessagingSocket();
     updateAuthNav();
     if (sidebarUserPopover) sidebarUserPopover.classList.remove("hidden");
@@ -431,6 +492,11 @@ function getSearchableCommands() {
       action: () => navigateTo("#appointments"),
     },
     { id: "users", label: "Go to Users", action: () => navigateTo("#users") },
+    {
+      id: "settings",
+      label: "Go to Settings",
+      action: () => navigateTo("#settings"),
+    },
   ];
   return staticCommands;
 }
@@ -486,6 +552,7 @@ function renderTopbarBreadcrumbs() {
     { hash: "#doctors", label: "Doctors" },
     { hash: "#appointments", label: "Appointments" },
     { hash: "#users", label: "Users" },
+    { hash: "#settings", label: "Settings" },
   ];
   const crumbs = pages
     .map((page) => {
@@ -563,6 +630,16 @@ function formatRelativeTime(isoValue) {
   if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
   const days = Math.floor(hours / 24);
   return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
+function sortPatientsByCreated(list, order) {
+  const arr = [...list];
+  arr.sort((a, b) => {
+    const ta = new Date(a.createdAt || a.updatedAt || 0).getTime();
+    const tb = new Date(b.createdAt || b.updatedAt || 0).getTime();
+    return order === "oldest" ? ta - tb : tb - ta;
+  });
+  return arr;
 }
 
 function sortMessagesByRecent(messages) {
@@ -850,7 +927,8 @@ function showDangerConfirm(message) {
     const modal = document.createElement("div");
     modal.className = "modal-overlay";
     modal.innerHTML = `
-      <div class="card danger-modal">
+      <div class="card danger-modal modal-card-with-close">
+        <button type="button" class="modal-close-x" aria-label="Close" id="danger-confirm-close">&times;</button>
         <h3>Confirm Delete</h3>
         <p>${escapeHtml(message || "This action is irreversible.")}</p>
         <p class="danger-hint">This action is irreversible.</p>
@@ -870,6 +948,9 @@ function showDangerConfirm(message) {
       ?.addEventListener("click", () => close(true));
     modal
       .querySelector("#danger-confirm-cancel")
+      ?.addEventListener("click", () => close(false));
+    modal
+      .querySelector("#danger-confirm-close")
       ?.addEventListener("click", () => close(false));
   });
 }
@@ -899,9 +980,11 @@ function addInlineTooltips(scope = document) {
     const trigger = document.createElement("span");
     trigger.className = "info-tooltip-trigger";
     trigger.tabIndex = 0;
+    trigger.setAttribute("title", content);
+    trigger.setAttribute("aria-label", `Info: ${content}`);
     trigger.innerHTML = `
-      <img src="images/info-i.svg" alt="Info" class="info-tooltip-icon" />
-      <span class="info-tooltip-bubble">${escapeHtml(content)}</span>
+      <img src="images/info-i.svg" alt="" class="info-tooltip-icon" role="presentation" />
+      <span class="info-tooltip-bubble" role="tooltip">${escapeHtml(content)}</span>
     `;
     node.appendChild(trigger);
   });
@@ -1154,6 +1237,11 @@ async function sendMessage(text, options = {}) {
 
   persistDashboardState();
   notifyDashboardSubscribers();
+
+  const cid = dashboardState.activeConversationId;
+  if (cid) {
+    await loadMessages(cid);
+  }
 }
 
 async function checkAuthStatus() {
@@ -1299,6 +1387,9 @@ function renderPage() {
   setActiveNav(route);
   renderTopbarBreadcrumbs();
   switch (route) {
+    case "#settings":
+      renderSettings();
+      break;
     case "#privacy":
       renderPrivacy();
       break;
@@ -1337,6 +1428,51 @@ function setPageTone(kind) {
     "page-tone-users",
   );
   if (kind) mainContent.classList.add(`page-tone-${kind}`);
+}
+
+function renderSettings() {
+  setPageTone("");
+  if (!isLoggedIn()) {
+    mainContent.innerHTML = `<div class="feedback error">Please log in to view settings.</div>`;
+    return;
+  }
+  let cache = {};
+  try {
+    cache = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
+  } catch (e) {
+    cache = {};
+  }
+  const theme = localStorage.getItem(THEME_KEY) || "light";
+  mainContent.innerHTML = `
+    <h2 class="page-title">Settings</h2>
+    <section class="card">
+      <h3>Profile</h3>
+      <p><strong>Name:</strong> ${escapeHtml(`${cache.firstName || ""} ${cache.lastName || ""}`.trim() || "—")}</p>
+      <p><strong>Role:</strong> ${escapeHtml(String(cache.role || "—"))}</p>
+    </section>
+    <section class="card">
+      <h3>Preferences</h3>
+      <label>Theme
+        <select id="settings-theme">
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+    </section>
+    <section class="card">
+      <h3>Notifications</h3>
+      <p class="signup-lead">Appointment and message alerts can be expanded here in a future update.</p>
+      <label><input type="checkbox" id="settings-notify-email" disabled /> Email reminders (coming soon)</label>
+    </section>
+  `;
+  const sel = document.getElementById("settings-theme");
+  if (sel) {
+    sel.value = theme === "dark" ? "dark" : "light";
+    sel.addEventListener("change", () => {
+      applyTheme(sel.value);
+      renderTopbarBreadcrumbs();
+    });
+  }
 }
 
 function renderPrivacy() {
@@ -1518,7 +1654,8 @@ function showComposeMessageModal(onSubmit) {
   const modal = document.createElement("div");
   modal.className = "modal-overlay";
   modal.innerHTML = `
-    <div class="card" style="max-width:520px;width:100%;padding:1rem;">
+    <div class="card modal-card-with-close" style="max-width:520px;width:100%;padding:1rem;">
+      <button type="button" class="modal-close-x" aria-label="Close">&times;</button>
       <h3>Compose message</h3>
       <form id="compose-message-form">
         <label>Message
@@ -1533,6 +1670,7 @@ function showComposeMessageModal(onSubmit) {
   `;
   document.body.appendChild(modal);
   const closeModal = () => modal.remove();
+  modal.querySelector(".modal-close-x")?.addEventListener("click", closeModal);
   modal
     .querySelector("#compose-message-cancel")
     ?.addEventListener("click", closeModal);
@@ -1597,6 +1735,21 @@ function mountDashboardWidgets() {
     renderThreadDrawer(drawer);
   });
   loadConversations();
+
+  if (window.__drmeetMessagePoll) {
+    clearInterval(window.__drmeetMessagePoll);
+    window.__drmeetMessagePoll = null;
+  }
+  window.__drmeetMessagePoll = setInterval(async () => {
+    if (!isLoggedIn() || authSessionExpired) return;
+    const cid = dashboardState.activeConversationId;
+    try {
+      if (cid) await loadMessages(cid);
+      await loadConversations();
+    } catch (e) {
+      /* ignore */
+    }
+  }, 2800);
 }
 
 function renderMessageBoard(container) {
@@ -1980,6 +2133,7 @@ function renderLogin() {
     clearGoogleAuthLoading("Google sign-in successful.");
     resetMessagingSocket();
     localStorage.setItem("token", oauthSuccessToken);
+    clearSessionExpiredState();
     updateAuthNav();
     window.location.hash = "#home";
     renderHome();
@@ -2011,6 +2165,7 @@ function renderLogin() {
       if (data.token) {
         resetMessagingSocket();
         localStorage.setItem("token", data.token);
+        clearSessionExpiredState();
         feedback.textContent = "Login successful!";
         updateAuthNav();
         setTimeout(() => {
@@ -2072,7 +2227,10 @@ function renderSignup() {
              </datalist>`
           : ""
       }
-      <button type="submit" class="btn btn-primary">Create account</button>
+      <div class="signup-actions">
+        <button type="submit" class="btn btn-primary">Create Account</button>
+        <button type="button" class="btn btn-secondary" id="signup-start-over">Start Over</button>
+      </div>
     </form>
     <p class="signup-lead" style="margin-top:0.75rem;">Already registered? <a href="#login">Go to Login</a></p>
     <div id="signup-feedback"></div>
@@ -2086,6 +2244,7 @@ function renderSignup() {
     clearGoogleAuthLoading("Google sign-in successful.");
     resetMessagingSocket();
     localStorage.setItem("token", oauthSuccessToken);
+    clearSessionExpiredState();
     updateAuthNav();
     window.location.hash = "#home";
     renderHome();
@@ -2118,6 +2277,7 @@ function renderSignup() {
       if (data.token) {
         resetMessagingSocket();
         localStorage.setItem("token", data.token);
+        clearSessionExpiredState();
         feedback.textContent = "Signup successful!";
         updateAuthNav();
         setTimeout(() => {
@@ -2134,6 +2294,11 @@ function renderSignup() {
       if (submitBtn) submitBtn.disabled = false;
     }
   };
+  document.getElementById("signup-start-over")?.addEventListener("click", () => {
+    form.reset();
+    feedback.textContent = "";
+    feedback.className = "";
+  });
 }
 
 function googleLogin({ feedbackEl = null, buttonEl = null } = {}) {
@@ -2194,6 +2359,7 @@ function handleGoogleAuthMessage(event) {
     clearGoogleAuthLoading("Google sign-in successful.");
     resetMessagingSocket();
     localStorage.setItem("token", event.data.token);
+    clearSessionExpiredState();
     updateAuthNav();
     window.location.hash = "#home";
     renderHome();
@@ -2493,14 +2659,45 @@ async function renderPatients() {
       }
     }
     const isAdminUser = role === "admin";
+    let clinicDoctors = [];
+    if (isPatient) {
+      try {
+        const dr = await apiRequest(`${API_BASE}/doctors`);
+        if (dr.ok) clinicDoctors = await dr.json();
+      } catch (e) {
+        clinicDoctors = [];
+      }
+    }
+    const doctorOptionsForSend = (Array.isArray(clinicDoctors) ? clinicDoctors : [])
+      .filter((d) => d?.userId)
+      .map(
+        (d) =>
+          `<option value="${d.userId}">${escapeHtml(formatDoctorDisplayName(d))}</option>`,
+      )
+      .join("");
     mainContent.innerHTML = `
       <h2 class="page-title page-title-patients">Patients</h2>
-      <div>
+      <div class="patients-toolbar">
+        <button type="button" class="cta-primary btn-secondary" id="patients-refresh-btn" title="Reload list">Refresh</button>
         <button class="cta-primary" onclick="window.showPatientForm()">Add Patient</button>
         ${isPatient ? '<button class="cta-primary" onclick="window.showFamilyMemberForm()">Register Family Member</button>' : ""}
-        ${isPatient ? '<button class="cta-primary" onclick="window.sendMyDocumentToClinic()">Send Document to Clinic</button>' : ""}
         ${isAdminUser ? '<button class="cta-primary btn-secondary" id="export-patients-csv">Export CSV</button>' : ""}
       </div>
+      ${
+        isPatient && doctorOptionsForSend
+          ? `<section class="card patient-send-doc-card">
+        <h3>Send document to clinic</h3>
+        <p class="signup-lead">Choose a doctor, attach an image or PDF, and upload. Your clinic receives it in messaging.</p>
+        <label>Doctor / clinic
+          <select id="patient-send-doc-doctor">${doctorOptionsForSend}</select>
+        </label>
+        <label>File
+          <input type="file" id="patient-send-doc-file" accept="image/*,.pdf,.doc,.docx,.txt" />
+        </label>
+        <button type="button" class="cta-primary" id="patient-send-doc-btn">Upload</button>
+      </section>`
+          : ""
+      }
       ${
         isPatient && patients.length
           ? `
@@ -2515,36 +2712,62 @@ async function renderPatients() {
           : ""
       }
       <hr class="section-divider" />
-      <div class="list-filters">
+      <div class="list-filters patients-list-controls">
+        <label>Sort by date added
+          <select id="patient-sort-order">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </label>
         <input type="search" id="patient-filter-name" placeholder="Filter by name" />
         <input type="search" id="patient-filter-email" placeholder="Filter by email" />
         <input type="search" id="patient-filter-phone" placeholder="Filter by phone" />
         <input type="search" id="patient-filter-dob" placeholder="Filter by DOB (YYYY-MM-DD)" />
       </div>
       <table>
-        <thead><tr><th>Name</th><th>Profile Type</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Profile Type</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Added</th><th>Records</th><th>Actions</th></tr></thead>
         <tbody id="patients-table-body"></tbody>
       </table>
-      <div id="patient-form-modal" style="display:none"></div>
+      <div id="patient-form-modal" class="patient-form-modal-host" style="display:none"></div>
     `;
     const bodyEl = document.getElementById("patients-table-body");
     const renderRows = (list) => {
       bodyEl.innerHTML = list
         .map(
-          (p) => `
+          (p) => {
+            const docs = Array.isArray(p.documents) ? p.documents : [];
+            const docLinks = docs
+              .map((d) => {
+                const u = String(d.fileUrl || d.url || "").trim();
+                if (!u) return "";
+                const nm = escapeHtml(String(d.name || "Open file"));
+                return `<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">${nm}</a>`;
+              })
+              .filter(Boolean)
+              .join("<br/>");
+            const addedRel = p.createdAt
+              ? formatRelativeTime(p.createdAt)
+              : "—";
+            const deleteBtn = isAdminUser
+              ? `<button type="button" class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>`
+              : "";
+            return `
             <tr>
               <td><img src="${escapeHtml(String(p.photoUrl || DEFAULT_AVATAR_URL))}" alt="Patient avatar" class="doctor-avatar" />${p.firstName} ${p.lastName}</td>
               <td>${p.familyHeadName ? `Family Head: ${p.familyHeadName}` : p.relationshipToAccountHolder ? `Dependent: ${p.relationshipToAccountHolder}` : "Primary"}${p.isCareTeamLinked ? ' <span class="pill-tag">Attached</span>' : ""}</td>
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
               <td>${formatDateDisplay(p.birthdate) || ""}</td>
+              <td><span title="${escapeHtml(String(p.createdAt || ""))}">${addedRel}</span></td>
+              <td class="patient-docs-cell">${docLinks || "—"}</td>
               <td>
-                <button class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
-                <button class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>
-                ${isDoctor || (isReceptionist && canReceptionistSendDocs) ? `<button class="btn btn-primary btn-action-edit" onclick="window.sendPatientDocumentFromDoctor('${p._id}')">Send Document</button>` : ""}
+                <button type="button" class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
+                ${deleteBtn}
+                ${isDoctor || (isReceptionist && canReceptionistSendDocs) ? `<button type="button" class="btn btn-primary btn-action-edit" onclick="window.sendPatientDocumentFromDoctor('${p._id}')">Send Document</button>` : ""}
               </td>
             </tr>
-          `,
+          `;
+          },
         )
         .join("");
     };
@@ -2569,7 +2792,10 @@ async function renderPatients() {
       )
         .toLowerCase()
         .trim();
-      const filtered = patients.filter((p) => {
+      const order =
+        document.getElementById("patient-sort-order")?.value || "newest";
+      const sorted = sortPatientsByCreated(patients, order);
+      const filtered = sorted.filter((p) => {
         const name = `${p.firstName || ""} ${p.lastName || ""}`.toLowerCase();
         const email = String(p.email || "").toLowerCase();
         const phone = String(p.phone || "").toLowerCase();
@@ -2594,6 +2820,12 @@ async function renderPatients() {
         ?.addEventListener("input", applyPatientFilters);
     });
     document
+      .getElementById("patient-sort-order")
+      ?.addEventListener("change", applyPatientFilters);
+    document.getElementById("patients-refresh-btn")?.addEventListener("click", () => {
+      renderPatients();
+    });
+    document
       .getElementById("patient-switch-profile")
       ?.addEventListener("change", (event) => {
         const selectedId = String(event.target.value || "");
@@ -2601,10 +2833,13 @@ async function renderPatients() {
           applyPatientFilters();
           return;
         }
-        const picked = patients.filter((p) => String(p._id) === selectedId);
+        const order =
+          document.getElementById("patient-sort-order")?.value || "newest";
+        const sorted = sortPatientsByCreated(patients, order);
+        const picked = sorted.filter((p) => String(p._id) === selectedId);
         renderRows(picked);
       });
-    renderRows(patients);
+    applyPatientFilters();
     document
       .getElementById("export-patients-csv")
       ?.addEventListener("click", () => {
@@ -2618,51 +2853,57 @@ async function renderPatients() {
           })),
         );
       });
+    document.getElementById("patient-send-doc-btn")?.addEventListener(
+      "click",
+      async () => {
+        const doctorUserId = String(
+          document.getElementById("patient-send-doc-doctor")?.value || "",
+        );
+        const fileInput = document.getElementById("patient-send-doc-file");
+        const file = fileInput?.files?.[0];
+        if (!doctorUserId) {
+          showToast("Select a doctor or clinic contact.", "error");
+          return;
+        }
+        if (!file) {
+          showToast("Choose a file to upload.", "error");
+          return;
+        }
+        const selectedId = String(
+          document.getElementById("patient-switch-profile")?.value || "",
+        );
+        const patientProfile = selectedId
+          ? patients.find((p) => String(p._id) === selectedId)
+          : patients.find((p) => !p.relationshipToAccountHolder) || patients[0];
+        if (!patientProfile?.userId) {
+          showToast(
+            "No messaging profile found for the selected patient.",
+            "error",
+          );
+          return;
+        }
+        try {
+          await sendDocumentMessage({
+            patientId: String(patientProfile.userId),
+            doctorId: doctorUserId,
+            text: "Patient document for clinic review.",
+            file,
+          });
+          showToast("Document sent to clinic.");
+          fileInput.value = "";
+        } catch (error) {
+          showToast(error?.message || "Unable to send document.", "error");
+        }
+      },
+    );
     window.showPatientForm = showPatientForm;
     window.showFamilyMemberForm = () => showPatientForm(null, true);
     window.editPatient = editPatient;
     window.deletePatient = deletePatient;
-    window.sendMyDocumentToClinic = async () => {
-      const selectedId = String(
-        document.getElementById("patient-switch-profile")?.value || "",
-      );
-      const patientProfile = selectedId
-        ? patients.find((p) => String(p._id) === selectedId)
-        : patients.find((p) => !p.relationshipToAccountHolder) || patients[0];
-      if (!patientProfile?.userId) {
-        showToast(
-          "No messaging profile found for the selected patient.",
-          "error",
-        );
-        return;
-      }
-      const doctorUserId = await resolveDoctorIdForPatientMessaging();
-      if (!doctorUserId) {
-        showToast(
-          "No linked doctor found yet. Book an appointment first.",
-          "error",
-        );
-        return;
-      }
-      const fileInput = document.createElement("input");
-      fileInput.type = "file";
-      fileInput.accept = "image/*,.pdf,.doc,.docx,.txt";
-      fileInput.onchange = async () => {
-        const file = fileInput.files?.[0];
-        if (!file) return;
-        try {
-          await sendDocumentMessage({
-            patientId: String(patientProfile.userId),
-            doctorId: String(doctorUserId),
-            text: "Patient document for clinic review.",
-            file,
-          });
-          showToast("Document sent to clinic for review.");
-        } catch (error) {
-          showToast(error?.message || "Unable to send document.", "error");
-        }
-      };
-      fileInput.click();
+    window.sendMyDocumentToClinic = () => {
+      document
+        .querySelector(".patient-send-doc-card")
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     };
     window.sendPatientDocumentFromDoctor = async (patientId) => {
       const patient = patients.find((p) => String(p._id) === String(patientId));
@@ -2705,8 +2946,12 @@ function showPatientForm(editId = null, familyMode = false) {
   const canAttachExisting =
     !editId && (role === "doctor" || role === "receptionist");
   modal.style.display = "block";
+  const staffRole =
+    role === "doctor" || role === "receptionist" || role === "admin";
   modal.innerHTML = `
-    <form id="patient-form">
+    <div class="modal-sheet card patient-modal-sheet">
+      <button type="button" class="modal-close-x" aria-label="Close" onclick="window.closePatientForm()">&times;</button>
+      <form id="patient-form">
       <h3>${editId ? "Edit" : familyMode ? "Register Family Member" : "Add"} Patient</h3>
       ${
         canAttachExisting
@@ -2738,6 +2983,17 @@ function showPatientForm(editId = null, familyMode = false) {
         </select>
       </label>
       <label>Address <input name="address" /></label>
+      ${
+        staffRole
+          ? `<label><span class="label-text-row" data-tooltip="Used with email and date of birth to prevent duplicate registrations at this site.">Registration facility</span>
+        <input name="registrationFacility" required placeholder="Clinic or branch name" /></label>`
+          : `<label><span class="label-text-row" data-tooltip="Include if instructed by your clinic — combined with email and DOB prevents duplicates.">Registration facility</span>
+        <input name="registrationFacility" placeholder="Optional" /></label>`
+      }
+      <label><input type="checkbox" name="isInsured" id="patient-is-insured" value="true" /> Has HMO / insured</label>
+      <label id="patient-hmo-wrap" style="display:none">HMO provider (required if insured)
+        <select name="hmoProvider" id="patient-hmo-select"></select>
+      </label>
       <label>Profile Photo
         <input name="profilePhotoFile" type="file" accept="image/*" />
       </label>
@@ -2746,7 +3002,7 @@ function showPatientForm(editId = null, familyMode = false) {
       <label>Medical History
         <textarea name="medicalHistory" placeholder="One item per line"></textarea>
       </label>
-      <label><span class="label-text-row" data-tooltip="Accepted formats: PDF, DOCX, JPG, PNG, HEIC. Max size: 10MB.">Upload Records</span>
+      <label><span class="label-text-row" data-tooltip="Accepted formats: PDF, DOCX, JPG, PNG. Images and PDFs upload to secure storage.">Upload Records</span>
         <input name="documentFile" type="file" accept="image/*,.pdf,.doc,.docx,.txt" />
       </label>
       <div class="modal-form-actions">
@@ -2754,6 +3010,7 @@ function showPatientForm(editId = null, familyMode = false) {
         <button type="button" class="btn btn-action-delete" onclick="window.closePatientForm()">Cancel</button>
       </div>
     </form>
+    </div>
   `;
   window.closePatientForm = () => {
     modal.style.display = "none";
@@ -2762,6 +3019,33 @@ function showPatientForm(editId = null, familyMode = false) {
   addInlineTooltips(form);
   attachClearButtons(form);
   enforcePhoneInputs(form);
+  const insuredCb = document.getElementById("patient-is-insured");
+  const hmoWrap = document.getElementById("patient-hmo-wrap");
+  const hmoSelect = document.getElementById("patient-hmo-select");
+  const syncInsured = () => {
+    const on = Boolean(insuredCb?.checked);
+    if (hmoWrap) hmoWrap.style.display = on ? "" : "none";
+    if (hmoSelect) hmoSelect.required = on;
+  };
+  insuredCb?.addEventListener("change", syncInsured);
+  syncInsured();
+  (async () => {
+    try {
+      const hr = await apiRequest(`${API_BASE}/patients/constants/hmo-providers`);
+      if (!hr.ok || !hmoSelect) return;
+      const data = await hr.json();
+      const list = Array.isArray(data?.providers) ? data.providers : [];
+      hmoSelect.innerHTML = `<option value="">Select HMO</option>${list
+        .map(
+          (p) =>
+            `<option value="${escapeHtml(String(p))}">${escapeHtml(String(p))}</option>`,
+        )
+        .join("")}`;
+    } catch (e) {
+      if (hmoSelect)
+        hmoSelect.innerHTML = `<option value="">Could not load HMO list</option>`;
+    }
+  })();
   if (canAttachExisting) {
     const searchInput = document.getElementById("patient-existing-search");
     const resultEl = document.getElementById("patient-existing-results");
@@ -2843,11 +3127,19 @@ function showPatientForm(editId = null, familyMode = false) {
         form.medicalHistory.value = Array.isArray(data.medicalHistory)
           ? data.medicalHistory.join("\n")
           : "";
+        if (form.registrationFacility)
+          form.registrationFacility.value = data.registrationFacility || "";
+        if (insuredCb) insuredCb.checked = Boolean(data.isInsured);
+        if (hmoSelect && data.hmoProvider)
+          hmoSelect.value = String(data.hmoProvider || "");
+        syncInsured();
       });
   }
   form.onsubmit = async (e) => {
     e.preventDefault();
     const patient = Object.fromEntries(new FormData(form));
+    patient.isInsured = Boolean(document.getElementById("patient-is-insured")?.checked);
+    if (!patient.isInsured) patient.hmoProvider = "";
     const docFile = form.documentFile?.files?.[0];
     if (docFile) {
       patient.documentFileData = await fileToDataUrl(docFile);
@@ -3201,8 +3493,20 @@ function showDoctorForm(editId = null) {
   const modal = document.getElementById("doctor-form-modal");
   modal.style.display = "block";
   modal.innerHTML = `
+    <div class="modal-sheet card">
+    <button type="button" class="modal-close-x" aria-label="Close" onclick="window.closeDoctorForm()">&times;</button>
     <form id="doctor-form">
       <h3>${editId ? "Edit" : "Add"} Doctor</h3>
+      <label>Title
+        <select name="title">
+          <option value="">(blank)</option>
+          <option value="Dr.">Dr.</option>
+          <option value="Dra.">Dra.</option>
+          <option value="MD">MD</option>
+          <option value="DO">DO</option>
+          <option value="Consultant">Consultant</option>
+        </select>
+      </label>
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
@@ -3236,6 +3540,7 @@ function showDoctorForm(editId = null) {
         <button type="button" class="btn btn-action-delete" onclick="window.closeDoctorForm()">Cancel</button>
       </div>
     </form>
+    </div>
   `;
   window.closeDoctorForm = () => {
     modal.style.display = "none";
@@ -3248,6 +3553,7 @@ function showDoctorForm(editId = null) {
     apiRequest(`${API_BASE}/doctors/${editId}`)
       .then((res) => res.json())
       .then((data) => {
+        form.title.value = data.title || "";
         form.firstName.value = data.firstName || "";
         form.lastName.value = data.lastName || "";
         form.email.value = data.email || "";
@@ -3522,7 +3828,14 @@ async function showAppointmentForm(editId = null) {
     doctors = doctorRes.ok ? await doctorRes.json() : [];
     patients = patientRes.ok ? await patientRes.json() : [];
   } catch (error) {
-    modal.innerHTML = `<div class="feedback error">Failed to load doctors and patients.</div>`;
+    window.closeAppointmentForm = () => {
+      modal.style.display = "none";
+    };
+    modal.innerHTML = `
+      <div class="modal-sheet card">
+        <button type="button" class="modal-close-x" aria-label="Close" onclick="window.closeAppointmentForm()">&times;</button>
+        <div class="feedback error">Failed to load doctors and patients.</div>
+      </div>`;
     return;
   }
 
@@ -3545,6 +3858,8 @@ async function showAppointmentForm(editId = null) {
     .join("");
 
   modal.innerHTML = `
+    <div class="modal-sheet card">
+    <button type="button" class="modal-close-x" aria-label="Close" onclick="window.closeAppointmentForm()">&times;</button>
     <form id="appointment-form">
       <h3>${editId ? "Edit" : "Add"} Appointment</h3>
       <label>Doctor
@@ -3575,6 +3890,7 @@ async function showAppointmentForm(editId = null) {
         <button type="button" class="btn btn-action-delete" onclick="window.closeAppointmentForm()">Cancel</button>
       </div>
     </form>
+    </div>
   `;
   window.closeAppointmentForm = () => {
     modal.style.display = "none";
@@ -3639,6 +3955,7 @@ async function renderUsers() {
     '<h2 class="page-title page-title-users">Users</h2><div class="feedback">Loading...</div>';
   try {
     const role = getCurrentUserRole();
+    const isAdminUser = role === "admin";
     const isReceptionist = role === "receptionist";
     const currentUserId = getCurrentUserId();
     let users = [];
@@ -3673,8 +3990,11 @@ async function renderUsers() {
                 ${
                   isReceptionist
                     ? "—"
-                    : `<button class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button>
-                <button class="btn btn-action-delete" onclick="window.deleteUser('${u._id}')">Delete</button>`
+                    : `<button type="button" class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button>${
+                        isAdminUser
+                          ? `<button type="button" class="btn btn-action-delete" onclick="window.deleteUser('${u._id}')">Delete</button>`
+                          : ""
+                      }`
                 }
               </td>
             </tr>
@@ -3697,6 +4017,8 @@ function showUserForm(editId = null) {
   const modal = document.getElementById("user-form-modal");
   modal.style.display = "block";
   modal.innerHTML = `
+    <div class="modal-sheet card">
+    <button type="button" class="modal-close-x" aria-label="Close" onclick="window.closeUserForm()">&times;</button>
     <form id="user-form">
       <h3>${editId ? "Edit" : "Add"} User</h3>
       <label>First Name <input name="firstName" required /></label>
@@ -3741,6 +4063,7 @@ function showUserForm(editId = null) {
         <button type="button" class="btn btn-action-delete" onclick="window.closeUserForm()">Cancel</button>
       </div>
     </form>
+    </div>
   `;
   window.closeUserForm = () => {
     modal.style.display = "none";

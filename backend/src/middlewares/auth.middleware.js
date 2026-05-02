@@ -29,9 +29,14 @@ export function verifyJWT(req, res, next) {
         req.user = decoded;
         next();
     } catch (err) {
-        return res
-            .status(401)
-            .json({ message: 'Invalid or expired token', error: err.message });
+        const expired = err?.name === 'TokenExpiredError';
+        return res.status(401).json({
+            message: expired
+                ? 'Session expired. Please log in again.'
+                : 'Invalid or expired token',
+            error: err.message,
+            code: expired ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN',
+        });
     }
 }
 
@@ -50,7 +55,14 @@ export function hybridAuth(req, res, next) {
             req.user = jwt.verify(token, process.env.JWT_SECRET);
             return next();
         } catch (err) {
-            res.status(401).json({ message: 'Invalid token', error: err.message });
+            const expired = err?.name === 'TokenExpiredError';
+            res.status(401).json({
+                message: expired
+                    ? 'Session expired. Please log in again.'
+                    : 'Invalid token',
+                error: err.message,
+                code: expired ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN',
+            });
         }
     }
 

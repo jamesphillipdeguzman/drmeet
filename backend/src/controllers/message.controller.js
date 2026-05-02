@@ -95,7 +95,7 @@ export const ensurePatientDoctorConversationId = async (req, res) => {
         userId: patientId,
         ...patientActiveQuery,
       })
-        .select("_id")
+        .select("_id careTeamDoctorIds")
         .lean();
       if (!doctorProfile || !patientProfile) {
         return res.status(403).json({ error: "Forbidden." });
@@ -104,9 +104,14 @@ export const ensurePatientDoctorConversationId = async (req, res) => {
         String(doctorProfile._id),
         String(patientProfile._id),
       );
-      if (!hasAppointment) {
+      const careIds = Array.isArray(patientProfile.careTeamDoctorIds)
+        ? patientProfile.careTeamDoctorIds.map(String)
+        : [];
+      const onCareTeam = careIds.includes(String(doctorProfile._id));
+      if (!hasAppointment && !onCareTeam) {
         return res.status(403).json({
-          error: "Conversation allowed only for patients with prior appointments.",
+          error:
+            "Conversation allowed only for patients with a prior appointment or active care team link.",
         });
       }
     }

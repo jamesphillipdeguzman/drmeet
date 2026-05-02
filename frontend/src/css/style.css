@@ -237,6 +237,20 @@ body {
   width: 16px;
   height: 16px;
 }
+.session-expired-banner {
+  margin: 0.5rem 1rem 0;
+  padding: 0.65rem 1rem;
+  background: #fff4e6;
+  border: 1px solid #e8b060;
+  color: #6b4206;
+  border-radius: 10px;
+  font-size: 0.92rem;
+}
+.session-expired-banner a {
+  color: #21478e;
+  font-weight: 600;
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -247,6 +261,60 @@ body {
   justify-content: center;
   padding: 1rem;
 }
+
+.modal-sheet {
+  position: relative;
+  width: min(620px, 96%);
+  margin: 1.5rem auto;
+}
+
+.modal-close-x {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  z-index: 3;
+  width: 2.1rem;
+  height: 2.1rem;
+  border: none;
+  border-radius: 10px;
+  background: rgba(24, 36, 67, 0.1);
+  color: #1a243b;
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.modal-close-x:hover {
+  background: rgba(24, 36, 67, 0.16);
+}
+
+.modal-card-with-close {
+  padding-top: 2rem;
+}
+
+.signup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.patients-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  align-items: center;
+}
+
+.patient-send-doc-card {
+  margin: 1rem 0;
+}
+
+.patient-docs-cell {
+  font-size: 0.88rem;
+  max-width: 12rem;
+}
+
 .toast-host {
   position: fixed;
   right: 14px;
@@ -647,9 +715,10 @@ textarea {
 }
 
 .info-tooltip-icon {
-  width: 14px;
-  height: 14px;
-  opacity: 0.8;
+  width: 20px;
+  height: 20px;
+  opacity: 1;
+  filter: contrast(1.25);
 }
 
 .info-tooltip-bubble {
