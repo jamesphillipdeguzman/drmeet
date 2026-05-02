@@ -446,6 +446,7 @@ export const inviteReceptionist = async (req, res) => {
 
         
         const emailStatus = inviteResult?.sent ? 'sent' : 'failed';
+        console.log("Resend result:", inviteResult);
         alert("Resend result:" + JSON.stringify(inviteResult));
 
         return res.status(existing ? 200 : 201).json({

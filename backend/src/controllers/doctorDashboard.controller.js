@@ -16,7 +16,7 @@ import {
   countConversationsForUser,
   aggregatePatientDocumentsForDoctor,
 } from "../services/doctorDashboard.service.js";
-import { PHILIPPINES_HEALTH_PROVIDERS } from "../constants/philippinesHmo.js";
+import { PHILIPPINES_HMO_PROVIDERS } from "../constants/philippinesHmo.js";
 
 const DASH_CTRL_DIR = path.dirname(fileURLToPath(import.meta.url));
 let paymentsCatalogJsonCache = null;
@@ -528,7 +528,7 @@ export const patchDoctorAppointmentBilling = async (req, res) => {
     const body = sanitizeInput(req.body || {});
     const prev = plainBillingDoc(apptCtx.appt.billing);
 
-    if (body.hmoProvider && !PHILIPPINES_HEALTH_PROVIDERS.includes(body.hmoProvider)) {
+    if (body.hmoProvider && !PHILIPPINES_HMO_PROVIDERS.includes(body.hmoProvider)) {
       return res.status(400).json({
         error: "Select a valid HMO / payer from the Philippines providers list.",
       });
