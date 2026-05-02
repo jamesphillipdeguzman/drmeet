@@ -2597,6 +2597,7 @@ body.theme-dark .messenger-thread-close-x:hover {
   grid-template-columns: 1fr; /* ✅ simplify */
   gap: 0.5rem;
   overflow: hidden; /* ✅ ADD THIS */
+  min-width: 0 !important;
 }
 
 .messenger-shell--floating .messenger-compose-actions {
@@ -2823,4 +2824,28 @@ body.theme-dark .floating-chat-panel {
     width: min(420px, calc(100vw - 1rem)); /* tighter fit */
     margin: 0 auto;
   }
+}
+
+/* 🔥 HARD STOP textarea overflow */
+.messenger-compose-input {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  width: 100% !important;
+
+  /* ✅ critical fixes */
+  display: block;
+  overflow-x: hidden;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* 🔥 Ensure parent cannot be stretched */
+.messenger-compose-row {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+/* 🔥 Prevent children from expanding row */
+.messenger-compose-row > * {
+  min-width: 0 !important;
 }
