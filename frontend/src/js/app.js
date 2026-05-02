@@ -1216,17 +1216,6 @@ async function loadConversations() {
       ? data.conversations
       : [];
 
-    // Default: load first conversation.
-    if (
-      !dashboardState.activeConversationId &&
-      dashboardState.conversations.length
-    ) {
-      dashboardState.activeConversationId = String(
-        dashboardState.conversations[0]._id,
-      );
-      await loadMessages(dashboardState.activeConversationId);
-    }
-
     persistDashboardState();
     notifyDashboardSubscribers();
   } catch (error) {
@@ -2589,7 +2578,8 @@ function wireMessengerShell(rootEl) {
   rootEl.dataset.messengerShellWired = "1";
   rootEl.querySelector("[data-messenger-search]")?.addEventListener("input", (e) => {
     dashboardState.conversationSearchFilter = String(e.target.value || "");
-    notifyDashboardSubscribers();
+    /* Only refresh the inbox list — do not notify full dashboard (avoids re-running thread UI). */
+    renderMessengerConversationList(rootEl);
   });
   const clearThread = () => {
     dashboardState.activeConversationId = "";

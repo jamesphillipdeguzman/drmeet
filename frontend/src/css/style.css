@@ -1,5 +1,6 @@
 * {
   box-sizing: border-box;
+  min-width: 0; /* ✅ ADD THIS */
 }
 
 :root {
@@ -2465,6 +2466,25 @@ body.theme-dark .messenger-thread-close-x:hover {
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
+
+  /* ✅ ADD THIS */
+  overflow: hidden;
+}
+
+.messenger-compose-row > * {
+  min-width: 0;
+}
+
+.messenger-compose-input {
+  flex: 1 1 0%;
+}
+
+.messenger-compose-actions {
+  flex: 0 0 auto;
+  max-width: 100%;
+   /* ✅ ADD THIS */
+  position: relative;
+  z-index: 3;
 }
 
 .messenger-compose-input {
@@ -2574,13 +2594,18 @@ body.theme-dark .messenger-thread-close-x:hover {
  */
 .messenger-shell--floating .messenger-compose-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: 1fr; /* ✅ simplify */
   gap: 0.5rem;
-  align-items: stretch;
-  min-width: 0;
-  max-width: 100%;
+  overflow: hidden; /* ✅ ADD THIS */
 }
 
+.messenger-shell--floating .messenger-compose-actions {
+  justify-content: flex-end;
+}
+
+.messenger-shell--floating .messenger-compose-actions {
+  justify-content: flex-end;
+}
 .messenger-shell--floating .messenger-compose-input {
   grid-row: 1;
   grid-column: 1;
