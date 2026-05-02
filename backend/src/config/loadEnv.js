@@ -20,11 +20,3 @@ if (!runningOnRender) {
   dotenv.config({ path: backendEnvPath });
   dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 }
-
-
-console.log('📦 AFTER loadEnv.js:', {
-  CLOUDINARY_CLOUD_NAME: process.env.CLOUDINARY_CLOUD_NAME,
-  CLOUDINARY_API_KEY: process.env.CLOUDINARY_API_KEY,
-  CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
-  CLOUDINARY_URL: process.env.CLOUDINARY_URL,
-});

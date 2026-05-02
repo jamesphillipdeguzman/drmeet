@@ -334,11 +334,9 @@ export const updateDoctor = async (req, res) => {
     return res.status(200).json(updatedDoctor);
   } catch (error) {
     console.log(`Error updating the doctor with ${id}:`, error);
-    return res
-      .status(500)
-      .json({
-        error: error.message || 'An error occured while updating the doctor.',
-      });
+    return res.status(500).json({
+      error: error.message || 'An error occured while updating the doctor.',
+    });
   }
 };
 
@@ -420,11 +418,9 @@ export const inviteReceptionist = async (req, res) => {
 
     const existing = await User.findOne({ email });
     if (existing && existing.role !== 'receptionist') {
-      return res
-        .status(400)
-        .json({
-          error: 'A non-receptionist account already exists for this email.',
-        });
+      return res.status(400).json({
+        error: 'A non-receptionist account already exists for this email.',
+      });
     }
 
     const localPart = email.split('@')[0] || 'clinic';
@@ -457,25 +453,17 @@ export const inviteReceptionist = async (req, res) => {
     const inviteResult = await sendReceptionistInviteEmail({
       email,
       doctorName: `${doctor.firstName} ${doctor.lastName}`,
-      inviteLink: `${CLIENT_ORIGIN}/#accept-invite?token=${token}`,
+      inviteLink: `${process.env.CLIENT_ORIGIN}/#accept-invite?token=${token}`,
     });
 
     const emailStatus = inviteResult?.sent ? 'sent' : 'failed';
     console.log('Resend result:', inviteResult);
-    alert('Resend result:' + JSON.stringify(inviteResult));
 
     return res.status(existing ? 200 : 201).json({
       message: existing
         ? 'Receptionist linked successfully.'
         : 'Receptionist invited successfully.',
       emailStatus,
-      user: receptionist,
-    });
-
-    return res.status(existing ? 200 : 201).json({
-      message: existing
-        ? 'Receptionist linked to your clinic successfully.'
-        : 'Receptionist invited successfully.',
       user: receptionist,
     });
   } catch (error) {
