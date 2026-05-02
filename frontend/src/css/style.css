@@ -2491,6 +2491,11 @@ body.theme-dark .messenger-thread-fab {
 .messenger-compose-footer.thread-drawer-reply {
   margin-top: 0;
   padding-top: 0.45rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  flex: 0 0 auto;
+  align-self: stretch;
 }
 
 /* Floating chat: composer must match panel width exactly */
