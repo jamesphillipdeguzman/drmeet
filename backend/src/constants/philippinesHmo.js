@@ -1,4 +1,4 @@
-export const PHILIPPINES_HEALTH_PROVIDERS = [
+export const PHILIPPINES_HMO_PROVIDERS = [
   'Asiancare Multi-Purpose Cooperative',
   'Avega Managed Care',
   'AXA Philippines',
