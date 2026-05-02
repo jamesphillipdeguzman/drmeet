@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import crypto from "crypto";
 
 import {
     findAllDoctors,
@@ -391,6 +392,8 @@ export const inviteReceptionist = async (req, res) => {
             return res.status(404).json({ error: 'Doctor profile not found.' });
         }
 
+        const token = crypto.randomBytes(32).toString("hex");
+
         const email = String(req.body?.email || '').trim().toLowerCase();
         if (!email) {
             return res.status(400).json({ error: 'Receptionist email is required.' });
@@ -433,11 +436,17 @@ export const inviteReceptionist = async (req, res) => {
                   role: 'receptionist',
                   linkedDoctorId: doctor._id,
               });
+
+        
         const inviteResult = await sendReceptionistInviteEmail({
             email,
-            doctorName: `${doctor.firstName || ''} ${doctor.lastName || ''}`.trim() || 'Your doctor',
+            doctorName: `${doctor.firstName} ${doctor.lastName}`,
+            inviteLink: `${APP_URL}/#accept-invite?token=${token}`,
         });
+
+        
         const emailStatus = inviteResult?.sent ? 'sent' : 'failed';
+        alert("Resend result:" + JSON.stringify(inviteResult));
 
         return res.status(existing ? 200 : 201).json({
             message: existing
