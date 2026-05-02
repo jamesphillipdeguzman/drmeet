@@ -20,21 +20,34 @@ function getBaseTemplate({
   return `
     <div style="margin:0;padding:0;background:#f0f6ff;font-family:Segoe UI,Arial,sans-serif;">
       <div style="max-width:640px;margin:0 auto;padding:24px;">
+        
         <div style="background:#0f4da8;color:#fff;border-radius:14px 14px 0 0;padding:20px 24px;">
           <div style="font-size:14px;letter-spacing:0.06em;opacity:0.9;">DRMEET</div>
           <h1 style="margin:8px 0 6px;font-size:26px;line-height:1.2;">${title}</h1>
           <p style="margin:0;font-size:15px;opacity:0.95;">${subtitle}</p>
         </div>
+
         <div style="background:#fff;border:1px solid #d4e3ff;border-top:none;border-radius:0 0 14px 14px;padding:24px;">
-          https://res.cloudinary.com/drmeetapp/image/upload/v1777737258/drmeet-logo_cxza21.webp
+
+          <!-- ✅ LOGO FIXED HERE -->
+          <div style="text-align:center;margin-bottom:18px;">
+            <img 
+              src="https://res.cloudinary.com/drmeetapp/image/upload/v1777737258/drmeet-logo_cxza21.webp"
+              alt="DrMeet Logo"
+              style="height:56px;max-width:180px;object-fit:contain;display:block;margin:0 auto;"
+            />
+          </div>
+
           <div style="color:#1d2b48;font-size:15px;line-height:1.6;">
             ${bodyHtml}
           </div>
+
           <div style="margin-top:24px;">
             <a href="${ctaHref}" style="display:inline-block;background:#1b67d7;color:#fff;text-decoration:none;padding:12px 18px;border-radius:10px;font-weight:700;">
               ${ctaLabel}
             </a>
           </div>
+
         </div>
       </div>
     </div>
