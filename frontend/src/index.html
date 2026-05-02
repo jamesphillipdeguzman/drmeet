@@ -97,16 +97,14 @@
                                 <div class="messenger-thread-body">
                                     <div class="messenger-thread-scroll thread-list" data-messenger-scroll></div>
                                     <footer class="messenger-compose-footer thread-drawer-reply">
-                                        <label class="sr-only" for="floating-messenger-reply">Message</label>
                                         <div class="messenger-compose-row message-compose-row">
                                             <label class="messenger-file-upload message-compose-btn" title="Attach file" aria-label="Attach file">
                                                 <img src="images/chat-upload-line.svg" alt="" class="messenger-action-icon message-compose-icon" width="22" height="22" />
-                                                <span class="sr-only">Attach file</span>
                                                 <input type="file" data-messenger-file-input accept="image/*,.pdf,.doc,.docx,.txt" />
                                             </label>
 
                                             <div class="message-compose-pill">
-                                                <textarea id="floating-messenger-reply" class="messenger-compose-input" data-messenger-reply-text rows="2" placeholder="Type a message…" autocomplete="off"></textarea>
+                                                <textarea id="floating-messenger-reply" class="messenger-compose-input" data-messenger-reply-text rows="2" placeholder="Type a message…" autocomplete="off" aria-label="Message"></textarea>
                                                 <button type="button" class="message-compose-emoji" aria-label="Insert emoji" title="Emoji">😊</button>
                                             </div>
 

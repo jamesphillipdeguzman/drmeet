@@ -2432,7 +2432,8 @@ body.theme-dark .messenger-thread-close-x:hover {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0.85rem 1rem 1rem;
+  padding: 0.85rem 1rem 1.6rem;
+  scroll-padding-bottom: 110px;
   min-height: 0;
   min-width: 0;
   max-width: 100%;
@@ -2476,6 +2477,7 @@ body.theme-dark .messenger-thread-close-x:hover {
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .messenger-compose-row > *,
@@ -2617,6 +2619,8 @@ body.theme-dark .emoji-menu {
 .messenger-file-upload input {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   opacity: 0;
   cursor: pointer;
 }
