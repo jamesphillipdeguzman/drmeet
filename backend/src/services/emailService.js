@@ -1,7 +1,8 @@
-import { Resend } from "resend";
+import { Resend } from 'resend';
 
-const APP_URL = process.env.CLIENT_ORIGIN || "https://mydrmeet.netlify.app";
-const FROM_EMAIL = "DrMeet <onboarding@resend.dev>";
+const CLIENT_ORIGIN =
+  process.env.CLIENT_ORIGIN || 'https://mydrmeet.netlify.app';
+const FROM_EMAIL = 'DrMeet <onboarding@resend.dev>';
 
 function getResendClient() {
   const apiKey = process.env.RESEND_API_KEY;
@@ -9,7 +10,13 @@ function getResendClient() {
   return new Resend(apiKey);
 }
 
-function getBaseTemplate({ title, subtitle, bodyHtml, ctaLabel = "Open DrMeet", ctaHref = APP_URL }) {
+function getBaseTemplate({
+  title,
+  subtitle,
+  bodyHtml,
+  ctaLabel = 'Open DrMeet',
+  ctaHref = CLIENT_ORIGIN,
+}) {
   return `
     <div style="margin:0;padding:0;background:#f0f6ff;font-family:Segoe UI,Arial,sans-serif;">
       <div style="max-width:640px;margin:0 auto;padding:24px;">
@@ -39,8 +46,8 @@ function getBaseTemplate({ title, subtitle, bodyHtml, ctaLabel = "Open DrMeet", 
 async function sendEmailSafe({ to, subject, html }) {
   const resend = getResendClient();
   if (!resend) {
-    console.warn("[EMAIL] RESEND_API_KEY missing. Skipping email send.");
-    return { sent: false, error: "RESEND_API_KEY missing" };
+    console.warn('[EMAIL] RESEND_API_KEY missing. Skipping email send.');
+    return { sent: false, error: 'RESEND_API_KEY missing' };
   }
   try {
     await resend.emails.send({
@@ -51,17 +58,27 @@ async function sendEmailSafe({ to, subject, html }) {
     });
     return { sent: true };
   } catch (error) {
-    console.error("[EMAIL] Failed to send via Resend:", error?.message || error);
-    return { sent: false, error: error?.message || "Failed to send email" };
+    console.error(
+      '[EMAIL] Failed to send via Resend:',
+      error?.message || error,
+    );
+    return { sent: false, error: error?.message || 'Failed to send email' };
   }
 }
 
-export async function sendDoctorWelcomeEmail({ email, title, firstName, lastName }) {
-  const resolvedTitle = String(title || "Dr.").toLowerCase() === "dra." ? "Dra." : "Dr.";
-  const displayName = `${resolvedTitle} ${firstName || ""} ${lastName || ""}`.trim();
+export async function sendDoctorWelcomeEmail({
+  email,
+  title,
+  firstName,
+  lastName,
+}) {
+  const resolvedTitle =
+    String(title || 'Dr.').toLowerCase() === 'dra.' ? 'Dra.' : 'Dr.';
+  const displayName =
+    `${resolvedTitle} ${firstName || ''} ${lastName || ''}`.trim();
   const html = getBaseTemplate({
     title: `Welcome ${displayName}`,
-    subtitle: "Your DrMeet doctor workspace is now ready.",
+    subtitle: 'Your DrMeet doctor workspace is now ready.',
     bodyHtml: `
       <p>Hi ${displayName},</p>
       <p>Welcome to DrMeet. Your doctor account is active and you can now manage your profile, appointments, and patient communication.</p>
@@ -77,32 +94,36 @@ export async function sendDoctorWelcomeEmail({ email, title, firstName, lastName
 
 export async function sendPatientWelcomeEmail({ email, firstName }) {
   const html = getBaseTemplate({
-    title: "Welcome to DrMeet",
-    subtitle: "Your patient account is now active.",
+    title: 'Welcome to DrMeet',
+    subtitle: 'Your patient account is now active.',
     bodyHtml: `
-      <p>Hi ${firstName || "there"},</p>
+      <p>Hi ${firstName || 'there'},</p>
       <p>Welcome to DrMeet. You can now complete your patient profile, book appointments, and securely message your care team.</p>
       <p>We are glad to have you with us.</p>
     `,
   });
   return sendEmailSafe({
     to: email,
-    subject: "Welcome to DrMeet",
+    subject: 'Welcome to DrMeet',
     html,
   });
 }
 
-export async function sendReceptionistInviteEmail({ email, doctorName, inviteLink }) {
+export async function sendReceptionistInviteEmail({
+  email,
+  doctorName,
+  inviteLink,
+}) {
   const html = getBaseTemplate({
-    title: "Clinic Staff Invitation",
-    subtitle: "You were invited to join DrMeet as a receptionist.",
+    title: 'Clinic Staff Invitation',
+    subtitle: 'You were invited to join DrMeet as a receptionist.',
     bodyHtml: `
       <p>Hi,</p>
       <p>${doctorName} invited you to join their clinic team on DrMeet as a receptionist.</p>
       <p>Use the button below to sign in or continue account setup.</p>
     `,
-    ctaLabel: "Open DrMeet Login",
-    ctaHref: inviteLink || `${APP_URL}/#login`,
+    ctaLabel: 'Open DrMeet Login',
+    ctaHref: inviteLink || `${CLIENT_ORIGIN}/#login`,
   });
   return sendEmailSafe({
     to: email,
