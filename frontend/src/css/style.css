@@ -2340,6 +2340,8 @@ body.theme-dark .clinical-field-hint {
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
+  /* 🔥 IMPORTANT: enforce stacking context */
+  position: relative;
 }
 
 .messenger-thread-topbar {
@@ -2420,18 +2422,20 @@ body.theme-dark .messenger-thread-close-x:hover {
 
 /* Messages scroll above; composer stays fixed at bottom of this column */
 .messenger-thread-body {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   min-width: 0;
   max-width: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  position: relative;
+
+  /* 🔥 CHANGE: do NOT clip flex children here */
+  overflow: visible;
 }
 
 .messenger-thread-scroll {
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
   /* Extra bottom room so last bubble clears the composer + FAB */
@@ -2471,6 +2475,9 @@ body.theme-dark .messenger-thread-fab {
 }
 
 .messenger-compose-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
   flex-shrink: 0;
   padding: 0.5rem 0.65rem 0.6rem;
   border-top: 1px solid #dce4f4;
