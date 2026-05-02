@@ -2443,6 +2443,7 @@ body.theme-dark .messenger-thread-close-x:hover {
   padding: 0.5rem 0.65rem 0.6rem;
   border-top: 1px solid #dce4f4;
   background: #f8faff;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
@@ -2456,6 +2457,12 @@ body.theme-dark .messenger-thread-close-x:hover {
 .messenger-compose-footer.thread-drawer-reply {
   margin-top: 0;
   padding-top: 0.45rem;
+}
+
+/* Floating chat: composer must match panel width exactly */
+.floating-chat-panel .messenger-compose-footer {
+  width: 100%;
+  max-width: 100%;
 }
 
 /* --- Message composer row (Messenger-style) --- */
@@ -2524,6 +2531,51 @@ body.theme-dark .messenger-thread-close-x:hover {
 }
 .message-compose-emoji:hover {
   background: rgba(195, 154, 72, 0.12);
+}
+
+.emoji-menu {
+  position: absolute;
+  width: min(320px, calc(100vw - 2rem));
+  max-width: 100%;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid #e2e9f7;
+  background: #ffffff;
+  box-shadow: 0 14px 38px rgba(12, 24, 58, 0.18);
+  z-index: 999;
+}
+
+.emoji-menu.hidden {
+  display: none;
+}
+
+.emoji-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.emoji-item {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.emoji-item:hover {
+  background: rgba(61, 111, 184, 0.12);
+}
+
+body.theme-dark .emoji-menu {
+  background: #121a2c;
+  border-color: #243559;
 }
 
 /* Upload + send controls */

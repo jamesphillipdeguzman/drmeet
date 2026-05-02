@@ -2581,6 +2581,89 @@ function wireMessengerShell(rootEl) {
     /* Only refresh the inbox list — do not notify full dashboard (avoids re-running thread UI). */
     renderMessengerConversationList(rootEl);
   });
+
+  const ensureEmojiMenu = () => {
+    let menu = rootEl.querySelector(".emoji-menu");
+    if (menu) return menu;
+    menu = document.createElement("div");
+    menu.className = "emoji-menu hidden";
+    menu.setAttribute("role", "dialog");
+    menu.setAttribute("aria-label", "Emoji picker");
+    menu.innerHTML = `
+      <div class="emoji-menu-grid" role="listbox">
+        ${[
+          "😀","😁","😂","🤣","😊","😍","😘","😎",
+          "😅","😉","🙂","🤔","😴","😷","🤒","🤕",
+          "👍","🙏","👏","💪","🙌","🤝","✅","❌",
+          "❤️","💛","💙","💚","✨","🔥","🎉","📎",
+        ]
+          .map((e) => `<button type="button" class="emoji-item" data-emoji="${e}" aria-label="${e}">${e}</button>`)
+          .join("")}
+      </div>`;
+    rootEl.appendChild(menu);
+    return menu;
+  };
+
+  const hideEmojiMenu = () => {
+    const m = rootEl.querySelector(".emoji-menu");
+    if (m) m.classList.add("hidden");
+  };
+
+  rootEl.addEventListener("click", (ev) => {
+    const emojiBtn = ev.target.closest?.(".message-compose-emoji");
+    const emojiItem = ev.target.closest?.(".emoji-item");
+    const menu = rootEl.querySelector(".emoji-menu");
+
+    if (emojiBtn) {
+      ev.preventDefault();
+      const textarea = rootEl.querySelector("[data-messenger-reply-text]");
+      const m = ensureEmojiMenu();
+      const rect = emojiBtn.getBoundingClientRect();
+      const rootRect = rootEl.getBoundingClientRect();
+      // Position above the emoji button, clamped inside the root shell.
+      const desiredLeft = rect.left - rootRect.left - 240;
+      const left = Math.max(10, Math.min(desiredLeft, rootRect.width - 10 - 320));
+      m.style.left = `${left}px`;
+      m.style.bottom = `${Math.max(64, rootRect.bottom - rect.top + 10)}px`;
+      m.classList.toggle("hidden");
+      textarea?.focus();
+      return;
+    }
+
+    if (emojiItem) {
+      ev.preventDefault();
+      const emoji = emojiItem.getAttribute("data-emoji") || "";
+      const textarea = rootEl.querySelector("[data-messenger-reply-text]");
+      if (textarea && emoji) {
+        const start = textarea.selectionStart ?? textarea.value.length;
+        const end = textarea.selectionEnd ?? textarea.value.length;
+        const before = textarea.value.slice(0, start);
+        const after = textarea.value.slice(end);
+        textarea.value = `${before}${emoji}${after}`;
+        const next = start + emoji.length;
+        textarea.setSelectionRange(next, next);
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+        textarea.focus();
+      }
+      hideEmojiMenu();
+      return;
+    }
+
+    // Click outside closes.
+    if (menu && !menu.classList.contains("hidden")) {
+      const insideMenu = ev.target.closest?.(".emoji-menu");
+      if (!insideMenu) hideEmojiMenu();
+    }
+  });
+
+  document.addEventListener(
+    "keydown",
+    (ev) => {
+      if (ev.key === "Escape") hideEmojiMenu();
+    },
+    { passive: true },
+  );
+
   const clearThread = () => {
     dashboardState.activeConversationId = "";
     dashboardState.messages = [];
