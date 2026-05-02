@@ -1,4 +1,7 @@
 import mongoose from "mongoose";
+import { readFile } from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
 import Doctor from "../models/doctor.model.js";
 import Patient from "../models/patient.model.js";
 import { sanitizeInput } from "../utils/inputSanitizer.js";
@@ -14,6 +17,19 @@ import {
   aggregatePatientDocumentsForDoctor,
 } from "../services/doctorDashboard.service.js";
 import { PHILIPPINES_HEALTH_PROVIDERS } from "../constants/philippinesHmo.js";
+
+const DASH_CTRL_DIR = path.dirname(fileURLToPath(import.meta.url));
+let paymentsCatalogJsonCache = null;
+
+async function loadPaymentsCatalogJson() {
+  if (paymentsCatalogJsonCache) return paymentsCatalogJsonCache;
+  const raw = await readFile(
+    path.join(DASH_CTRL_DIR, "../constants/payments.json"),
+    "utf8",
+  );
+  paymentsCatalogJsonCache = JSON.parse(raw);
+  return paymentsCatalogJsonCache;
+}
 
 const PAYMENT_STATUS_SET = new Set(["unpaid", "partial", "paid"]);
 const HMO_COVERAGE_SET = new Set(["", "verified", "partial", "denied"]);
@@ -149,6 +165,20 @@ function clinicLabel(doctor) {
     ""
   );
 }
+
+/**
+ * GET /api/doctors/me/payment-methods
+ * Clinical billing dropdowns (same payload as `payments.json`).
+ */
+export const getDoctorPaymentMethodsCatalog = async (req, res) => {
+  try {
+    const data = await loadPaymentsCatalogJson();
+    return res.status(200).json(data);
+  } catch (e) {
+    console.error("[doctorDashboard] payment methods catalog", e);
+    return res.status(500).json({ error: "Failed to load payment methods." });
+  }
+};
 
 /**
  * GET /api/doctors/me/overview

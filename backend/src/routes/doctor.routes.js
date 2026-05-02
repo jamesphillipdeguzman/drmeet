@@ -10,6 +10,7 @@ import {
 } from '../controllers/doctor.controller.js';
 import {
   getDoctorDashboardOverview,
+  getDoctorPaymentMethodsCatalog,
   getDoctorDashboardPatients,
   getDoctorDashboardAppointments,
   patchDoctorDashboardAppointmentStatus,
@@ -31,6 +32,12 @@ router.get(
   hybridAuth,
   requireRoles(['doctor']),
   getDoctorDashboardOverview,
+);
+router.get(
+  '/me/payment-methods',
+  hybridAuth,
+  requireRoles(['doctor']),
+  getDoctorPaymentMethodsCatalog,
 );
 router.get(
   '/me/patients',

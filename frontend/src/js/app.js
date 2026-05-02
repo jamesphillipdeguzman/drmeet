@@ -35,6 +35,77 @@ const DEFAULT_AVATAR_URL = "images/user-line.svg";
 /** Chat composer file-picker icon (matches sidebar asset path). */
 const CHAT_UPLOAD_ICON_SRC = "images/chat-upload-line.svg";
 const CHAT_SEND_ICON_SRC = "images/send-plane-2-line.svg";
+
+/** Mirrors backend `payments.json` so Clinical billing dropdowns work offline or if the API fails. */
+const PAYMENT_METHOD_CATEGORIES_FALLBACK = [
+  {
+    category: "cash",
+    methods: ["Cash (Philippine Peso)", "Cash Deposit (Bank Counter)"],
+  },
+  {
+    category: "card",
+    methods: [
+      "Credit Card - Visa",
+      "Credit Card - Mastercard",
+      "Credit Card - JCB",
+      "Credit Card - American Express",
+      "Debit Card - Visa",
+      "Debit Card - Mastercard",
+      "Contactless Card (Tap to Pay / NFC)",
+    ],
+  },
+  {
+    category: "ewallet",
+    methods: ["GCash", "Maya (PayMaya)", "GrabPay", "ShopeePay", "GoTyme Pay"],
+  },
+  {
+    category: "qr",
+    methods: ["QR Ph (National Standard)", "Bank QR", "GCash QR", "Maya QR"],
+  },
+  {
+    category: "bank_transfer",
+    methods: [
+      "InstaPay",
+      "PESONet",
+      "Bank Transfer",
+      "BPI Transfer",
+      "BDO Transfer",
+      "Metrobank Transfer",
+      "UnionBank Transfer",
+      "Security Bank Transfer",
+      "RCBC Transfer",
+      "LandBank Transfer",
+    ],
+  },
+  {
+    category: "payment_gateway",
+    methods: [
+      "PayMongo",
+      "Xendit",
+      "DragonPay",
+      "HitPay",
+      "Payment Link (Email/SMS Invoice)",
+    ],
+  },
+  {
+    category: "insurance",
+    methods: [
+      "HMO Coverage",
+      "PhilHealth",
+      "Private Health Insurance",
+      "Guarantee Letter (GL)",
+      "HMO Co-pay",
+    ],
+  },
+  {
+    category: "financing",
+    methods: ["Home Credit", "BillEase", "SPayLater", "LazPayLater"],
+  },
+  {
+    category: "government_assistance",
+    methods: ["PCSO Assistance", "LGU Medical Assistance"],
+  },
+];
 const dashboardSubscribers = [];
 const dashboardState = {
   conversations: [],
@@ -1822,7 +1893,7 @@ async function showClinicalTab(tab) {
       try {
         const [pres, pm] = await Promise.all([
           apiRequest(`${API_BASE}/patients/constants/hmo-providers`),
-          apiRequest(`${API_BASE}/patients/constants/payment-methods`),
+          apiRequest(`${API_BASE}/doctors/me/payment-methods`),
         ]);
         if (pres.ok) {
           const js = await pres.json();
@@ -1837,6 +1908,12 @@ async function showClinicalTab(tab) {
         }
       } catch (e) {
         /* ignore */
+      }
+      if (!paymentCategories.length) {
+        paymentCategories = PAYMENT_METHOD_CATEGORIES_FALLBACK.map((c) => ({
+          category: c.category,
+          methods: [...c.methods],
+        }));
       }
 
       const formatPaymentCategoryLabel = (slug) =>
