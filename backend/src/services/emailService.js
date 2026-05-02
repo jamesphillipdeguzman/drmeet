@@ -26,9 +26,7 @@ function getBaseTemplate({
           <p style="margin:0;font-size:15px;opacity:0.95;">${subtitle}</p>
         </div>
         <div style="background:#fff;border:1px solid #d4e3ff;border-top:none;border-radius:0 0 14px 14px;padding:24px;">
-          <div style="width:100%;height:56px;border:1px dashed #9db8ea;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#3b5d99;font-weight:600;margin-bottom:18px;">
-            DrMeet Logo
-          </div>
+          https://res.cloudinary.com/drmeetapp/image/upload/v1777737258/drmeet-logo_cxza21.webp
           <div style="color:#1d2b48;font-size:15px;line-height:1.6;">
             ${bodyHtml}
           </div>
