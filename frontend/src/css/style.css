@@ -2592,37 +2592,34 @@ body.theme-dark .messenger-thread-close-x:hover {
  * Floating messenger: 2-row grid (field, then actions). max-width: none was removed —
  * it let the textarea ignore the panel width and overflow (intrinsic min + long lines).
  */
-.messenger-shell--floating .messenger-compose-row {
+ .messenger-shell--floating .messenger-compose-row {
   display: grid;
-  grid-template-columns: 1fr; /* ✅ simplify */
+  grid-template-columns: minmax(0, 1fr); /* 🔥 critical fix */
   gap: 0.5rem;
-  overflow: hidden; /* ✅ ADD THIS */
+  width: 100%;
   min-width: 0 !important;
+  overflow: hidden;
 }
 
-.messenger-shell--floating .messenger-compose-actions {
-  justify-content: flex-end;
-}
-
-.messenger-shell--floating .messenger-compose-actions {
-  justify-content: flex-end;
-}
 .messenger-shell--floating .messenger-compose-input {
   grid-row: 1;
   grid-column: 1;
+
   width: 100%;
-  min-width: 0;
+  min-width: 0;        /* 🔥 critical */
   max-width: 100%;
-  flex: unset;
+  box-sizing: border-box;
+
   justify-self: stretch;
-  overflow-x: hidden;
+
+  overflow-wrap: anywhere; /* prevents long strings overflow */
+  word-break: break-word;
 }
 
 .messenger-shell--floating .messenger-compose-actions {
   grid-row: 2;
   grid-column: 1;
   justify-self: end;
-  margin-left: 0;
   min-width: 0;
 }
 
