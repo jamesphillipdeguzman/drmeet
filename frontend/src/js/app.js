@@ -4448,7 +4448,14 @@ async function renderDoctors() {
             );
           }
           feedback.className = "feedback success";
-          feedback.textContent = "Receptionist linked successfully.";
+          const data = await inviteRes.json();
+
+          feedback.className = "feedback success";
+          feedback.textContent =
+            data.message +
+            (data.emailStatus === "failed"
+              ? " (Email failed to send)"
+              : " (Invitation email sent)");
           form.reset();
         } catch (error) {
           feedback.className = "feedback error";

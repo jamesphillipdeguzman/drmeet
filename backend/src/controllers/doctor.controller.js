@@ -437,11 +437,15 @@ export const inviteReceptionist = async (req, res) => {
             email,
             doctorName: `${doctor.firstName || ''} ${doctor.lastName || ''}`.trim() || 'Your doctor',
         });
-        if (!inviteResult?.sent) {
-            return res.status(502).json({
-                error: 'Receptionist account was linked, but invite email could not be sent. Please verify mail settings.',
-            });
-        }
+        const emailStatus = inviteResult?.sent ? 'sent' : 'failed';
+
+        return res.status(existing ? 200 : 201).json({
+            message: existing
+                ? 'Receptionist linked successfully.'
+                : 'Receptionist invited successfully.',
+            emailStatus,
+            user: receptionist,
+        });
 
         return res.status(existing ? 200 : 201).json({
             message: existing

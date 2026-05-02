@@ -92,7 +92,7 @@ export async function sendPatientWelcomeEmail({ email, firstName }) {
   });
 }
 
-export async function sendReceptionistInviteEmail({ email, doctorName }) {
+export async function sendReceptionistInviteEmail({ email, doctorName, inviteLink }) {
   const html = getBaseTemplate({
     title: "Clinic Staff Invitation",
     subtitle: "You were invited to join DrMeet as a receptionist.",
@@ -102,7 +102,7 @@ export async function sendReceptionistInviteEmail({ email, doctorName }) {
       <p>Use the button below to sign in or continue account setup.</p>
     `,
     ctaLabel: "Open DrMeet Login",
-    ctaHref: `${APP_URL}/#login`,
+    ctaHref: inviteLink || `${APP_URL}/#login`,
   });
   return sendEmailSafe({
     to: email,
