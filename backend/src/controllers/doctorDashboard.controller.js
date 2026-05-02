@@ -33,6 +33,7 @@ function plainBillingDoc(billing) {
     totalAmount: Number(p.totalAmount) || 0,
     paymentStatus: p.paymentStatus || "unpaid",
     paymentMethod: String(p.paymentMethod || ""),
+    paymentMethodCategory: String(p.paymentMethodCategory || ""),
     hmoProvider: String(p.hmoProvider || ""),
     hmoMemberId: String(p.hmoMemberId || ""),
     hmoCoverageStatus: p.hmoCoverageStatus === undefined ? "" : String(p.hmoCoverageStatus || ""),
@@ -65,6 +66,9 @@ function mergeAppointmentBilling(prev, body = {}) {
   }
   if ("paymentMethod" in body && typeof body.paymentMethod === "string") {
     out.paymentMethod = body.paymentMethod.trim();
+  }
+  if ("paymentMethodCategory" in body && typeof body.paymentMethodCategory === "string") {
+    out.paymentMethodCategory = body.paymentMethodCategory.trim();
   }
   if ("paymentStatus" in body) {
     const ps = String(body.paymentStatus || "").trim().toLowerCase();

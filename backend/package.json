@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "lint-fix": "eslint . --fix",
     "generate-swagger": "node generate-swagger.js",
+    "clean-doctors": "node scripts/clean-doctors-json.js",
     "test": "jest"
   },
   "dependencies": {
@@ -55,6 +56,7 @@
     "@babel/preset-env": "^7.27.2",
     "@eslint/js": "^9.29.0",
     "babel-jest": "^30.0.2",
+    "cheerio": "^1.2.0",
     "eslint": "^9.29.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.5.0",

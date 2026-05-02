@@ -7,6 +7,11 @@ import { Server as SocketIOServer } from 'socket.io';
 
 import connectDB from './src/db/mongoose.js';
 import { app } from './app.js';
+import './src/models/billing.model.js';
+import './src/models/payment.model.js';
+import './src/models/serviceCatalog.model.js';
+import './src/models/medicationCatalog.model.js';
+import './src/models/supplyCatalog.model.js';
 import Conversation from './src/models/conversation.model.js';
 import Message from './src/models/message.model.js';
 import {

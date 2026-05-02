@@ -1,47 +1,35 @@
 export const PHILIPPINES_HEALTH_PROVIDERS = [
-  // HMOs
-  'Maxicare Healthcare Corporation',
-  'MediCard Philippines, Inc.',
-  'Intellicare (Asalus Corporation)',
+  'Asiancare Multi-Purpose Cooperative',
   'Avega Managed Care',
-  'PhilCare (Philhealthcare, Inc.)',
-  'EastWest Healthcare, Inc.',
-  'ValuCare Health Systems, Inc.',
-  'Pacific Cross Health Care, Inc.',
+  'AXA Philippines',
   'Carewell Health Systems, Inc.',
+  'Cocolife (COCOLIFE)',
+  'Cooperative Health Management Federation (CHMF)',
   'Dynamic Care Corporation',
-  'Wellnet Healthcare Systems, Inc.',
+  'EastWest Healthcare, Inc.',
+  'Generali Philippines',
+  'Getwell Health Systems, Inc.',
+  'Health Care and Development Corporation of the Philippines (HDCP)',
+  'Health Delivery System (HDS)',
+  'Health Maintenance, Inc. (HMI)',
   'HPPI (Health Partners Philippines, Inc.)',
   'I-Care Health Sciences, Inc.',
-  'Kaiser Medical Center Foundation, Inc.',
-  'Lifeline Medical, Inc.',
-  'Lifeline 16911 Medical, Inc.',
-  'Getwell Health Systems, Inc.',
-  'Health Maintenance, Inc. (HMI)',
-  'Health Delivery System (HDS)',
-  'Health Care and Development Corporation of the Philippines (HDCP)',
-
-  // Insurance / Life & Health Plans
-  'Cocolife (COCOLIFE)',
-  'Sun Life Grepa Financial',
-  'Manulife Philippines',
-  'AXA Philippines',
-  'Prudential Life',
   'Insular Life',
-  'Generali Philippines',
-
-  // Cooperative / Group / Special Systems
-  'Asiancare Multi-Purpose Cooperative',
-  'Cooperative Health Management Federation (CHMF)',
-  'St. Luke\'s Extended Care Services, Inc. (SL-EXOS)',
-
-  // Plan Variants / Sub-brands
-  'MediCard Select (Select Healthcare Systems)',
+  'Intellicare (Asalus Corporation)',
+  'Kaiser Medical Center Foundation, Inc.',
+  'Lifeline 16911 Medical, Inc.',
+  'Lifeline Medical, Inc.',
+  'Manulife Philippines',
+  'Maxicare Healthcare Corporation',
   'MediCard Lifestyle',
-
-  // Other
+  'MediCard Philippines, Inc.',
+  'MediCard Select (Select Healthcare Systems)',
   'Other / Not Listed',
+  'Pacific Cross Health Care, Inc.',
+  'PhilCare (Philhealthcare, Inc.)',
+  'Prudential Life',
+  "St. Luke's Extended Care Services, Inc. (SL-EXOS)",
+  'Sun Life Grepa Financial',
+  'ValuCare Health Systems, Inc.',
+  'Wellnet Healthcare Systems, Inc.',
 ];
-
-/** @deprecated prefer PHILIPPINES_HEALTH_PROVIDERS */
-export const PHILIPPINES_HMO_PROVIDERS = PHILIPPINES_HEALTH_PROVIDERS;

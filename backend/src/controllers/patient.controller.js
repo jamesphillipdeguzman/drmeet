@@ -1,4 +1,7 @@
 import mongoose from 'mongoose';
+import { readFile } from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import Patient from '../models/patient.model.js';
 import {
@@ -16,6 +19,19 @@ import {
   patientActiveQuery,
 } from '../services/patient.service.js';
 import { PHILIPPINES_HMO_PROVIDERS } from '../constants/philippinesHmo.js';
+
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+let paymentMethodsJsonCache = null;
+
+async function readPaymentMethodsJson() {
+  if (paymentMethodsJsonCache) return paymentMethodsJsonCache;
+  const buf = await readFile(
+    path.join(MODULE_DIR, '../constants/payments.json'),
+    'utf8',
+  );
+  paymentMethodsJsonCache = JSON.parse(buf);
+  return paymentMethodsJsonCache;
+}
 import { findDoctorByUserId, findDoctorById } from '../services/doctor.service.js';
 import User from '../models/user.model.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
@@ -716,6 +732,16 @@ export const getPhilippinesHmoProviders = async (req, res) => {
     return res.status(200).json({ providers: PHILIPPINES_HMO_PROVIDERS });
   } catch (error) {
     return res.status(500).json({ error: 'Failed to load HMO list.' });
+  }
+};
+
+export const getPaymentMethodCatalog = async (req, res) => {
+  try {
+    const data = await readPaymentMethodsJson();
+    return res.status(200).json(data);
+  } catch (e) {
+    console.error('[patients] payment methods', e);
+    return res.status(500).json({ error: 'Failed to load payment methods.' });
   }
 };
 

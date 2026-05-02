@@ -34,6 +34,7 @@ const MESSAGES_API = `${API_BASE}/messages`;
 const DEFAULT_AVATAR_URL = "images/user-line.svg";
 /** Chat composer file-picker icon (matches sidebar asset path). */
 const CHAT_UPLOAD_ICON_SRC = "images/chat-upload-line.svg";
+const CHAT_SEND_ICON_SRC = "images/send-plane-2-line.svg";
 const dashboardSubscribers = [];
 const dashboardState = {
   conversations: [],
@@ -1817,16 +1818,33 @@ async function showClinicalTab(tab) {
       `;
 
       let hmoOptions = "";
+      let paymentCategories = [];
       try {
-        const pres = await apiRequest(`${API_BASE}/patients/constants/hmo-providers`);
+        const [pres, pm] = await Promise.all([
+          apiRequest(`${API_BASE}/patients/constants/hmo-providers`),
+          apiRequest(`${API_BASE}/patients/constants/payment-methods`),
+        ]);
         if (pres.ok) {
           const js = await pres.json();
           const list = Array.isArray(js.providers) ? js.providers : [];
           hmoOptions = list.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("");
         }
+        if (pm.ok) {
+          const pj = await pm.json();
+          paymentCategories = Array.isArray(pj.paymentMethodCategories)
+            ? pj.paymentMethodCategories
+            : [];
+        }
       } catch (e) {
         /* ignore */
       }
+
+      const formatPaymentCategoryLabel = (slug) =>
+        String(slug || "")
+          .split("_")
+          .filter(Boolean)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(" ");
 
       const ensureBillingDialog = () => {
         let dlg = document.getElementById("clinical-billing-dialog");
@@ -1847,6 +1865,41 @@ async function showClinicalTab(tab) {
           lines.length > 0
             ? lines
             : [{ description: "", amount: 0 }, { description: "", amount: 0 }];
+        const savedMethod = String(b.paymentMethod || "").trim();
+        const savedCat = String(b.paymentMethodCategory || "").trim();
+        let initialCat = savedCat;
+        if (!initialCat && savedMethod) {
+          for (const c of paymentCategories) {
+            if ((c.methods || []).includes(savedMethod)) {
+              initialCat = c.category;
+              break;
+            }
+          }
+        }
+        if (!initialCat && paymentCategories.length) {
+          initialCat = paymentCategories[0].category;
+        }
+        const activeGroup =
+          paymentCategories.find((c) => c.category === initialCat) || paymentCategories[0] || {};
+        const methodsList = Array.isArray(activeGroup.methods) ? activeGroup.methods : [];
+        const payCategoryOptions = paymentCategories
+          .map(
+            (c) =>
+              `<option value="${escapeHtml(c.category)}" ${c.category === initialCat ? "selected" : ""}>${escapeHtml(formatPaymentCategoryLabel(c.category))}</option>`,
+          )
+          .join("");
+        const legacyPayOption =
+          savedMethod && !methodsList.includes(savedMethod)
+            ? `<option value="${escapeHtml(savedMethod)}" selected>${escapeHtml(savedMethod)} (saved)</option>`
+            : "";
+        const payMethodOptions = [
+          `<option value="">— Select method —</option>`,
+          ...methodsList.map(
+            (m) =>
+              `<option value="${escapeHtml(m)}" ${m === savedMethod ? "selected" : ""}>${escapeHtml(m)}</option>`,
+          ),
+          legacyPayOption,
+        ].join("");
         dlg.innerHTML = `
           <div class="clinical-billing-dialog-inner card">
             <div class="clinical-billing-dialog-head">
@@ -1874,7 +1927,12 @@ async function showClinicalTab(tab) {
                   ${["unpaid", "partial", "paid"].map((v) => `<option value="${v}" ${String(b.paymentStatus || "unpaid") === v ? "selected" : ""}>${v}</option>`).join("")}
                 </select>
               </label>
-              <label>Payment method<input name="paymentMethod" type="text" value="${escapeHtml(String(b.paymentMethod || ""))}" placeholder="Cash, card, transfer…" /></label>
+              <label>Payment category
+                <select name="paymentMethodCategory" id="clinical-pay-category">${payCategoryOptions}</select>
+              </label>
+              <label>Payment method
+                <select name="paymentMethod" id="clinical-pay-method">${payMethodOptions}</select>
+              </label>
               <h5 class="clinical-hmo-title">HMO / payer</h5>
               <label>HMO provider
                 <select name="hmoProvider"><option value="">—</option>${hmoOptions}</select>
@@ -1916,6 +1974,22 @@ async function showClinicalTab(tab) {
 
         const sel = dlg.querySelector('select[name="hmoProvider"]');
         if (sel && b.hmoProvider) sel.value = b.hmoProvider;
+
+        const catSel = dlg.querySelector("#clinical-pay-category");
+        const methodSel = dlg.querySelector("#clinical-pay-method");
+        const syncMethodsForCategory = () => {
+          if (!catSel || !methodSel) return;
+          const cat = catSel.value;
+          const grp = paymentCategories.find((c) => c.category === cat);
+          const methods = Array.isArray(grp?.methods) ? grp.methods : [];
+          const keep = methodSel.value;
+          methodSel.innerHTML = [
+            `<option value="">— Select method —</option>`,
+            ...methods.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`),
+          ].join("");
+          if (methods.includes(keep)) methodSel.value = keep;
+        };
+        catSel?.addEventListener("change", syncMethodsForCategory);
 
         dlg.querySelectorAll("[data-billing-close]").forEach((btn) => {
           btn.addEventListener("click", () => dlg.close());
@@ -1976,6 +2050,7 @@ async function showClinicalTab(tab) {
             consultationFee: Number(fd.get("consultationFee")) || 0,
             serviceLines,
             paymentStatus: fd.get("paymentStatus"),
+            paymentMethodCategory: fd.get("paymentMethodCategory"),
             paymentMethod: fd.get("paymentMethod"),
             hmoProvider: fd.get("hmoProvider"),
             hmoMemberId: fd.get("hmoMemberId"),
@@ -2277,7 +2352,9 @@ function renderHome() {
                         <span class="sr-only">Attach file</span>
                         <input type="file" data-messenger-file-input accept="image/*,.pdf,.doc,.docx,.txt" />
                       </label>
-                      <button type="button" class="btn btn-primary messenger-send-btn" data-messenger-send>Send</button>
+                      <button type="button" class="messenger-send-icon-btn" data-messenger-send aria-label="Send message" title="Send">
+                        <img src="${CHAT_SEND_ICON_SRC}" alt="" width="22" height="22" class="messenger-send-icon-img" />
+                      </button>
                     </div>
                   </footer>
                 </div>

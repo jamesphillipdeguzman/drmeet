@@ -11,6 +11,7 @@ import {
   attachExistingPatientToCareTeam,
   getPatientMessagingRecipient,
   getPhilippinesHmoProviders,
+  getPaymentMethodCatalog,
 } from '../controllers/patient.controller.js';
 import {
   validatePatient,
@@ -39,6 +40,7 @@ const router = express.Router();
 router.get('/', hybridAuth, getAllPatients);
 router.get('/search', hybridAuth, searchPatients);
 router.get('/constants/hmo-providers', hybridAuth, getPhilippinesHmoProviders);
+router.get('/constants/payment-methods', hybridAuth, getPaymentMethodCatalog);
 
 // Get a patient by Id
 /**

@@ -2130,6 +2130,7 @@ body.theme-dark .clinical-dash-tabs {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
 }
 
 .messenger-thread-topbar {
@@ -2167,6 +2168,7 @@ body.theme-dark .clinical-dash-tabs {
 }
 
 .messenger-compose-footer {
+  flex-shrink: 0;
   padding: 0.55rem 0.65rem 0.75rem;
   border-top: 1px solid #e4ecf8;
   background: #f8faff;
@@ -2187,9 +2189,11 @@ body.theme-dark .clinical-dash-tabs {
 
 .messenger-compose-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
 }
 
 .messenger-file-upload {
@@ -2202,6 +2206,7 @@ body.theme-dark .clinical-dash-tabs {
   border-radius: 8px;
   border: 1px solid #c9d8ee;
   background: #fff;
+  flex-shrink: 0;
 }
 
 .messenger-file-upload input {
@@ -2211,8 +2216,45 @@ body.theme-dark .clinical-dash-tabs {
   cursor: pointer;
 }
 
-.messenger-send-btn {
+/* Messenger-style circular send control (plane icon) */
+.messenger-send-icon-btn {
+  flex-shrink: 0;
   margin-left: auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #1f4a99 0%, #183a7a 100%);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(24, 58, 122, 0.25);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.messenger-send-icon-btn:hover {
+  transform: scale(1.05);
+  box-shadow:
+    0 0 0 3px rgba(61, 111, 184, 0.35),
+    0 4px 14px rgba(24, 58, 122, 0.3);
+}
+
+.messenger-send-icon-btn:active {
+  transform: scale(0.98);
+}
+
+.messenger-send-icon-img {
+  display: block;
+  width: 22px;
+  height: 22px;
+  filter: brightness(0) invert(1);
+  pointer-events: none;
 }
 
 @media (max-width: 768px) {
@@ -2264,7 +2306,7 @@ body.theme-dark .messenger-compose-footer {
 /* --- Floating chat --- */
 .floating-chat-widget {
   position: fixed;
-  right: 1.1rem;
+  right: 4.25rem;
   bottom: 1.1rem;
   z-index: 200;
   display: flex;

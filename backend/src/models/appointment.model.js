@@ -49,6 +49,7 @@ const appointmentSchema = new mongoose.Schema(
         default: "unpaid",
       },
       paymentMethod: { type: String, default: "" },
+      paymentMethodCategory: { type: String, default: "" },
 
       hmoProvider: { type: String, default: "" },
       hmoMemberId: { type: String, default: "" },
