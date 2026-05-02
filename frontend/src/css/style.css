@@ -1081,7 +1081,6 @@ textarea {
 }
 
 .thread-drawer {
-  display: none;
   position: fixed;
   top: 0;
   right: 0;
@@ -1334,6 +1333,7 @@ body.theme-dark .btn.ghost.btn-secondary {
   background: #16243e;
   color: #dbe6ff;
   border-color: #355181;
+
 }
 body.theme-dark input,
 body.theme-dark select,
@@ -1924,6 +1924,343 @@ body.theme-dark .clinical-dash-tabs {
   margin-top: 0;
 }
 
+.clinical-billing-scroll {
+  max-height: min(520px, 70vh);
+  overflow: auto;
+}
+
+.clinical-billing-dialog {
+  border: none;
+  padding: 0;
+  border-radius: 14px;
+  max-width: min(540px, 96vw);
+  box-shadow: 0 24px 60px rgba(12, 24, 58, 0.28);
+}
+
+.clinical-billing-dialog::backdrop {
+  background: rgba(12, 24, 58, 0.35);
+}
+
+.clinical-billing-dialog-inner {
+  margin: 0;
+  padding: 1rem;
+}
+
+.clinical-billing-dialog-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.65rem;
+}
+
+.clinical-billing-form {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.clinical-billing-form label {
+  display: grid;
+  gap: 0.25rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.clinical-service-lines {
+  border: 1px dashed #c9d8ee;
+  border-radius: 10px;
+  padding: 0.65rem;
+}
+
+.clinical-service-line {
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.clinical-hmo-title {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.88rem;
+}
+
+.clinical-billing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dashboard-messenger .messenger-home-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.messenger-shell {
+  --messenger-border: #dbe6f5;
+}
+
+.messenger-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 34%) 1fr;
+  min-height: 440px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--messenger-border);
+}
+
+.messenger-sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: #f2f7ff;
+  border-right: 1px solid var(--messenger-border);
+}
+
+.messenger-sidebar-toolbar {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  padding: 0.45rem;
+  border-bottom: 1px solid #e4ecf8;
+}
+
+.messenger-sidebar-toolbar .messenger-back-btn {
+  display: none;
+}
+
+.messenger-search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.42rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #c9d8ee;
+  font-size: 0.86rem;
+}
+
+.messenger-conversation-list {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.messenger-conv-row {
+  display: grid;
+  grid-template-columns: 38px 1fr minmax(52px, auto);
+  gap: 0.4rem;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.55rem;
+  border: none;
+  border-bottom: 1px solid #e8eef9;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.messenger-conv-row:hover {
+  background: rgba(61, 111, 184, 0.09);
+}
+
+.messenger-conv-row--active {
+  background: rgba(61, 111, 184, 0.2);
+}
+
+.messenger-conv-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.messenger-conv-name {
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.messenger-conv-preview {
+  font-size: 0.76rem;
+  color: #5a6f94;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.messenger-conv-time {
+  font-size: 0.7rem;
+  color: #7d8fb0;
+  white-space: nowrap;
+}
+
+.messenger-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: #fff;
+}
+
+.messenger-thread-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  color: #5a6f94;
+}
+
+.messenger-thread-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.messenger-thread-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid #e4ecf8;
+}
+
+.messenger-peer {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.messenger-clear-thread {
+  margin-left: auto;
+}
+
+.messenger-typing {
+  margin: 0.2rem 0.65rem 0;
+  min-height: 1.1rem;
+  font-size: 0.78rem;
+  color: #5a6f94;
+}
+
+.messenger-thread-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.55rem 0.65rem;
+  min-height: 200px;
+}
+
+.messenger-compose-footer {
+  padding: 0.55rem 0.65rem 0.75rem;
+  border-top: 1px solid #e4ecf8;
+  background: #f8faff;
+}
+
+.messenger-compose-footer.thread-drawer-reply {
+  margin-top: 0;
+  padding-top: 0.55rem;
+}
+
+.messenger-compose-footer textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 64px;
+  margin-bottom: 0.45rem;
+}
+
+.messenger-compose-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.messenger-file-upload {
+  position: relative;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid #c9d8ee;
+  background: #fff;
+}
+
+.messenger-file-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.messenger-send-btn {
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .messenger-layout {
+    grid-template-columns: 1fr;
+    min-height: 380px;
+  }
+
+  .messenger-sidebar-toolbar .messenger-back-btn {
+    display: inline-flex;
+  }
+
+  .messenger-show-thread .messenger-sidebar {
+    display: none;
+  }
+
+  .messenger-back-inline {
+    display: inline-flex !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .messenger-back-inline {
+    display: none !important;
+  }
+}
+
+.messenger-shell--floating .messenger-layout {
+  min-height: 300px;
+}
+
+.messenger-panel-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+body.theme-dark .messenger-sidebar {
+  background: #10182a;
+  border-right-color: #243559;
+}
+
+body.theme-dark .messenger-compose-footer {
+  background: #0f1628;
+}
+
 /* --- Floating chat --- */
 .floating-chat-widget {
   position: fixed;
@@ -1953,7 +2290,7 @@ body.theme-dark .clinical-dash-tabs {
   filter: brightness(1.05);
 }
 .floating-chat-panel {
-  width: min(400px, calc(100vw - 2rem));
+  width: min(420px, calc(100vw - 2rem));
   max-height: min(560px, calc(100vh - 6rem));
   background: #fff;
   border-radius: 14px;
@@ -1962,6 +2299,13 @@ body.theme-dark .clinical-dash-tabs {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.floating-chat-panel .messenger-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 .floating-chat-panel.hidden {
   display: none;
@@ -1985,28 +2329,4 @@ body.theme-dark .floating-chat-panel {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-}
-.floating-msg-board {
-  max-height: 180px;
-  overflow-y: auto;
-  padding: 0.5rem;
-  border-bottom: 1px solid #eef3fb;
-}
-.floating-msg-board .message-card {
-  margin-bottom: 0.45rem;
-}
-.floating-thread-drawer {
-  position: relative;
-  flex: 1;
-  min-height: 200px;
-  max-height: 360px;
-  overflow-y: auto;
-  padding: 0.65rem 0.75rem 1rem;
-  background: #f8faff;
-}
-.floating-thread-drawer.hidden {
-  display: none;
-}
-body.theme-dark .floating-thread-drawer {
-  background: #0f1628;
 }

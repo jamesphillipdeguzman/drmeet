@@ -13,6 +13,110 @@ import {
   countConversationsForUser,
   aggregatePatientDocumentsForDoctor,
 } from "../services/doctorDashboard.service.js";
+import { PHILIPPINES_HEALTH_PROVIDERS } from "../constants/philippinesHmo.js";
+
+const PAYMENT_STATUS_SET = new Set(["unpaid", "partial", "paid"]);
+const HMO_COVERAGE_SET = new Set(["", "verified", "partial", "denied"]);
+const HMO_CLAIM_SET = new Set(["", "pending", "submitted", "approved", "rejected", "paid"]);
+
+function plainBillingDoc(billing) {
+  if (!billing) return {};
+  const p = billing.toObject ? billing.toObject() : billing;
+  return {
+    consultationFee: Number(p.consultationFee) || 0,
+    serviceLines: Array.isArray(p.serviceLines)
+      ? p.serviceLines.map((r) => ({
+          description: String(r.description || ""),
+          amount: Number(r.amount) || 0,
+        }))
+      : [],
+    totalAmount: Number(p.totalAmount) || 0,
+    paymentStatus: p.paymentStatus || "unpaid",
+    paymentMethod: String(p.paymentMethod || ""),
+    hmoProvider: String(p.hmoProvider || ""),
+    hmoMemberId: String(p.hmoMemberId || ""),
+    hmoCoverageStatus: p.hmoCoverageStatus === undefined ? "" : String(p.hmoCoverageStatus || ""),
+    hmoPreAuthorization: String(p.hmoPreAuthorization || ""),
+    hmoClaimStatus: p.hmoClaimStatus === undefined ? "" : String(p.hmoClaimStatus || ""),
+    hmoCoveredAmount: Number(p.hmoCoveredAmount) || 0,
+    hmoPatientCopay: Number(p.hmoPatientCopay) || 0,
+    soaUrl: String(p.soaUrl || ""),
+    invoiceUrl: String(p.invoiceUrl || ""),
+    hmoClaimAttachments: Array.isArray(p.hmoClaimAttachments)
+      ? p.hmoClaimAttachments.map((d) => ({
+          name: String(d.name || ""),
+          fileUrl: String(d.fileUrl || ""),
+          uploadedAt: d.uploadedAt || new Date(),
+        }))
+      : [],
+  };
+}
+
+function mergeAppointmentBilling(prev, body = {}) {
+  const out = plainBillingDoc(prev);
+  if ("consultationFee" in body) {
+    out.consultationFee = Number(body.consultationFee) || 0;
+  }
+  if (Array.isArray(body.serviceLines)) {
+    out.serviceLines = body.serviceLines.map((row) => ({
+      description: String(row.description || "").trim(),
+      amount: Number(row.amount) || 0,
+    }));
+  }
+  if ("paymentMethod" in body && typeof body.paymentMethod === "string") {
+    out.paymentMethod = body.paymentMethod.trim();
+  }
+  if ("paymentStatus" in body) {
+    const ps = String(body.paymentStatus || "").trim().toLowerCase();
+    if (ps && PAYMENT_STATUS_SET.has(ps)) out.paymentStatus = ps;
+  }
+
+  if ("hmoProvider" in body && typeof body.hmoProvider === "string") {
+    out.hmoProvider = body.hmoProvider.trim();
+  }
+  if ("hmoMemberId" in body && typeof body.hmoMemberId === "string") {
+    out.hmoMemberId = body.hmoMemberId.trim();
+  }
+  if ("hmoPreAuthorization" in body) {
+    out.hmoPreAuthorization = String(body.hmoPreAuthorization || "").trim();
+  }
+
+  if ("hmoCoverageStatus" in body) {
+    const cov = String(body.hmoCoverageStatus || "").trim().toLowerCase();
+    out.hmoCoverageStatus =
+      cov === "" ? "" : HMO_COVERAGE_SET.has(cov) ? cov : out.hmoCoverageStatus;
+  }
+
+  if ("hmoClaimStatus" in body) {
+    const cs = String(body.hmoClaimStatus || "").trim().toLowerCase();
+    out.hmoClaimStatus = cs === "" ? "" : HMO_CLAIM_SET.has(cs) ? cs : out.hmoClaimStatus;
+  }
+
+  if ("hmoCoveredAmount" in body) {
+    out.hmoCoveredAmount = Number(body.hmoCoveredAmount) || 0;
+  }
+  if ("hmoPatientCopay" in body) {
+    out.hmoPatientCopay = Number(body.hmoPatientCopay) || 0;
+  }
+
+  const fee = Number(out.consultationFee) || 0;
+  const svcSum = (out.serviceLines || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+  out.totalAmount = fee + svcSum;
+
+  return out;
+}
+
+async function loadAppointmentForDoctor(ctx, apptId) {
+  if (!mongoose.Types.ObjectId.isValid(apptId)) {
+    return { error: { status: 400, body: { error: "Invalid appointment id." } } };
+  }
+  const appt = await findAppointmentById(apptId);
+  if (!appt) return { error: { status: 404, body: { error: "Appointment not found." } } };
+  if (String(appt.doctor) !== String(ctx.doctor._id)) {
+    return { error: { status: 403, body: { error: "Forbidden." } } };
+  }
+  return { appt };
+}
 
 function authUserId(req) {
   const id = req.user?._id || req.user?.id;
@@ -351,5 +455,105 @@ export const patchDoctorNotificationPrefs = async (req, res) => {
   } catch (err) {
     console.error("[doctorDashboard] notification prefs", err);
     return res.status(500).json({ error: "Failed to update notification preferences." });
+  }
+};
+
+/**
+ * GET /api/doctors/me/appointments/:id/billing
+ */
+export const getDoctorAppointmentBilling = async (req, res) => {
+  try {
+    const ctx = await requireDoctorProfile(req);
+    if (ctx.error) return res.status(ctx.error.status).json(ctx.error.body);
+
+    const apptCtx = await loadAppointmentForDoctor(ctx, req.params.id);
+    if (apptCtx.error) return res.status(apptCtx.error.status).json(apptCtx.error.body);
+
+    const plain = apptCtx.appt.toObject ? apptCtx.appt.toObject() : apptCtx.appt;
+    return res.status(200).json({
+      appointmentId: String(apptCtx.appt._id),
+      billing: plainBillingDoc(plain.billing),
+    });
+  } catch (err) {
+    console.error("[doctorDashboard] get billing", err);
+    return res.status(500).json({ error: "Failed to load billing." });
+  }
+};
+
+/**
+ * PATCH /api/doctors/me/appointments/:id/billing
+ */
+export const patchDoctorAppointmentBilling = async (req, res) => {
+  try {
+    const ctx = await requireDoctorProfile(req);
+    if (ctx.error) return res.status(ctx.error.status).json(ctx.error.body);
+
+    const apptCtx = await loadAppointmentForDoctor(ctx, req.params.id);
+    if (apptCtx.error) return res.status(apptCtx.error.status).json(apptCtx.error.body);
+
+    const body = sanitizeInput(req.body || {});
+    const prev = plainBillingDoc(apptCtx.appt.billing);
+
+    if (body.hmoProvider && !PHILIPPINES_HEALTH_PROVIDERS.includes(body.hmoProvider)) {
+      return res.status(400).json({
+        error: "Select a valid HMO / payer from the Philippines providers list.",
+      });
+    }
+
+    const billing = mergeAppointmentBilling(prev, body);
+    const updated = await updateAppointmentById(req.params.id, { billing });
+    return res.status(200).json(updated);
+  } catch (err) {
+    console.error("[doctorDashboard] patch billing", err);
+    return res.status(500).json({ error: "Failed to update billing." });
+  }
+};
+
+/**
+ * POST /api/doctors/me/appointments/:id/billing/documents
+ * body: { kind: 'soa' | 'invoice' | 'claim', documentName?, documentFileData }
+ */
+export const postDoctorAppointmentBillingDocument = async (req, res) => {
+  try {
+    const ctx = await requireDoctorProfile(req);
+    if (ctx.error) return res.status(ctx.error.status).json(ctx.error.body);
+
+    const apptCtx = await loadAppointmentForDoctor(ctx, req.params.id);
+    if (apptCtx.error) return res.status(apptCtx.error.status).json(apptCtx.error.body);
+
+    const body = sanitizeInput(req.body || {});
+    const kind = String(body.kind || "").trim().toLowerCase();
+    if (!["soa", "invoice", "claim"].includes(kind)) {
+      return res.status(400).json({ error: "kind must be soa, invoice, or claim." });
+    }
+    if (!body.documentFileData) {
+      return res.status(400).json({ error: "documentFileData is required." });
+    }
+
+    const uploaded = await uploadToCloudinary(body.documentFileData, {
+      folder: `drmeet/billing/${kind}`,
+      resource_type: "auto",
+    });
+    const secureUrl = uploaded.secure_url;
+    const name =
+      String(body.documentName || body.name || `billing-${kind}`).trim() || `billing-${kind}`;
+
+    const prev = plainBillingDoc(apptCtx.appt.billing);
+    const billing = { ...prev };
+
+    if (kind === "soa") billing.soaUrl = secureUrl;
+    if (kind === "invoice") billing.invoiceUrl = secureUrl;
+    if (kind === "claim") {
+      billing.hmoClaimAttachments = [
+        ...(billing.hmoClaimAttachments || []),
+        { name, fileUrl: secureUrl, uploadedAt: new Date() },
+      ];
+    }
+
+    const updated = await updateAppointmentById(req.params.id, { billing });
+    return res.status(201).json({ appointment: updated, uploaded: { kind, fileUrl: secureUrl, name } });
+  } catch (err) {
+    console.error("[doctorDashboard] billing document", err);
+    return res.status(500).json({ error: "Failed to upload billing document." });
   }
 };

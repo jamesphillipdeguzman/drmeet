@@ -32,6 +32,52 @@ const appointmentSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    /** Per-visit billing & optional HMO claim metadata (clinical dashboard). */
+    billing: {
+      consultationFee: { type: Number, default: 0 },
+      serviceLines: [
+        {
+          description: { type: String, default: "" },
+          amount: { type: Number, default: 0 },
+        },
+      ],
+      totalAmount: { type: Number, default: 0 },
+      paymentStatus: {
+        type: String,
+        enum: ["unpaid", "partial", "paid"],
+        default: "unpaid",
+      },
+      paymentMethod: { type: String, default: "" },
+
+      hmoProvider: { type: String, default: "" },
+      hmoMemberId: { type: String, default: "" },
+      hmoCoverageStatus: {
+        type: String,
+        enum: ["", "verified", "partial", "denied"],
+        default: "",
+      },
+      hmoPreAuthorization: { type: String, default: "" },
+      hmoClaimStatus: {
+        type: String,
+        enum: ["", "pending", "submitted", "approved", "rejected", "paid"],
+        default: "",
+      },
+      hmoCoveredAmount: { type: Number, default: 0 },
+      hmoPatientCopay: { type: Number, default: 0 },
+
+      /** Statement of account / invoice PDF or image URLs for patient & payer. */
+      soaUrl: { type: String, default: "" },
+      invoiceUrl: { type: String, default: "" },
+
+      hmoClaimAttachments: [
+        {
+          name: { type: String, default: "" },
+          fileUrl: { type: String, default: "" },
+          uploadedAt: { type: Date, default: Date.now },
+        },
+      ],
+    },
   },
   { timestamps: true }
 );

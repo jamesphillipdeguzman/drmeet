@@ -67,9 +67,47 @@
                 <span>Messages</span>
                 <button type="button" id="floating-chat-close" class="btn btn-secondary btn-sm" aria-label="Close">×</button>
             </div>
-            <div class="floating-chat-body">
-                <div id="floating-message-board-list" class="floating-msg-board"></div>
-                <aside id="floating-thread-drawer" class="floating-thread-drawer hidden"></aside>
+            <div class="floating-chat-body messenger-panel-body">
+                <div id="floating-messenger-root" class="messenger-shell messenger-shell--floating" data-messenger-scope="floating">
+                    <div class="messenger-layout" data-messenger-layout>
+                        <aside class="messenger-sidebar">
+                            <div class="messenger-sidebar-toolbar">
+                                <button type="button" class="btn btn-secondary btn-sm messenger-back-btn" data-messenger-back aria-label="Back to inbox">&larr;</button>
+                                <input type="search" data-messenger-search class="messenger-search-input" placeholder="Search conversations…" autocomplete="off" />
+                            </div>
+                            <div class="messenger-conversation-list" data-messenger-conversation-list></div>
+                        </aside>
+                        <section class="messenger-main">
+                            <div class="messenger-thread-empty" data-messenger-empty>
+                                <p>Select a conversation</p>
+                            </div>
+                            <div class="messenger-thread-panel hidden" data-messenger-active>
+                                <header class="messenger-thread-topbar">
+                                    <button type="button" class="btn btn-secondary btn-sm messenger-back-btn messenger-back-inline" data-messenger-back aria-label="Back">&larr;</button>
+                                    <div class="messenger-peer">
+                                        <img data-messenger-peer-avatar class="person-avatar" alt="" src="images/user-line.svg" />
+                                        <strong data-messenger-peer-name>Chat</strong>
+                                    </div>
+                                    <button type="button" class="btn btn-secondary btn-sm messenger-clear-thread" data-messenger-clear type="button">Close</button>
+                                </header>
+                                <p class="typing-indicator messenger-typing" data-messenger-typing></p>
+                                <div class="messenger-thread-scroll thread-list" data-messenger-scroll></div>
+                                <footer class="messenger-compose-footer thread-drawer-reply">
+                                    <label class="sr-only">Message</label>
+                                    <textarea data-messenger-reply-text rows="3" placeholder="Type a message…" autocomplete="off"></textarea>
+                                    <div class="messenger-compose-actions">
+                                        <label class="messenger-file-upload" title="Attach file">
+                                            <img src="images/chat-upload-line.svg" alt="" width="22" height="22" />
+                                            <span class="sr-only">Attach file</span>
+                                            <input type="file" data-messenger-file-input accept="image/*,.pdf,.doc,.docx,.txt" />
+                                        </label>
+                                        <button type="button" class="btn btn-primary messenger-send-btn" data-messenger-send>Send</button>
+                                    </div>
+                                </footer>
+                            </div>
+                        </section>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

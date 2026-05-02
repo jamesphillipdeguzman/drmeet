@@ -42,3 +42,6 @@ export const PHILIPPINES_HEALTH_PROVIDERS = [
   // Other
   'Other / Not Listed',
 ];
+
+/** @deprecated prefer PHILIPPINES_HEALTH_PROVIDERS */
+export const PHILIPPINES_HMO_PROVIDERS = PHILIPPINES_HEALTH_PROVIDERS;

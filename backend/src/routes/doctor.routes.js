@@ -17,6 +17,9 @@ import {
   postDoctorDashboardDocument,
   getDoctorDashboardMessagesSummary,
   patchDoctorNotificationPrefs,
+  getDoctorAppointmentBilling,
+  patchDoctorAppointmentBilling,
+  postDoctorAppointmentBillingDocument,
 } from '../controllers/doctorDashboard.controller.js';
 import { validateDoctor } from '../middlewares/doctor.validation.middleware.js';
 import { validateMongoIdParam } from '../middlewares/common.middleware.js';
@@ -47,6 +50,27 @@ router.patch(
   requireRoles(['doctor']),
   ...validateMongoIdParam,
   patchDoctorDashboardAppointmentStatus,
+);
+router.get(
+  '/me/appointments/:id/billing',
+  hybridAuth,
+  requireRoles(['doctor']),
+  ...validateMongoIdParam,
+  getDoctorAppointmentBilling,
+);
+router.patch(
+  '/me/appointments/:id/billing',
+  hybridAuth,
+  requireRoles(['doctor']),
+  ...validateMongoIdParam,
+  patchDoctorAppointmentBilling,
+);
+router.post(
+  '/me/appointments/:id/billing/documents',
+  hybridAuth,
+  requireRoles(['doctor']),
+  ...validateMongoIdParam,
+  postDoctorAppointmentBillingDocument,
 );
 router.get(
   '/me/documents',

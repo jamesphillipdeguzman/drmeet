@@ -32,6 +32,8 @@ const DASH_TAG_HOME = "home";
 const DASH_TAG_FLOAT = "float";
 const MESSAGES_API = `${API_BASE}/messages`;
 const DEFAULT_AVATAR_URL = "images/user-line.svg";
+/** Chat composer file-picker icon (matches sidebar asset path). */
+const CHAT_UPLOAD_ICON_SRC = "images/chat-upload-line.svg";
 const dashboardSubscribers = [];
 const dashboardState = {
   conversations: [],
@@ -41,6 +43,7 @@ const dashboardState = {
   websocketActive: false,
   socketReconnecting: false,
   socketAwaitingFirstConnect: true,
+  conversationSearchFilter: "",
 };
 
 let authSessionExpired = false;
@@ -253,6 +256,27 @@ function consumeOauthSuccessTokenFromHash() {
 function getHashRoute() {
   const hash = window.location.hash || "#home";
   return hash.split("?")[0] || "#home";
+}
+
+function parseDoctorDashboardTab() {
+  const raw = window.location.hash || "";
+  const qIdx = raw.indexOf("?");
+  const qs = qIdx >= 0 ? raw.slice(qIdx + 1) : "";
+  const params = new URLSearchParams(qs);
+  const tab = String(params.get("tab") || "overview").toLowerCase();
+  const allowed = new Set([
+    "overview",
+    "patients",
+    "appointments",
+    "documents",
+    "settings",
+    "billing",
+  ]);
+  return allowed.has(tab) ? tab : "overview";
+}
+
+function setDoctorDashboardHashTab(tab) {
+  window.location.hash = `#doctor-dashboard?tab=${encodeURIComponent(tab)}`;
 }
 
 function getSignupRoleFromHash() {
@@ -1730,6 +1754,272 @@ async function showClinicalTab(tab) {
       return;
     }
 
+    if (tab === "billing") {
+      const res = await apiRequest(`${API_BASE}/doctors/me/appointments?scope=all`);
+      if (!res.ok)
+        throw new Error(await getApiErrorMessage(res, "Unable to load visits."));
+      const payload = await res.json();
+      const merged = [...(payload.upcoming || []), ...(payload.past || [])];
+      const seen = new Set();
+      const rows = [];
+      merged.forEach((a) => {
+        const id = String(a._id);
+        if (seen.has(id)) return;
+        seen.add(id);
+        rows.push(a);
+      });
+      rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      const pname = (a) =>
+        typeof a.patientId === "object" && a.patientId?.name
+          ? a.patientId.name
+          : "Patient";
+
+      panel.innerHTML = `
+        <section class="card">
+          <h4>Billing &amp; HMO per visit</h4>
+          <p class="clinical-muted">Consultation fee, line-item services (total auto-calculated), payment tracking, and payer claim workflow.</p>
+          <div class="clinical-table-wrap clinical-billing-scroll">
+            <table class="clinical-table clinical-billing-table">
+              <thead>
+                <tr>
+                  <th>Visit</th>
+                  <th>Patient</th>
+                  <th>Consult fee</th>
+                  <th>Total</th>
+                  <th>Payment</th>
+                  <th>HMO</th>
+                  <th>Coverage</th>
+                  <th>Claim</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.length ? rows.map((a) => {
+                  const b = a.billing || {};
+                  const dt = a.date ? escapeHtml(new Date(a.date).toLocaleString()) : "—";
+                  return `<tr>
+                    <td>${dt}</td>
+                    <td>${escapeHtml(pname(a))}</td>
+                    <td>${escapeHtml(String(b.consultationFee ?? 0))}</td>
+                    <td>${escapeHtml(String(b.totalAmount ?? 0))}</td>
+                    <td>${escapeHtml(String(b.paymentStatus || "unpaid"))}</td>
+                    <td>${escapeHtml(String(b.hmoProvider || "—"))}</td>
+                    <td>${escapeHtml(String(b.hmoCoverageStatus || "—"))}</td>
+                    <td>${escapeHtml(String(b.hmoClaimStatus || "—"))}</td>
+                    <td><button type="button" class="btn btn-secondary btn-sm clinical-billing-edit" data-appt-id="${escapeHtml(String(a._id))}">Edit</button></td>
+                  </tr>`;
+                }).join("") : `<tr><td colspan="9" class="clinical-muted">No appointments yet.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      `;
+
+      let hmoOptions = "";
+      try {
+        const pres = await apiRequest(`${API_BASE}/patients/constants/hmo-providers`);
+        if (pres.ok) {
+          const js = await pres.json();
+          const list = Array.isArray(js.providers) ? js.providers : [];
+          hmoOptions = list.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("");
+        }
+      } catch (e) {
+        /* ignore */
+      }
+
+      const ensureBillingDialog = () => {
+        let dlg = document.getElementById("clinical-billing-dialog");
+        if (!dlg) {
+          dlg = document.createElement("dialog");
+          dlg.id = "clinical-billing-dialog";
+          dlg.className = "clinical-billing-dialog";
+          document.body.appendChild(dlg);
+        }
+        return dlg;
+      };
+
+      const openBillingEditor = async (appt) => {
+        const dlg = ensureBillingDialog();
+        const b = appt.billing || {};
+        const lines = Array.isArray(b.serviceLines) ? b.serviceLines : [];
+        const svcRows =
+          lines.length > 0
+            ? lines
+            : [{ description: "", amount: 0 }, { description: "", amount: 0 }];
+        dlg.innerHTML = `
+          <div class="clinical-billing-dialog-inner card">
+            <div class="clinical-billing-dialog-head">
+              <h4>Edit billing</h4>
+              <button type="button" class="btn btn-secondary btn-sm" data-billing-close>&times;</button>
+            </div>
+            <form id="clinical-billing-form" class="clinical-billing-form">
+              <input type="hidden" name="appointmentId" value="${escapeHtml(String(appt._id))}" />
+              <label>Consultation fee (PHP)<input name="consultationFee" type="number" step="0.01" min="0" value="${escapeHtml(String(b.consultationFee ?? 0))}" /></label>
+              <fieldset class="clinical-service-lines">
+                <legend>Services (line items)</legend>
+                ${[0, 1, 2, 3]
+                  .map((i) => {
+                    const line = svcRows[i] || { description: "", amount: 0 };
+                    return `
+                  <div class="clinical-service-line">
+                    <input type="text" name="svc_desc_${i}" placeholder="Description" value="${escapeHtml(String(line.description || ""))}" />
+                    <input type="number" name="svc_amt_${i}" placeholder="Amount" step="0.01" min="0" value="${escapeHtml(String(line.amount ?? 0))}" />
+                  </div>`;
+                  })
+                  .join("")}
+              </fieldset>
+              <label>Payment status
+                <select name="paymentStatus">
+                  ${["unpaid", "partial", "paid"].map((v) => `<option value="${v}" ${String(b.paymentStatus || "unpaid") === v ? "selected" : ""}>${v}</option>`).join("")}
+                </select>
+              </label>
+              <label>Payment method<input name="paymentMethod" type="text" value="${escapeHtml(String(b.paymentMethod || ""))}" placeholder="Cash, card, transfer…" /></label>
+              <h5 class="clinical-hmo-title">HMO / payer</h5>
+              <label>HMO provider
+                <select name="hmoProvider"><option value="">—</option>${hmoOptions}</select>
+              </label>
+              <label>Member ID<input name="hmoMemberId" value="${escapeHtml(String(b.hmoMemberId || ""))}" /></label>
+              <label>Coverage status
+                <select name="hmoCoverageStatus">
+                  ${["", "verified", "partial", "denied"].map((v) => `<option value="${v}" ${String(b.hmoCoverageStatus || "") === v ? "selected" : ""}>${v || "—"}</option>`).join("")}
+                </select>
+              </label>
+              <label>Pre-authorization ref<input name="hmoPreAuthorization" value="${escapeHtml(String(b.hmoPreAuthorization || ""))}" /></label>
+              <label>Claim status
+                <select name="hmoClaimStatus">
+                  ${["", "pending", "submitted", "approved", "rejected", "paid"].map((v) => `<option value="${v}" ${String(b.hmoClaimStatus || "") === v ? "selected" : ""}>${v || "—"}</option>`).join("")}
+                </select>
+              </label>
+              <label>Covered amount (PHP)<input name="hmoCoveredAmount" type="number" step="0.01" min="0" value="${escapeHtml(String(b.hmoCoveredAmount ?? 0))}" /></label>
+              <label>Patient co-pay (PHP)<input name="hmoPatientCopay" type="number" step="0.01" min="0" value="${escapeHtml(String(b.hmoPatientCopay ?? 0))}" /></label>
+              <div class="clinical-billing-links">
+                ${b.soaUrl ? `<p><a href="${escapeHtml(b.soaUrl)}" target="_blank" rel="noopener noreferrer">Open SOA</a></p>` : ""}
+                ${b.invoiceUrl ? `<p><a href="${escapeHtml(b.invoiceUrl)}" target="_blank" rel="noopener noreferrer">Open invoice</a></p>` : ""}
+              </div>
+              <label>Document type for upload
+                <select id="clinical-billing-doc-kind-sel">
+                  <option value="claim">HMO claim attachment</option>
+                  <option value="soa">SOA</option>
+                  <option value="invoice">Invoice</option>
+                </select>
+              </label>
+              <label class="clinical-upload-inline">Upload file (PDF or image)
+                <input type="file" data-billing-doc-kind accept=".pdf,.png,.jpg,.jpeg,.webp" />
+              </label>
+              <div class="clinical-billing-actions">
+                <button type="submit" class="btn btn-primary">Save billing</button>
+                <button type="button" class="btn btn-secondary" data-billing-close>Cancel</button>
+              </div>
+            </form>
+          </div>`;
+
+        const sel = dlg.querySelector('select[name="hmoProvider"]');
+        if (sel && b.hmoProvider) sel.value = b.hmoProvider;
+
+        dlg.querySelectorAll("[data-billing-close]").forEach((btn) => {
+          btn.addEventListener("click", () => dlg.close());
+        });
+
+        dlg.querySelector("[data-billing-doc-kind]")?.addEventListener("change", async (ev) => {
+          const input = ev.target;
+          const file = input.files?.[0];
+          if (!file) return;
+          const kind = String(
+            dlg.querySelector("#clinical-billing-doc-kind-sel")?.value || "claim",
+          ).toLowerCase();
+          if (!["soa", "invoice", "claim"].includes(kind)) {
+            showToast("Invalid document type.", "error");
+            input.value = "";
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = async () => {
+            try {
+              const base64 = reader.result?.split?.(",")?.[1];
+              if (!base64) throw new Error("Unable to read file.");
+              const resUp = await apiRequest(
+                `${API_BASE}/doctors/me/appointments/${appt._id}/billing/documents`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    kind,
+                    documentName: file.name,
+                    documentFileData: base64,
+                  }),
+                },
+              );
+              if (!resUp.ok)
+                throw new Error(await getApiErrorMessage(resUp, "Upload failed."));
+              showToast("Document uploaded.");
+              dlg.close();
+              await showClinicalTab("billing");
+            } catch (err) {
+              showToast(err?.message || "Upload failed.", "error");
+            }
+          };
+          reader.readAsDataURL(file);
+          input.value = "";
+        });
+
+        dlg.querySelector("#clinical-billing-form")?.addEventListener("submit", async (ev) => {
+          ev.preventDefault();
+          const fd = new FormData(ev.target);
+          const serviceLines = [];
+          for (let i = 0; i < 4; i++) {
+            const d = String(fd.get(`svc_desc_${i}`) || "").trim();
+            const amt = Number(fd.get(`svc_amt_${i}`)) || 0;
+            if (d || amt) serviceLines.push({ description: d, amount: amt });
+          }
+          const body = {
+            consultationFee: Number(fd.get("consultationFee")) || 0,
+            serviceLines,
+            paymentStatus: fd.get("paymentStatus"),
+            paymentMethod: fd.get("paymentMethod"),
+            hmoProvider: fd.get("hmoProvider"),
+            hmoMemberId: fd.get("hmoMemberId"),
+            hmoCoverageStatus: fd.get("hmoCoverageStatus"),
+            hmoPreAuthorization: fd.get("hmoPreAuthorization"),
+            hmoClaimStatus: fd.get("hmoClaimStatus"),
+            hmoCoveredAmount: Number(fd.get("hmoCoveredAmount")) || 0,
+            hmoPatientCopay: Number(fd.get("hmoPatientCopay")) || 0,
+          };
+          try {
+            const resP = await apiRequest(
+              `${API_BASE}/doctors/me/appointments/${appt._id}/billing`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              },
+            );
+            if (!resP.ok)
+              throw new Error(await getApiErrorMessage(resP, "Save failed."));
+            showToast("Billing saved.");
+            dlg.close();
+            await showClinicalTab("billing");
+          } catch (err) {
+            showToast(err?.message || "Unable to save billing.", "error");
+          }
+        });
+
+        dlg.showModal();
+      };
+
+      panel.querySelectorAll(".clinical-billing-edit").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const id = btn.getAttribute("data-appt-id");
+          const appt = rows.find((r) => String(r._id) === String(id));
+          if (!appt) return;
+          void openBillingEditor(appt);
+        });
+      });
+
+      doctorDashUI.loaded.billing = true;
+      return;
+    }
+
     panel.innerHTML = `<div class="feedback error">Unknown tab.</div>`;
   } catch (err) {
     panel.innerHTML = `<div class="feedback error">${escapeHtml(err?.message || "Unable to load tab.")}</div>`;
@@ -1743,11 +2033,12 @@ function renderDoctorDashboard() {
     return;
   }
 
-  const tab = doctorDashUI.activeTab || "overview";
+  const tab = parseDoctorDashboardTab();
   const tabs = [
     { id: "overview", label: "Overview" },
     { id: "patients", label: "Patients" },
     { id: "appointments", label: "Appointments" },
+    { id: "billing", label: "Billing" },
     { id: "documents", label: "Documents" },
     { id: "settings", label: "Settings" },
   ];
@@ -1758,7 +2049,7 @@ function renderDoctorDashboard() {
         <div class="clinical-dash-identity">
           <p class="clinical-dash-kicker">Clinical workspace</p>
           <h2 class="clinical-dash-title">Doctor dashboard</h2>
-          <p class="clinical-muted">Lazy-loaded tabs · Overview stats cached briefly for speed</p>
+          <p class="clinical-muted">Tabs sync with the URL (<code>#doctor-dashboard?tab=…</code>) for reliable navigation.</p>
         </div>
       </header>
       <nav class="clinical-dash-tabs" role="tablist" aria-label="Clinical sections">
@@ -1777,18 +2068,11 @@ function renderDoctorDashboard() {
     const btn = event.target.closest("[data-clinical-tab]");
     if (!btn) return;
     const next = btn.getAttribute("data-clinical-tab");
-    if (!next || next === doctorDashUI.activeTab) return;
-    doctorDashUI.activeTab = next;
-    mainContent.querySelectorAll("[data-clinical-tab]").forEach((b) => {
-      const id = b.getAttribute("data-clinical-tab");
-      const active = id === next;
-      b.classList.toggle("clinical-tab-active", active);
-      b.setAttribute("aria-selected", active ? "true" : "false");
-    });
-    void showClinicalTab(next);
+    if (!next || next === parseDoctorDashboardTab()) return;
+    setDoctorDashboardHashTab(next);
   });
 
-  void showClinicalTab(tab);
+  void showClinicalTab(parseDoctorDashboardTab());
 }
 
 function renderPage() {
@@ -1902,11 +2186,6 @@ function renderPrivacy() {
 function renderHome() {
   setPageTone("");
   const signedIn = isLoggedIn();
-  const hasAnySummary =
-    Array.isArray(dashboardState.conversations) &&
-    dashboardState.conversations.some((c) =>
-      String(c?.lastMessage || "").trim(),
-    );
   const bookCta =
     getCurrentUserRole() === "patient"
       ? `<p class="dashboard-book-teaser"><a href="#book" class="btn btn-primary">Book a visit</a> <span class="dashboard-book-hint">Search for a doctor and request an appointment.</span></p>`
@@ -1962,22 +2241,49 @@ function renderHome() {
     </section>
     ${
       signedIn
-        ? `<section class="dashboard-grid">
-            <article class="card board-card">
-              <div class="card-header">
-                <h3>Unified Inbox</h3>
-                <button type="button" class="btn btn-primary" id="add-board-message">Compose message</button>
-              </div>
-              <div id="message-board-list" class="masonry-grid"></div>
-            </article>
-            <article class="card sms-card" style="${hasAnySummary ? "" : "display:none;"}">
-              <div class="card-header">
-                <h3>Channel Summary</h3>
-              </div>
-              <div id="sms-feed-list" class="chat-thread"></div>
-            </article>
-          </section>
-          <aside id="thread-drawer" class="thread-drawer hidden"></aside>`
+        ? `<section class="card dashboard-messenger" id="home-messenger-root" data-messenger-scope="home">
+            <div class="card-header messenger-home-header">
+              <h3>Messages</h3>
+              <button type="button" class="btn btn-primary btn-sm" id="add-board-message">Compose</button>
+            </div>
+            <div class="messenger-layout" data-messenger-layout>
+              <aside class="messenger-sidebar">
+                <div class="messenger-sidebar-toolbar">
+                  <button type="button" class="btn btn-secondary btn-sm messenger-back-btn" data-messenger-back aria-label="Back to inbox">&larr;</button>
+                  <input type="search" data-messenger-search class="messenger-search-input" placeholder="Search conversations…" autocomplete="off" />
+                </div>
+                <div class="messenger-conversation-list" data-messenger-conversation-list></div>
+              </aside>
+              <section class="messenger-main">
+                <div class="messenger-thread-empty" data-messenger-empty>
+                  <p>Select a conversation to read and reply.</p>
+                </div>
+                <div class="messenger-thread-panel hidden" data-messenger-active>
+                  <header class="messenger-thread-topbar">
+                    <button type="button" class="btn btn-secondary btn-sm messenger-back-btn messenger-back-inline" data-messenger-back aria-label="Back">&larr;</button>
+                    <div class="messenger-peer">
+                      <img data-messenger-peer-avatar class="person-avatar" alt="" src="${DEFAULT_AVATAR_URL}" />
+                      <strong data-messenger-peer-name>Conversation</strong>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm messenger-clear-thread" data-messenger-clear type="button">Close</button>
+                  </header>
+                  <p class="typing-indicator messenger-typing" data-messenger-typing></p>
+                  <div class="messenger-thread-scroll thread-list" data-messenger-scroll></div>
+                  <footer class="messenger-compose-footer thread-drawer-reply">
+                    <textarea data-messenger-reply-text rows="3" placeholder="Type a message…" autocomplete="off"></textarea>
+                    <div class="messenger-compose-actions">
+                      <label class="messenger-file-upload" title="Attach file">
+                        <img src="${CHAT_UPLOAD_ICON_SRC}" alt="" width="22" height="22" />
+                        <span class="sr-only">Attach file</span>
+                        <input type="file" data-messenger-file-input accept="image/*,.pdf,.doc,.docx,.txt" />
+                      </label>
+                      <button type="button" class="btn btn-primary messenger-send-btn" data-messenger-send>Send</button>
+                    </div>
+                  </footer>
+                </div>
+              </section>
+            </div>
+          </section>`
         : ""
     }
   `;
@@ -2099,52 +2405,307 @@ function showComposeMessageModal(onSubmit) {
     });
 }
 
+function messengerUi(rootEl) {
+  if (!rootEl) return {};
+  return {
+    layout: rootEl.querySelector("[data-messenger-layout]"),
+    list: rootEl.querySelector("[data-messenger-conversation-list]"),
+    empty: rootEl.querySelector("[data-messenger-empty]"),
+    active: rootEl.querySelector("[data-messenger-active]"),
+    scroll: rootEl.querySelector("[data-messenger-scroll]"),
+    typing: rootEl.querySelector("[data-messenger-typing]"),
+    peerAvatar: rootEl.querySelector("[data-messenger-peer-avatar]"),
+    peerName: rootEl.querySelector("[data-messenger-peer-name]"),
+  };
+}
+
+function wireMessengerShell(rootEl) {
+  if (!rootEl || rootEl.dataset.messengerShellWired) return;
+  rootEl.dataset.messengerShellWired = "1";
+  rootEl.querySelector("[data-messenger-search]")?.addEventListener("input", (e) => {
+    dashboardState.conversationSearchFilter = String(e.target.value || "");
+    notifyDashboardSubscribers();
+  });
+  const clearThread = () => {
+    dashboardState.activeConversationId = "";
+    dashboardState.messages = [];
+    notifyDashboardSubscribers();
+  };
+  rootEl.querySelectorAll("[data-messenger-back]").forEach((btn) => {
+    btn.addEventListener("click", clearThread);
+  });
+  rootEl.querySelector("[data-messenger-clear]")?.addEventListener("click", clearThread);
+}
+
+function buildThreadMessagesHtml(messages, currentUserId) {
+  const threadMessages = Array.isArray(messages) ? messages : [];
+  if (dashboardState.socketReconnecting && !dashboardState.websocketActive) {
+    return `<div class="feedback">Connecting… messages reload when live sync returns.</div>`;
+  }
+  if (!threadMessages.length) {
+    return `<div class="feedback">No messages yet.</div>`;
+  }
+  return threadMessages
+    .map((msg) => {
+      const sender = msg.senderId || {};
+      const senderId = msg.senderId?._id || msg.senderId || null;
+      const isYou = senderId ? String(senderId) === String(currentUserId) : false;
+      const senderName = sender
+        ? `${sender.firstName || ""} ${sender.lastName || ""}`.trim()
+        : "Unknown";
+      const displayName = isYou ? "You" : senderName;
+      const senderRole = String(sender.role || "").toLowerCase();
+      const roleClass =
+        senderRole === "patient"
+          ? "role-patient"
+          : senderRole === "doctor" || senderRole === "receptionist"
+            ? "role-staff"
+            : "role-default";
+
+      const attachmentMarkup = msg.attachmentUrl
+        ? (() => {
+            const type = String(msg.attachmentType || "").toLowerCase();
+            const url = escapeHtml(msg.attachmentUrl);
+            const name = escapeHtml(msg.attachmentName || "Open attachment");
+            const rawUrl = String(msg.attachmentUrl || "");
+            const isImage =
+              type.startsWith("image/") ||
+              /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(rawUrl);
+            return isImage
+              ? `<div class="thread-attachment-wrap"><a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${name}" class="thread-attachment-image" /></a><p><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p></div>`
+              : `<p class="thread-attachment-file"><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p>`;
+          })()
+        : "";
+      return `
+      <div class="thread-item ${roleClass}">
+        <div class="thread-item-header">
+          <strong>${displayName}</strong>
+          <small>${msg.createdAt ? formatRelativeTime(msg.createdAt) : ""}</small>
+        </div>
+        <p>${escapeHtml(msg.message || "")}</p>
+        ${attachmentMarkup}
+      </div>`;
+    })
+    .join("");
+}
+
+function renderMessengerConversationList(rootEl) {
+  const ui = messengerUi(rootEl);
+  if (!ui.list || !isLoggedIn()) return;
+  const currentUserId = getCurrentUserId();
+  const needle = String(dashboardState.conversationSearchFilter || "")
+    .trim()
+    .toLowerCase();
+  const conversations = Array.isArray(dashboardState.conversations)
+    ? dashboardState.conversations
+    : [];
+  const sorted = [...conversations].sort((a, b) => {
+    const left = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+    const right = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+    return right - left;
+  });
+  const filtered = sorted.filter((conv) => {
+    if (!needle) return true;
+    const participants = Array.isArray(conv.participants) ? conv.participants : [];
+    const other =
+      participants.find((p) => String(p._id) !== String(currentUserId)) ||
+      participants[0] ||
+      null;
+    const name = participantDisplayName(other).toLowerCase();
+    const last = String(conv.lastMessage || "").toLowerCase();
+    return name.includes(needle) || last.includes(needle);
+  });
+
+  ui.list.innerHTML = filtered.length
+    ? filtered
+        .map((conv) => {
+          const participants = Array.isArray(conv.participants) ? conv.participants : [];
+          const other =
+            participants.find((p) => String(p._id) !== String(currentUserId)) ||
+            participants[0] ||
+            null;
+          const otherName = participantDisplayName(other);
+          const otherAvatar = participantAvatarUrl(other);
+          const lastAt = conv.lastMessageAt || conv.updatedAt;
+          const lastMsg = conv.lastMessage || "";
+          const typingLabel = conversationTypingLabel(conv._id, currentUserId);
+          const active =
+            String(dashboardState.activeConversationId) === String(conv._id);
+          return `
+            <button type="button" class="messenger-conv-row ${active ? "messenger-conv-row--active" : ""}" data-select-conversation="${conv._id}">
+              <img class="person-avatar" src="${escapeHtml(otherAvatar)}" alt="" />
+              <div class="messenger-conv-meta">
+                <span class="messenger-conv-name">${escapeHtml(otherName)}</span>
+                <span class="messenger-conv-preview">${escapeHtml(typingLabel || lastMsg || "No messages yet")}</span>
+              </div>
+              <time class="messenger-conv-time">${lastAt ? escapeHtml(formatRelativeTime(lastAt)) : ""}</time>
+            </button>`;
+        })
+        .join("")
+    : `<div class="feedback messenger-empty-inbox">No conversations match.</div>`;
+
+  ui.list.querySelectorAll("[data-select-conversation]").forEach((row) => {
+    row.addEventListener("click", async () => {
+      const conversationId = row.getAttribute("data-select-conversation");
+      if (!conversationId) return;
+      dashboardState.activeConversationId = String(conversationId);
+      ui.layout?.classList.add("messenger-show-thread");
+      await loadMessages(conversationId);
+      notifyDashboardSubscribers();
+    });
+  });
+}
+
+function renderMessengerThread(rootEl) {
+  if (!rootEl || !isLoggedIn()) return;
+  wireMessengerShell(rootEl);
+  const ui = messengerUi(rootEl);
+  const conversationId = dashboardState.activeConversationId;
+
+  if (!conversationId) {
+    ui.layout?.classList.remove("messenger-show-thread");
+    ui.active?.classList.add("hidden");
+    ui.empty?.classList.remove("hidden");
+    return;
+  }
+
+  const conv = dashboardState.conversations.find(
+    (c) => String(c._id) === String(conversationId),
+  );
+  const participants = Array.isArray(conv?.participants) ? conv.participants : [];
+  const currentUserId = getCurrentUserId();
+  const other =
+    participants.find((p) => String(p._id) !== String(currentUserId)) ||
+    participants[0] ||
+    null;
+  const otherName = participantDisplayName(other);
+  const otherAvatar = participantAvatarUrl(other);
+  const typingLabel = conversationTypingLabel(conversationId, currentUserId);
+
+  ui.empty?.classList.add("hidden");
+  ui.active?.classList.remove("hidden");
+  ui.layout?.classList.add("messenger-show-thread");
+  if (ui.peerAvatar) {
+    ui.peerAvatar.src = otherAvatar;
+    ui.peerAvatar.alt = `${otherName} avatar`;
+  }
+  if (ui.peerName) ui.peerName.textContent = otherName;
+  if (ui.typing) ui.typing.textContent = typingLabel || "";
+
+  if (ui.scroll) {
+    ui.scroll.innerHTML = buildThreadMessagesHtml(
+      dashboardState.messages,
+      currentUserId,
+    );
+    ui.scroll.scrollTop = ui.scroll.scrollHeight;
+  }
+
+  const conversationIdRef = String(conversationId);
+  let typingStopTimer = null;
+  const emitTypingStart = () => {
+    if (!socket || !conversationIdRef) return;
+    socket.emit("typing:start", { conversationId: conversationIdRef });
+  };
+  const emitTypingStop = () => {
+    if (!socket || !conversationIdRef) return;
+    socket.emit("typing:stop", { conversationId: conversationIdRef });
+  };
+
+  const textarea = rootEl.querySelector("[data-messenger-reply-text]");
+  const sendBtn = rootEl.querySelector("[data-messenger-send]");
+  const fileInput = rootEl.querySelector("[data-messenger-file-input]");
+
+  if (textarea) {
+    textarea.oninput = () => {
+      const hasText = String(textarea.value || "").trim().length > 0;
+      if (!hasText) {
+        emitTypingStop();
+        return;
+      }
+      emitTypingStart();
+      if (typingStopTimer) clearTimeout(typingStopTimer);
+      typingStopTimer = setTimeout(() => emitTypingStop(), 900);
+    };
+    textarea.onblur = () => {
+      if (typingStopTimer) clearTimeout(typingStopTimer);
+      emitTypingStop();
+    };
+  }
+
+  const sendAction = async () => {
+    const content = String(textarea?.value || "").trim();
+    const file = fileInput?.files?.[0];
+    if ((!content && !file) || !conversationIdRef) return;
+    dashboardState.activeConversationId = conversationIdRef;
+    try {
+      if (file) {
+        await sendDocumentMessage({
+          conversationId: conversationIdRef,
+          text: content,
+          file,
+        });
+      } else {
+        await sendMessage(content);
+      }
+      if (textarea) textarea.value = "";
+      if (fileInput) fileInput.value = "";
+      if (typingStopTimer) clearTimeout(typingStopTimer);
+      emitTypingStop();
+    } catch (err) {
+      showToast(err?.message || "Unable to send message", "error");
+    }
+  };
+
+  if (sendBtn) sendBtn.onclick = sendAction;
+}
+
 function mountDashboardWidgets() {
   if (!isLoggedIn()) return;
-  const boardContainer = document.getElementById("message-board-list");
-  const smsContainer = document.getElementById("sms-feed-list");
+  const rootEl = document.getElementById("home-messenger-root");
   const addButton = document.getElementById("add-board-message");
-  if (!boardContainer || !smsContainer) return;
+  if (!rootEl) return;
 
   setupSocket();
 
-  boardContainer.innerHTML = createSkeletonRows(2);
-  smsContainer.innerHTML = createSkeletonRows(3);
-  setTimeout(() => {
-    renderMessageBoard(boardContainer);
-    renderSmsFeed(smsContainer);
-    renderThreadDrawer(document.getElementById("thread-drawer"));
-  }, 350);
+  const ui = messengerUi(rootEl);
+  if (ui.list) ui.list.innerHTML = createSkeletonRows(3);
+  wireMessengerShell(rootEl);
 
-  addButton?.addEventListener("click", async () => {
-    showComposeMessageModal(async (note) => {
-      try {
-        if (dashboardState.conversations.length > 0) {
-          dashboardState.activeConversationId = String(
-            dashboardState.conversations[0]._id,
-          );
-          await loadMessages(dashboardState.activeConversationId);
-        } else {
-          dashboardState.activeConversationId = "";
-          dashboardState.messages = [];
+  setTimeout(() => {
+    renderMessengerConversationList(rootEl);
+    renderMessengerThread(rootEl);
+  }, 200);
+
+  if (!addButton?.dataset.composeBound) {
+    addButton.dataset.composeBound = "1";
+    addButton.addEventListener("click", async () => {
+      showComposeMessageModal(async (note) => {
+        try {
+          if (dashboardState.conversations.length > 0) {
+            dashboardState.activeConversationId = String(
+              dashboardState.conversations[0]._id,
+            );
+            await loadMessages(dashboardState.activeConversationId);
+          } else {
+            dashboardState.activeConversationId = "";
+            dashboardState.messages = [];
+          }
+          await sendMessage(note);
+          showToast("Message sent.");
+        } catch (err) {
+          showToast(err?.message || "Unable to send message", "error");
         }
-        await sendMessage(note);
-        showToast("Message sent.");
-      } catch (err) {
-        showToast(err?.message || "Unable to send message", "error");
-      }
+      });
     });
-  });
+  }
 
   pruneDashboardSubscribers(DASH_TAG_HOME);
   const homeDashboardListener = () => {
     const liveBadge = document.querySelector(".live-badge");
     if (liveBadge)
       liveBadge.classList.toggle("active", dashboardState.websocketActive);
-    const drawer = document.getElementById("thread-drawer");
-    renderMessageBoard(boardContainer);
-    renderSmsFeed(smsContainer);
-    renderThreadDrawer(drawer);
+    renderMessengerConversationList(rootEl);
+    renderMessengerThread(rootEl);
   };
   homeDashboardListener._dashTag = DASH_TAG_HOME;
   subscribeDashboard(homeDashboardListener);
@@ -2172,9 +2733,8 @@ function mountFloatingChatWidget() {
   const panel = document.getElementById("floating-chat-panel");
   const toggleBtn = document.getElementById("floating-chat-toggle");
   const closeBtn = document.getElementById("floating-chat-close");
-  const boardContainer = document.getElementById("floating-message-board-list");
-  const drawerEl = document.getElementById("floating-thread-drawer");
-  if (!root || !panel || !boardContainer || !drawerEl) return;
+  const shellRoot = document.getElementById("floating-messenger-root");
+  if (!root || !panel || !shellRoot) return;
 
   root.classList.remove("hidden");
   root.setAttribute("aria-hidden", "false");
@@ -2183,14 +2743,15 @@ function mountFloatingChatWidget() {
 
   pruneDashboardSubscribers(DASH_TAG_FLOAT);
   const floatListener = () => {
-    renderMessageBoard(boardContainer);
-    renderThreadDrawer(drawerEl);
+    renderMessengerConversationList(shellRoot);
+    renderMessengerThread(shellRoot);
   };
   floatListener._dashTag = DASH_TAG_FLOAT;
   subscribeDashboard(floatListener);
 
-  renderMessageBoard(boardContainer);
-  renderThreadDrawer(drawerEl);
+  wireMessengerShell(shellRoot);
+  renderMessengerConversationList(shellRoot);
+  renderMessengerThread(shellRoot);
 
   if (!root.dataset.drmeetFloatReady) {
     root.dataset.drmeetFloatReady = "1";
@@ -2199,8 +2760,8 @@ function mountFloatingChatWidget() {
       const visible = !panel.classList.contains("hidden");
       if (visible) {
         loadConversations().then(() => {
-          renderMessageBoard(boardContainer);
-          renderThreadDrawer(drawerEl);
+          renderMessengerConversationList(shellRoot);
+          renderMessengerThread(shellRoot);
         });
       }
       toggleBtn?.setAttribute("aria-expanded", visible ? "true" : "false");
@@ -2212,8 +2773,8 @@ function mountFloatingChatWidget() {
   }
 
   loadConversations().then(() => {
-    renderMessageBoard(boardContainer);
-    renderThreadDrawer(drawerEl);
+    renderMessengerConversationList(shellRoot);
+    renderMessengerThread(shellRoot);
   });
 }
 
@@ -2221,6 +2782,9 @@ function hideFloatingChatWidget() {
   const root = document.getElementById("floating-chat-widget");
   const panel = document.getElementById("floating-chat-panel");
   const toggleBtn = document.getElementById("floating-chat-toggle");
+  document
+    .getElementById("floating-messenger-root")
+    ?.removeAttribute("data-messenger-shell-wired");
   if (root) {
     root.classList.add("hidden");
     root.setAttribute("aria-hidden", "true");
@@ -2228,300 +2792,6 @@ function hideFloatingChatWidget() {
   panel?.classList.add("hidden");
   toggleBtn?.setAttribute("aria-expanded", "false");
   pruneDashboardSubscribers(DASH_TAG_FLOAT);
-}
-
-function renderMessageBoard(container) {
-  const currentUserId = getCurrentUserId();
-  const conversations = Array.isArray(dashboardState.conversations)
-    ? dashboardState.conversations
-    : [];
-  const sorted = [...conversations].sort((a, b) => {
-    const left = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
-    const right = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
-    return right - left;
-  });
-
-  container.innerHTML = sorted.length
-    ? sorted
-        .map((conv) => {
-          const participants = Array.isArray(conv.participants)
-            ? conv.participants
-            : [];
-          const other =
-            participants.find((p) => String(p._id) !== String(currentUserId)) ||
-            participants[0] ||
-            null;
-          const otherName = participantDisplayName(other);
-          const otherAvatar = participantAvatarUrl(other);
-          const lastAt = conv.lastMessageAt || conv.updatedAt;
-          const lastMsg = conv.lastMessage || "";
-          const typingLabel = conversationTypingLabel(conv._id, currentUserId);
-
-          return `
-            <article class="message-card tailwind-card" data-conversation-id="${conv._id}">
-              <div class="message-row">
-                <h4 class="message-person"><img src="${escapeHtml(otherAvatar)}" class="person-avatar" alt="${escapeHtml(otherName)} avatar" />${otherName}</h4>
-                <small>${lastAt ? formatRelativeTime(lastAt) : ""}</small>
-              </div>
-              <p class="message-preview">${typingLabel || lastMsg || "No messages yet"}</p>
-              <div class="quick-actions">
-                <button type="button" class="btn btn-secondary btn-sm" data-open-thread="${conv._id}">Open thread</button>
-              </div>
-            </article>
-          `;
-        })
-        .join("")
-    : `<div class="feedback">No conversations yet.</div>`;
-
-  container.querySelectorAll("[data-open-thread]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const conversationId = button.getAttribute("data-open-thread");
-      if (!conversationId) return;
-      dashboardState.activeConversationId = String(conversationId);
-      await loadMessages(conversationId);
-    });
-  });
-
-  container.querySelectorAll(".message-card").forEach((card) => {
-    card.addEventListener("click", async (event) => {
-      if (event.target.closest("button")) return;
-      const conversationId = card.getAttribute("data-conversation-id");
-      if (!conversationId) return;
-      dashboardState.activeConversationId = String(conversationId);
-      await loadMessages(conversationId);
-    });
-  });
-}
-
-function renderSmsFeed(container) {
-  const smsCard = container.closest(".sms-card");
-  const hasAnySummary =
-    Array.isArray(dashboardState.conversations) &&
-    dashboardState.conversations.some((c) =>
-      String(c?.lastMessage || "").trim(),
-    );
-  if (smsCard) smsCard.style.display = hasAnySummary ? "" : "none";
-  if (!hasAnySummary) return;
-  const containerEmptyState = `
-    <div class="feedback">
-      ${dashboardState.activeConversationId ? "Select a conversation to view messages." : "Select a conversation to view messages."}
-    </div>
-  `;
-
-  if (!dashboardState.activeConversationId) {
-    container.innerHTML = containerEmptyState;
-    return;
-  }
-
-  if (dashboardState.socketReconnecting && !dashboardState.websocketActive) {
-    container.innerHTML = `
-      <div class="feedback sms-feed-loading">
-        Connecting... live updates are restoring (this can take up to 30 seconds).
-      </div>`;
-    return;
-  }
-
-  const conv = dashboardState.conversations.find(
-    (c) => String(c._id) === String(dashboardState.activeConversationId),
-  );
-  const participants = Array.isArray(conv?.participants)
-    ? conv.participants
-    : [];
-  const currentUserId = getCurrentUserId();
-  const other =
-    participants.find((p) => String(p._id) !== String(currentUserId)) ||
-    participants[0] ||
-    null;
-  const otherName = participantDisplayName(other);
-  const otherAvatar = participantAvatarUrl(other);
-  const typingLabel = conversationTypingLabel(
-    dashboardState.activeConversationId,
-    currentUserId,
-  );
-
-  container.innerHTML = `
-    <div class="chat-bubble">
-      <div class="chat-head">
-        <strong class="message-person"><img src="${escapeHtml(otherAvatar)}" class="person-avatar" alt="${escapeHtml(otherName)} avatar" />${otherName}</strong>
-      </div>
-      <p style="opacity:0.85">${typingLabel || `${dashboardState.messages?.length || 0} message(s)`}</p>
-    </div>
-  `;
-}
-
-function renderThreadDrawer(drawer) {
-  if (!isLoggedIn()) {
-    if (drawer) {
-      drawer.classList.add("hidden");
-      drawer.innerHTML = "";
-    }
-    return;
-  }
-  if (!drawer) return;
-  const conversationId = dashboardState.activeConversationId;
-  if (!conversationId) {
-    drawer.classList.add("hidden");
-    drawer.innerHTML = "";
-    return;
-  }
-
-  const conv = dashboardState.conversations.find(
-    (c) => String(c._id) === String(conversationId),
-  );
-  const participants = Array.isArray(conv?.participants)
-    ? conv.participants
-    : [];
-  const currentUserId = getCurrentUserId();
-  const other =
-    participants.find((p) => String(p._id) !== String(currentUserId)) ||
-    participants[0] ||
-    null;
-  const otherName = participantDisplayName(other);
-  const otherAvatar = participantAvatarUrl(other);
-  const typingLabel = conversationTypingLabel(conversationId, currentUserId);
-
-  const threadMessages = Array.isArray(dashboardState.messages)
-    ? dashboardState.messages
-    : [];
-  drawer.classList.remove("hidden");
-  drawer.innerHTML = `
-    <div class="thread-header">
-      <h3 class="message-person"><img src="${escapeHtml(otherAvatar)}" class="person-avatar" alt="${escapeHtml(otherName)} avatar" />${otherName}</h3>
-      <button type="button" class="btn btn-secondary btn-sm" id="close-thread">Close</button>
-    </div>
-    <p class="typing-indicator">${typingLabel || ""}</p>
-    <div class="thread-list">
-      ${
-        dashboardState.socketReconnecting && !dashboardState.websocketActive
-          ? `<div class="feedback">Connecting... messages reload automatically when live sync returns.</div>`
-          : threadMessages.length
-            ? threadMessages
-                .map((msg) => {
-                  const sender = msg.senderId || {};
-                  const senderId = msg.senderId?._id || msg.senderId || null;
-                  const isYou = senderId
-                    ? String(senderId) === String(currentUserId)
-                    : false;
-                  const senderName = sender
-                    ? `${sender.firstName || ""} ${sender.lastName || ""}`.trim()
-                    : "Unknown";
-                  const displayName = isYou ? "You" : senderName;
-
-                  const senderRole = String(sender.role || "").toLowerCase();
-                  const roleClass =
-                    senderRole === "patient"
-                      ? "role-patient"
-                      : senderRole === "doctor" || senderRole === "receptionist"
-                        ? "role-staff"
-                        : "role-default";
-
-                  const attachmentMarkup = msg.attachmentUrl
-                    ? (() => {
-                        const type = String(
-                          msg.attachmentType || "",
-                        ).toLowerCase();
-                        const url = escapeHtml(msg.attachmentUrl);
-                        const name = escapeHtml(
-                          msg.attachmentName || "Open attachment",
-                        );
-                        const isImage =
-                          type.startsWith("image/") ||
-                          /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(
-                            String(msg.attachmentUrl || ""),
-                          );
-                        return isImage
-                          ? `<div class="thread-attachment-wrap"><a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${name}" class="thread-attachment-image" /></a><p><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p></div>`
-                          : `<p><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p>`;
-                      })()
-                    : "";
-                  return `
-                  <div class="thread-item ${roleClass}">
-                    <div class="thread-item-header">
-                      <strong>${displayName}</strong>
-                      <small>${msg.createdAt ? formatRelativeTime(msg.createdAt) : ""}</small>
-                    </div>
-                    <p>${escapeHtml(msg.message || "")}</p>
-                    ${attachmentMarkup}
-                  </div>
-                `;
-                })
-                .join("")
-            : `<div class="feedback">No messages yet.</div>`
-      }
-    </div>
-    <div class="thread-drawer-reply">
-      <p class="thread-reply-label">Reply in this conversation</p>
-      <p class="thread-quick-hint thread-quick-hint--recipient" data-thread-hint-recipient></p>
-      <textarea id="thread-quick-reply" rows="3" placeholder="Type your message…" autocomplete="off"></textarea>
-      <div class="thread-attachment-row">
-        <label style="margin:0;">Attach screenshot or document
-          <input id="thread-quick-file" type="file" accept="image/*,.pdf,.doc,.docx,.txt" />
-        </label>
-        <button type="button" class="btn btn-primary" id="thread-send-reply">Send message</button>
-      </div>
-    </div>
-  `;
-  const recipientHintEl = drawer.querySelector("[data-thread-hint-recipient]");
-  if (recipientHintEl) {
-    recipientHintEl.textContent = `Quick reply to ${otherName}`;
-  }
-
-  drawer.querySelector("#close-thread")?.addEventListener("click", () => {
-    drawer.classList.add("hidden");
-  });
-
-  const quickReplyInput = drawer.querySelector("#thread-quick-reply");
-  let typingStopTimer = null;
-  const emitTypingStart = () => {
-    if (!socket || !conversationId) return;
-    socket.emit("typing:start", { conversationId });
-  };
-  const emitTypingStop = () => {
-    if (!socket || !conversationId) return;
-    socket.emit("typing:stop", { conversationId });
-  };
-  quickReplyInput?.addEventListener("input", () => {
-    const hasText = String(quickReplyInput.value || "").trim().length > 0;
-    if (!hasText) {
-      emitTypingStop();
-      return;
-    }
-    emitTypingStart();
-    if (typingStopTimer) clearTimeout(typingStopTimer);
-    typingStopTimer = setTimeout(() => emitTypingStop(), 900);
-  });
-  quickReplyInput?.addEventListener("blur", () => {
-    if (typingStopTimer) clearTimeout(typingStopTimer);
-    emitTypingStop();
-  });
-
-  drawer
-    .querySelector("#thread-send-reply")
-    ?.addEventListener("click", async () => {
-      const input = drawer.querySelector("#thread-quick-reply");
-      const fileInput = drawer.querySelector("#thread-quick-file");
-      const file = fileInput?.files?.[0];
-      const content = input?.value?.trim();
-      if ((!content && !file) || !conversationId) return;
-      if (
-        String(dashboardState.activeConversationId) !== String(conversationId)
-      ) {
-        dashboardState.activeConversationId = String(conversationId);
-      }
-      try {
-        if (file) {
-          await sendDocumentMessage({ conversationId, text: content, file });
-        } else {
-          await sendMessage(content);
-        }
-        if (input) input.value = "";
-        if (fileInput) fileInput.value = "";
-        if (typingStopTimer) clearTimeout(typingStopTimer);
-        emitTypingStop();
-      } catch (err) {
-        showToast(err?.message || "Unable to send message", "error");
-      }
-    });
 }
 
 // --- Authentication ---
@@ -2607,7 +2877,7 @@ function renderLogin() {
     <h2>Login</h2>
     <form id="login-form">
       <label>Email <input name="email" type="email" required /></label>
-      <label><span class="label-text-row" data-tooltip="Use at least 8 characters with uppercase, number, and special character.">Create Password</span><input name="password" type="password" required /></label>
+      <label><span class="label-text-row">Password</span><input name="password" type="password" required autocomplete="current-password" /></label>
       <button type="submit" class="btn btn-primary">Sign in</button>
     </form>
     <button id="google-login-btn" type="button" class="btn btn-google" style="margin-top:1rem;">Continue with Google</button>
