@@ -2641,14 +2641,18 @@ function buildThreadMessagesHtml(messages, currentUserId) {
               : `<p class="thread-attachment-file"><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p>`;
           })()
         : "";
+      const rowSide = isYou ? "outgoing" : "incoming";
+      const bubbleClass = isYou ? "thread-bubble--outgoing" : "thread-bubble--incoming";
       return `
-      <div class="thread-item ${roleClass}">
-        <div class="thread-item-header">
-          <strong>${displayName}</strong>
-          <small>${msg.createdAt ? formatRelativeTime(msg.createdAt) : ""}</small>
-        </div>
-        <p class="thread-message-body">${escapeHtml(msg.message || "")}</p>
-        ${attachmentMarkup}
+      <div class="thread-row thread-row--${rowSide}">
+        <article class="thread-bubble ${bubbleClass}" data-sender-role="${escapeHtml(roleClass)}">
+          <div class="thread-bubble-meta">
+            <strong>${escapeHtml(displayName)}</strong>
+            <small>${msg.createdAt ? escapeHtml(formatRelativeTime(msg.createdAt)) : ""}</small>
+          </div>
+          <p class="thread-message-body">${escapeHtml(msg.message || "")}</p>
+          ${attachmentMarkup}
+        </article>
       </div>`;
     })
     .join("");

@@ -1089,7 +1089,7 @@ textarea {
   background: #ffffff;
   border-left: 1px solid #d7e0f2;
   box-shadow: -14px 0 36px rgba(12, 24, 58, 0.15);
-  z-index: 150;
+  z-index: 260;
   padding: 1rem;
   overflow-y: auto;
 }
@@ -1106,6 +1106,92 @@ textarea {
   display: grid;
   gap: 0.65rem;
 }
+
+/* Messenger thread: stacked bubbles */
+.messenger-thread-scroll.thread-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0;
+}
+
+.thread-row {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+
+.thread-row--outgoing {
+  justify-content: flex-end;
+}
+
+.thread-row--incoming {
+  justify-content: flex-start;
+}
+
+.thread-bubble {
+  max-width: 70%;
+  padding: 0.45rem 0.65rem;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  box-shadow: 0 1px 2px rgba(12, 24, 58, 0.06);
+}
+
+.thread-bubble-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  margin-bottom: 0.2rem;
+}
+
+.thread-bubble--incoming {
+  background: #eceff3;
+  border-color: #d8dee8;
+  color: #1a2438;
+  border-radius: 18px 18px 18px 6px;
+}
+
+.thread-bubble--incoming .thread-bubble-meta strong,
+.thread-bubble--incoming .thread-bubble-meta small {
+  color: #3d4d75;
+}
+
+.thread-bubble--outgoing {
+  background: linear-gradient(180deg, #2a5cb8 0%, #1f4a99 100%);
+  border-color: #1a3d80;
+  color: #fff;
+  border-radius: 18px 18px 6px 18px;
+}
+
+.thread-bubble--outgoing .thread-bubble-meta strong,
+.thread-bubble--outgoing .thread-bubble-meta small {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.messenger-thread-scroll .thread-bubble .thread-message-body {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+.messenger-thread-scroll .thread-bubble--outgoing .thread-message-body {
+  color: #fff;
+}
+
+.messenger-thread-scroll .thread-bubble--outgoing a {
+  color: #e8f0ff;
+  text-decoration: underline;
+}
+
+.messenger-thread-scroll .thread-bubble--outgoing .thread-attachment-image {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
 .thread-item {
   border-radius: 12px;
   border: 1px solid #d7e0f5;
@@ -1758,14 +1844,14 @@ table td:last-child button {
 .clinical-dashboard {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 0 0.5rem 2rem;
+  padding: 0 0.45rem 1.25rem;
 }
 .clinical-dash-header {
   position: sticky;
   top: 0;
   z-index: 40;
-  padding: 1rem 0 0.75rem;
-  margin-bottom: 0.5rem;
+  padding: 0.6rem 0 0.45rem;
+  margin-bottom: 0.35rem;
   background: linear-gradient(
     180deg,
     rgba(248, 251, 255, 0.97),
@@ -1790,20 +1876,20 @@ body.theme-dark .clinical-dash-header {
   color: #3d6fb8;
 }
 .clinical-dash-title {
-  margin: 0.2rem 0 0;
-  font-size: 1.45rem;
+  margin: 0.15rem 0 0;
+  font-size: 1.28rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 .clinical-dash-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  margin: 0.75rem 0 1rem;
+  gap: 0.28rem;
+  margin: 0.45rem 0 0.6rem;
   position: sticky;
   top: 72px;
   z-index: 35;
-  padding: 0.35rem 0;
+  padding: 0.28rem 0;
   background: rgba(248, 251, 255, 0.92);
 }
 body.theme-dark .clinical-dash-tabs {
@@ -1813,8 +1899,8 @@ body.theme-dark .clinical-dash-tabs {
   border: 1px solid #c9d8ee;
   background: #fff;
   border-radius: 999px;
-  padding: 0.45rem 0.95rem;
-  font-size: 0.85rem;
+  padding: 0.32rem 0.72rem;
+  font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
   color: #1c3264;
@@ -1822,7 +1908,7 @@ body.theme-dark .clinical-dash-tabs {
 }
 .clinical-tab:hover {
   border-color: #3d6fb8;
-  background: #f0f6ff;
+  background: #e8f1fc;
 }
 .clinical-tab-active {
   background: linear-gradient(180deg, #1f4a99 0%, #183a7a 100%);
@@ -1830,16 +1916,16 @@ body.theme-dark .clinical-dash-tabs {
   border-color: #183a7a;
 }
 .clinical-tab-panel {
-  min-height: 200px;
+  min-height: 160px;
 }
 .clinical-overview-rows {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.65rem;
-  margin-bottom: 1rem;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
 }
 .clinical-stat-card {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.65rem;
 }
 .clinical-stat-card h4 {
   margin: 0 0 0.35rem;
@@ -1850,16 +1936,16 @@ body.theme-dark .clinical-dash-tabs {
 }
 .clinical-stat-value {
   margin: 0;
-  font-size: 1.65rem;
+  font-size: 1.45rem;
   font-weight: 800;
   color: #183a7a;
 }
 .clinical-muted {
   color: #5a6f94;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
 }
 .clinical-detail-card p {
-  margin: 0.65rem 0;
+  margin: 0.45rem 0;
 }
 .clinical-cache-note {
   font-size: 0.82rem;
@@ -1868,16 +1954,16 @@ body.theme-dark .clinical-dash-tabs {
 .clinical-patient-list {
   list-style: none;
   padding: 0;
-  margin: 0.75rem 0 0;
+  margin: 0.5rem 0 0;
   display: grid;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 .clinical-patient-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  gap: 0.55rem;
+  padding: 0.5rem 0.65rem;
 }
 .clinical-search-label {
   display: block;
@@ -1903,29 +1989,29 @@ body.theme-dark .clinical-dash-tabs {
 .clinical-table th,
 .clinical-table td {
   border-bottom: 1px solid #e4ecf8;
-  padding: 0.5rem 0.45rem;
+  padding: 0.35rem 0.4rem;
   text-align: left;
 }
 .clinical-appt-section {
-  margin-bottom: 1rem;
+  margin-bottom: 0.65rem;
 }
 .clinical-doc-list {
   list-style: none;
   padding: 0;
-  margin: 0.75rem 0 0;
+  margin: 0.5rem 0 0;
   display: grid;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 .clinical-doc-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  gap: 0.55rem;
+  padding: 0.5rem 0.65rem;
 }
 .clinical-upload-form {
   display: grid;
-  gap: 0.65rem;
+  gap: 0.5rem;
   max-width: 480px;
 }
 .clinical-doc-hint {
@@ -2151,22 +2237,29 @@ body.theme-dark .clinical-field-hint {
 }
 
 .messenger-conv-row {
-  display: grid;
-  grid-template-columns: 38px 1fr minmax(52px, auto);
-  gap: 0.4rem;
+  display: flex;
   align-items: center;
+  gap: 12px;
   width: 100%;
+  min-width: 0;
   text-align: left;
-  padding: 0.5rem 0.55rem;
+  padding: 0.45rem 0.5rem;
   border: none;
   border-bottom: 1px solid #e8eef9;
   background: transparent;
   cursor: pointer;
   font: inherit;
+  box-sizing: border-box;
+}
+
+.messenger-conv-row .person-avatar {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
 }
 
 .messenger-conv-row:hover {
-  background: rgba(61, 111, 184, 0.09);
+  background: rgba(61, 111, 184, 0.1);
 }
 
 .messenger-conv-row--active {
@@ -2174,10 +2267,11 @@ body.theme-dark .clinical-field-hint {
 }
 
 .messenger-conv-meta {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.12rem;
-  min-width: 0;
 }
 
 .messenger-conv-name {
@@ -2194,6 +2288,7 @@ body.theme-dark .clinical-field-hint {
 }
 
 .messenger-conv-time {
+  flex-shrink: 0;
   font-size: 0.7rem;
   color: #7d8fb0;
   white-space: nowrap;
@@ -2266,27 +2361,47 @@ body.theme-dark .clinical-field-hint {
 
 .messenger-compose-footer {
   flex-shrink: 0;
-  padding: 0.55rem 0.65rem 0.75rem;
-  border-top: 1px solid #e4ecf8;
+  padding: 0.45rem 0.55rem 0.55rem;
+  border-top: 1px solid #dce4f4;
   background: #f8faff;
   max-width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
+  box-shadow:
+    0 -1px 0 rgba(12, 24, 58, 0.06),
+    0 -6px 16px rgba(12, 24, 58, 0.05);
 }
 
 .messenger-compose-footer.thread-drawer-reply {
   margin-top: 0;
-  padding-top: 0.55rem;
+  padding-top: 0.45rem;
 }
 
-.messenger-compose-footer textarea {
+.messenger-compose-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   width: 100%;
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
+}
+
+.messenger-compose-input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+  box-sizing: border-box;
   resize: vertical;
-  min-height: 64px;
-  margin-bottom: 0.45rem;
+  min-height: 56px;
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid #c9d8ee;
+  font: inherit;
+  line-height: 1.35;
+  overflow-x: hidden;
 }
 
 .messenger-compose-actions {
@@ -2294,10 +2409,8 @@ body.theme-dark .clinical-field-hint {
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
+  gap: 0.45rem;
+  flex-shrink: 0;
   box-sizing: border-box;
 }
 
@@ -2323,8 +2436,7 @@ body.theme-dark .clinical-field-hint {
 
 /* Messenger-style circular send control (plane icon) */
 .messenger-send-icon-btn {
-  flex: 0 0 auto;
-  margin-left: auto;
+  flex-shrink: 0;
   width: 44px;
   height: 44px;
   min-width: 44px;
@@ -2412,6 +2524,31 @@ body.theme-dark .messenger-sidebar {
 
 body.theme-dark .messenger-compose-footer {
   background: #0f1628;
+  border-top-color: #243559;
+  box-shadow:
+    0 -1px 0 rgba(0, 0, 0, 0.28),
+    0 -8px 20px rgba(0, 0, 0, 0.18);
+}
+
+body.theme-dark .messenger-compose-input {
+  background: #0e1a31;
+  border-color: #2e456f;
+  color: #dbe7ff;
+}
+
+body.theme-dark .thread-bubble--incoming {
+  background: #1a2438;
+  border-color: #2c3d5c;
+  color: #e4e9ff;
+}
+
+body.theme-dark .thread-bubble--incoming .thread-bubble-meta strong,
+body.theme-dark .thread-bubble--incoming .thread-bubble-meta small {
+  color: #9eb0d4;
+}
+
+body.theme-dark .messenger-conv-row:hover {
+  background: rgba(120, 160, 240, 0.12);
 }
 
 /* --- Floating chat --- */
@@ -2510,7 +2647,7 @@ body.theme-dark .floating-chat-panel {
   flex-shrink: 0;
 }
 
-.floating-chat-panel .messenger-compose-footer textarea {
+.floating-chat-panel .messenger-compose-input {
   overflow-x: hidden;
 }
 .floating-chat-body {
