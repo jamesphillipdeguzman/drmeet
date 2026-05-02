@@ -2165,6 +2165,7 @@ body.theme-dark .clinical-field-hint {
   flex-direction: column;
   min-height: 0;
   flex: 1 1 auto;
+  position: relative;
 }
 
 .messenger-shell > .messenger-layout {
@@ -2432,8 +2433,8 @@ body.theme-dark .messenger-thread-close-x:hover {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 0.85rem 1rem 1.6rem;
-  scroll-padding-bottom: 110px;
+  padding: 0.85rem 1rem 2.35rem;
+  scroll-padding-bottom: 160px;
   min-height: 0;
   min-width: 0;
   max-width: 100%;

@@ -2619,13 +2619,29 @@ function wireMessengerShell(rootEl) {
       const textarea = rootEl.querySelector("[data-messenger-reply-text]");
       const m = ensureEmojiMenu();
       const rect = emojiBtn.getBoundingClientRect();
-      const rootRect = rootEl.getBoundingClientRect();
-      // Position above the emoji button, clamped inside the root shell.
-      const desiredLeft = rect.left - rootRect.left - 240;
-      const left = Math.max(10, Math.min(desiredLeft, rootRect.width - 10 - 320));
-      m.style.left = `${left}px`;
-      m.style.bottom = `${Math.max(64, rootRect.bottom - rect.top + 10)}px`;
-      m.classList.toggle("hidden");
+      // Use viewport-fixed positioning so it works reliably on mobile.
+      m.style.position = "fixed";
+      m.style.zIndex = "10000";
+      m.classList.remove("hidden");
+
+      // Compute after it's visible so offsetHeight is accurate.
+      requestAnimationFrame(() => {
+        const menuW = m.offsetWidth || 320;
+        const menuH = m.offsetHeight || 240;
+        const margin = 10;
+        const centerX = rect.left + rect.width / 2;
+        let left = Math.round(centerX - menuW / 2);
+        left = Math.max(margin, Math.min(left, window.innerWidth - margin - menuW));
+
+        // Prefer above the button; if not enough space, drop below.
+        let top = Math.round(rect.top - menuH - 10);
+        if (top < margin) top = Math.round(rect.bottom + 10);
+        top = Math.max(margin, Math.min(top, window.innerHeight - margin - menuH));
+
+        m.style.left = `${left}px`;
+        m.style.top = `${top}px`;
+      });
+
       textarea?.focus();
       return;
     }
@@ -2669,9 +2685,6 @@ function wireMessengerShell(rootEl) {
     dashboardState.messages = [];
     notifyDashboardSubscribers();
   };
-  rootEl.querySelectorAll("[data-messenger-back]").forEach((btn) => {
-    btn.addEventListener("click", clearThread);
-  });
   rootEl.querySelector("[data-messenger-clear]")?.addEventListener("click", clearThread);
 }
 
