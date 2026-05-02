@@ -2449,6 +2449,9 @@ body.theme-dark .messenger-thread-close-x:hover {
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   overflow-x: hidden;
   overflow-y: visible;
   box-shadow:
@@ -2467,22 +2470,8 @@ body.theme-dark .messenger-thread-close-x:hover {
   max-width: 100%;
 }
 
-/* --- Message composer row (Messenger-style) --- */
-.messenger-compose-row,
-.message-compose-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-.messenger-compose-row > *,
-.message-compose-row > * {
+/* Ensure direct children of footer can shrink without overflow */
+.messenger-compose-footer > * {
   min-width: 0;
 }
 
@@ -2494,7 +2483,7 @@ body.theme-dark .messenger-thread-close-x:hover {
   align-items: center;
   gap: 10px;
   padding: 5px 15px;
-  border-radius: 20px;
+  border-radius: 24px;
   border: 1px solid #e2e9f7;
   background: #f3f6fb;
   box-sizing: border-box;
@@ -2507,7 +2496,8 @@ body.theme-dark .messenger-thread-close-x:hover {
   flex: 1;
   min-width: 0;
   outline: none;
-  padding: 0;
+  width: 100%;
+  padding: 8px 12px;
   margin: 0;
   resize: none;
   min-height: 38px;
@@ -2596,6 +2586,12 @@ body.theme-dark .emoji-menu {
   border-radius: 12px;
   padding: 0;
   cursor: pointer;
+}
+
+/* Keep upload + send from shrinking/squashing */
+.messenger-compose-footer .message-compose-btn,
+.messenger-compose-footer .messenger-send-icon-btn {
+  flex-shrink: 0;
 }
 .message-compose-btn:hover {
   background: rgba(195, 154, 72, 0.12);
@@ -2889,13 +2885,4 @@ body.theme-dark .floating-chat-panel {
   overflow-wrap: anywhere;
 }
 
-/* 🔥 Ensure parent cannot be stretched */
-.messenger-compose-row {
-  min-width: 0 !important;
-  max-width: 100% !important;
-}
-
-/* 🔥 Prevent children from expanding row */
-.messenger-compose-row > * {
-  min-width: 0 !important;
-}
+/* (deprecated) messenger-compose-row wrapper no longer used */
