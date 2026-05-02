@@ -456,14 +456,17 @@ export const inviteReceptionist = async (req, res) => {
       inviteLink: `${process.env.CLIENT_ORIGIN}/#accept-invite?token=${token}`,
     });
 
+    console.log('=== EMAIL DEBUG ===');
+    console.log(inviteResult);
+
     const emailStatus = inviteResult?.sent ? 'sent' : 'failed';
-    console.log('Resend result:', inviteResult);
 
     return res.status(existing ? 200 : 201).json({
       message: existing
         ? 'Receptionist linked successfully.'
         : 'Receptionist invited successfully.',
       emailStatus,
+      debug: inviteResult,
       user: receptionist,
     });
   } catch (error) {
