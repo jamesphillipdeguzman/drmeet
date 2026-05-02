@@ -66,7 +66,6 @@
             <div class="floating-chat-panel-head">
                 <span>Messages</span>
                 <div class="floating-chat-head-actions">
-                    <button type="button" id="floating-chat-compose" class="btn btn-primary btn-sm">Compose</button>
                     <button type="button" id="floating-chat-close" class="btn btn-secondary btn-sm" aria-label="Close">×</button>
                 </div>
             </div>
@@ -93,10 +92,13 @@
                                 </header>
                                 <p class="typing-indicator messenger-typing" data-messenger-typing></p>
                                 <div class="messenger-thread-body">
+                                    <button type="button" class="messenger-thread-fab" data-messenger-compose aria-label="Compose message" title="Compose">
+                                        <img src="images/edit-circle-line.svg" alt="" width="22" height="22" class="messenger-action-icon message-compose-icon" />
+                                    </button>
                                     <div class="messenger-thread-scroll thread-list" data-messenger-scroll></div>
                                     <footer class="messenger-compose-footer thread-drawer-reply">
                                         <label class="messenger-file-upload message-compose-btn" title="Attach file" aria-label="Attach file">
-                                            <img src="images/chat-upload-line.svg" alt="" class="messenger-action-icon message-compose-icon" width="22" height="22" />
+                                            <img src="images/edit-circle-line.svg" alt="" class="messenger-action-icon message-compose-icon" width="22" height="22" />
                                             <input type="file" data-messenger-file-input accept="image/*,.pdf,.doc,.docx,.txt" />
                                         </label>
 

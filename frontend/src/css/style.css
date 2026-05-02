@@ -2427,6 +2427,7 @@ body.theme-dark .messenger-thread-close-x:hover {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
 .messenger-thread-scroll {
@@ -2438,6 +2439,34 @@ body.theme-dark .messenger-thread-close-x:hover {
   min-height: 0;
   min-width: 0;
   max-width: 100%;
+}
+
+/* Floating action button in thread */
+.messenger-thread-fab {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  z-index: 100;
+  background: #fff;
+  box-shadow: 0 14px 38px rgba(12, 24, 58, 0.28);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.messenger-thread-fab:hover {
+  transform: scale(1.1);
+}
+
+body.theme-dark .messenger-thread-fab {
+  background: #0f1628;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.45);
 }
 
 .messenger-compose-footer {

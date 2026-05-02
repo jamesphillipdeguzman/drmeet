@@ -2904,6 +2904,9 @@ function renderMessengerThread(rootEl) {
       if (fileInput) fileInput.value = "";
       if (typingStopTimer) clearTimeout(typingStopTimer);
       emitTypingStop();
+      // Keep the latest message visible.
+      const ui = messengerUi(rootEl);
+      if (ui.scroll) ui.scroll.scrollTop = ui.scroll.scrollHeight;
     } catch (err) {
       showToast(err?.message || "Unable to send message", "error");
     }
@@ -2982,18 +2985,10 @@ function mountFloatingChatWidget() {
       panel.classList.add("hidden");
       toggleBtn?.setAttribute("aria-expanded", "false");
     });
-    document.getElementById("floating-chat-compose")?.addEventListener("click", () => {
+    shellRoot.querySelector("[data-messenger-compose]")?.addEventListener("click", () => {
       showComposeMessageModal(async (note) => {
         try {
-          if (dashboardState.conversations.length > 0) {
-            dashboardState.activeConversationId = String(
-              dashboardState.conversations[0]._id,
-            );
-            await loadMessages(dashboardState.activeConversationId);
-          } else {
-            dashboardState.activeConversationId = "";
-            dashboardState.messages = [];
-          }
+          // Do not auto-open/select a conversation; just send into the currently active one.
           await sendMessage(note);
           showToast("Message sent.");
           renderMessengerConversationList(shellRoot);
