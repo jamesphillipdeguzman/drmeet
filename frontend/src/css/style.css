@@ -1141,6 +1141,14 @@ textarea {
   align-items: center;
   margin-bottom: 0.35rem;
 }
+
+.thread-item .thread-message-body {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
 .thread-attachment-wrap {
   margin-top: 0.5rem;
 }
@@ -1924,6 +1932,29 @@ body.theme-dark .clinical-dash-tabs {
   margin-top: 0;
 }
 
+.clinical-field-hint {
+  display: block;
+  margin-top: 0.2rem;
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: #5a6f94;
+}
+
+.clinical-docs-list-title {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.clinical-hmo-section[hidden] {
+  display: none !important;
+}
+
+.dashboard-messages-hint {
+  margin: 0.75rem 0 0;
+  max-width: 42rem;
+}
+
 .clinical-billing-scroll {
   max-height: min(520px, 70vh);
   overflow: auto;
@@ -1989,6 +2020,10 @@ body.theme-dark .clinical-billing-form input:not([type="file"]):not([type="check
   background: #0f1628;
   border-color: #243559;
   color: #e8eef9;
+}
+
+body.theme-dark .clinical-field-hint {
+  color: #8fa4c8;
 }
 
 .clinical-service-lines {
@@ -2162,6 +2197,7 @@ body.theme-dark .clinical-billing-form input:not([type="file"]):not([type="check
   display: flex;
   flex-direction: column;
   min-width: 0;
+  max-width: 100%;
   min-height: 0;
   background: #fff;
 }
@@ -2213,8 +2249,11 @@ body.theme-dark .clinical-billing-form input:not([type="file"]):not([type="check
 .messenger-thread-scroll {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 0.55rem 0.65rem;
   min-height: 200px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .messenger-compose-footer {
@@ -2222,6 +2261,9 @@ body.theme-dark .clinical-billing-form input:not([type="file"]):not([type="check
   padding: 0.55rem 0.65rem 0.75rem;
   border-top: 1px solid #e4ecf8;
   background: #f8faff;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .messenger-compose-footer.thread-drawer-reply {
@@ -2231,6 +2273,8 @@ body.theme-dark .clinical-billing-form input:not([type="file"]):not([type="check
 
 .messenger-compose-footer textarea {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   resize: vertical;
   min-height: 64px;
@@ -2238,12 +2282,14 @@ body.theme-dark .clinical-billing-form input:not([type="file"]):not([type="check
 }
 
 .messenger-compose-actions {
-  display: flex;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 0.5rem;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
+  box-sizing: border-box;
 }
 
 .messenger-file-upload {
@@ -2392,6 +2438,7 @@ body.theme-dark .messenger-compose-footer {
 }
 .floating-chat-panel {
   width: min(420px, calc(100vw - 2rem));
+  max-width: calc(100vw - 2rem);
   max-height: min(560px, calc(100vh - 6rem));
   background: #fff;
   border-radius: 14px;
@@ -2400,6 +2447,7 @@ body.theme-dark .messenger-compose-footer {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .floating-chat-panel .messenger-shell {
@@ -2423,10 +2471,19 @@ body.theme-dark .floating-chat-panel {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
   padding: 0.55rem 0.75rem;
   border-bottom: 1px solid #e4ecf8;
   font-weight: 800;
   font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.floating-chat-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
 }
 .floating-chat-body {
   display: flex;

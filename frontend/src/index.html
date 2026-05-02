@@ -65,7 +65,10 @@
         <div id="floating-chat-panel" class="floating-chat-panel hidden" role="dialog" aria-label="Messages">
             <div class="floating-chat-panel-head">
                 <span>Messages</span>
-                <button type="button" id="floating-chat-close" class="btn btn-secondary btn-sm" aria-label="Close">×</button>
+                <div class="floating-chat-head-actions">
+                    <button type="button" id="floating-chat-compose" class="btn btn-primary btn-sm">Compose</button>
+                    <button type="button" id="floating-chat-close" class="btn btn-secondary btn-sm" aria-label="Close">×</button>
+                </div>
             </div>
             <div class="floating-chat-body messenger-panel-body">
                 <div id="floating-messenger-root" class="messenger-shell messenger-shell--floating" data-messenger-scope="floating">

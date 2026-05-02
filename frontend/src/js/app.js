@@ -106,6 +106,9 @@ const PAYMENT_METHOD_CATEGORIES_FALLBACK = [
     methods: ["PCSO Assistance", "LGU Medical Assistance"],
   },
 ];
+
+/** When billing payment method is one of these, show the HMO / insurance fields. */
+const CLINICAL_HMO_PAYMENT_METHODS = new Set(["HMO Coverage", "HMO Co-pay"]);
 const dashboardSubscribers = [];
 const dashboardState = {
   conversations: [],
@@ -1553,14 +1556,14 @@ async function showClinicalTab(tab) {
           <article class="card clinical-stat-card"><h4>Assigned patients</h4><p class="clinical-stat-value">${escapeHtml(String(s.assignedPatientCount ?? 0))}</p></article>
           <article class="card clinical-stat-card"><h4>Upcoming visits</h4><p class="clinical-stat-value">${escapeHtml(String(s.upcomingAppointmentCount ?? 0))}</p></article>
           <article class="card clinical-stat-card"><h4>Past visits</h4><p class="clinical-stat-value">${escapeHtml(String(s.pastAppointmentCount ?? 0))}</p></article>
-          <article class="card clinical-stat-card"><h4>Message threads</h4><p class="clinical-stat-value">${escapeHtml(String(s.messageThreads ?? 0))}</p></article>
+          <article class="card clinical-stat-card"><h4>Conversations</h4><p class="clinical-stat-value">${escapeHtml(String(s.messageThreads ?? 0))}</p></article>
         </div>
         <section class="card clinical-detail-card">
           <h4>Practice details</h4>
           <p><strong>Professional license</strong><br /><span class="clinical-muted">${escapeHtml(data.licenseNumber || "—")}</span></p>
           <p><strong>Clinic / facility</strong><br /><span class="clinical-muted">${escapeHtml(data.clinic || "—")}</span></p>
           <p><strong>Room</strong><br /><span class="clinical-muted">${escapeHtml(data.room || "—")}</span></p>
-          ${fromCache ? `<p class="clinical-cache-note">Summary cached for faster loading. Use Refresh to sync.</p>` : ""}
+          ${fromCache ? `<p class="clinical-cache-note">Figures below may be from your last refresh. Tap Refresh summary for the latest.</p>` : ""}
           <button type="button" class="btn btn-secondary btn-sm" id="clinical-refresh-overview">Refresh summary</button>
         </section>
       `;
@@ -1706,46 +1709,80 @@ async function showClinicalTab(tab) {
     }
 
     if (tab === "documents") {
-      const res = await apiRequest(`${API_BASE}/doctors/me/documents`);
+      const [res, pres] = await Promise.all([
+        apiRequest(`${API_BASE}/doctors/me/documents`),
+        apiRequest(`${API_BASE}/doctors/me/patients?limit=500`),
+      ]);
       if (!res.ok)
         throw new Error(await getApiErrorMessage(res, "Unable to load documents."));
       const payload = await res.json();
       const docs = Array.isArray(payload.documents) ? payload.documents : [];
+      let patientRows = [];
+      if (pres.ok) {
+        const pj = await pres.json();
+        patientRows = Array.isArray(pj.patients) ? pj.patients : [];
+      }
+      const patientOptions = [
+        `<option value="">Select patient…</option>`,
+        ...patientRows.map((p) => {
+          const label = `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Patient";
+          return `<option value="${escapeHtml(String(p._id))}">${escapeHtml(label)}</option>`;
+        }),
+      ].join("");
       panel.innerHTML = `
-        <p class="clinical-muted clinical-doc-hint">Clinic files and chart uploads from assigned patients. Filter by patient or source from the API query params as needed.</p>
+        <p class="clinical-muted clinical-doc-hint">Upload files to your shared clinic library or attach them to a specific patient’s chart.</p>
         <section class="card">
-          <h4>Upload</h4>
+          <h4>Upload a document</h4>
           <form id="clinical-doc-upload" class="clinical-upload-form">
-            <label>Scope
-              <select name="scope">
-                <option value="clinic">Clinic library</option>
+            <label>Save to
+              <select name="scope" id="clinical-doc-scope">
+                <option value="clinic">Clinic library (shared)</option>
                 <option value="patient">Patient chart</option>
               </select>
             </label>
-            <label>Patient id (required for chart uploads)
-              <input name="patientId" type="text" placeholder="Patient profile id" />
+            <label>Patient
+              <select name="patientId" id="clinical-doc-patient">${patientOptions}</select>
+              <small class="clinical-field-hint" id="clinical-doc-patient-hint">Choose a patient when saving to a chart.</small>
             </label>
-            <label>Label
-              <input name="documentName" type="text" required placeholder="File label" />
+            <label>Document title
+              <input name="documentName" type="text" required placeholder="e.g. Lab results — CBC, Referral letter" />
             </label>
             <label>File
-              <input name="file" type="file" required />
+              <input name="file" type="file" required accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.txt" />
             </label>
             <button type="submit" class="btn btn-primary">Upload</button>
           </form>
         </section>
+        <h4 class="clinical-docs-list-title">Recent uploads</h4>
         <ul class="clinical-doc-list">
           ${docs.length ? docs.map((d) => `
             <li class="card clinical-doc-row">
               <div>
                 <strong>${escapeHtml(d.name || "Document")}</strong>
-                <p class="clinical-muted">${escapeHtml(d.source || "")}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
+                <p class="clinical-muted">${escapeHtml(d.source === "patient" ? "Patient chart" : d.source === "clinic" ? "Clinic library" : d.source || "—")}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
                 <p class="clinical-muted">${d.uploadedAt ? escapeHtml(new Date(d.uploadedAt).toLocaleString()) : ""}</p>
               </div>
               <a class="btn btn-secondary btn-sm" href="${escapeHtml(d.fileUrl || d.url || "#")}" target="_blank" rel="noopener noreferrer">Open</a>
             </li>`).join("") : `<li class="feedback">No documents yet.</li>`}
         </ul>
       `;
+
+      const scopeSel = document.getElementById("clinical-doc-scope");
+      const patientSel = document.getElementById("clinical-doc-patient");
+      const syncDocPatientField = () => {
+        const sc = scopeSel?.value || "clinic";
+        if (!patientSel) return;
+        if (sc === "patient") {
+          patientSel.disabled = false;
+          patientSel.required = true;
+        } else {
+          patientSel.disabled = true;
+          patientSel.required = false;
+          patientSel.value = "";
+        }
+      };
+      scopeSel?.addEventListener("change", syncDocPatientField);
+      syncDocPatientField();
 
       document.getElementById("clinical-doc-upload")?.addEventListener("submit", async (ev) => {
         ev.preventDefault();
@@ -1756,14 +1793,20 @@ async function showClinicalTab(tab) {
           showToast("Choose a file to upload.", "error");
           return;
         }
+        const scope = String(fd.get("scope") || "clinic");
+        const patientId = String(fd.get("patientId") || "").trim();
+        if (scope === "patient" && !patientId) {
+          showToast("Select a patient for chart uploads.", "error");
+          return;
+        }
         const reader = new FileReader();
         reader.onload = async () => {
           try {
             const base64 = reader.result?.split?.(",")?.[1];
             if (!base64) throw new Error("Unable to read file.");
             const body = {
-              scope: fd.get("scope") || "clinic",
-              patientId: fd.get("patientId"),
+              scope,
+              patientId: scope === "patient" ? patientId : "",
               documentName: fd.get("documentName"),
               documentFileData: base64,
             };
@@ -1850,7 +1893,7 @@ async function showClinicalTab(tab) {
       panel.innerHTML = `
         <section class="card">
           <h4>Billing &amp; HMO per visit</h4>
-          <p class="clinical-muted">Consultation fee, line-item services (total auto-calculated), payment tracking, and payer claim workflow.</p>
+          <p class="clinical-muted">Set fees and services for each visit, record how the patient paid, and track insurance when applicable.</p>
           <div class="clinical-table-wrap clinical-billing-scroll">
             <table class="clinical-table clinical-billing-table">
               <thead>
@@ -2010,36 +2053,38 @@ async function showClinicalTab(tab) {
               <label>Payment method
                 <select name="paymentMethod" id="clinical-pay-method">${payMethodOptions}</select>
               </label>
-              <h5 class="clinical-hmo-title">HMO / payer</h5>
-              <label>HMO provider
-                <select name="hmoProvider"><option value="">—</option>${hmoOptions}</select>
-              </label>
-              <label>Member ID<input name="hmoMemberId" value="${escapeHtml(String(b.hmoMemberId || ""))}" /></label>
-              <label>Coverage status
-                <select name="hmoCoverageStatus">
-                  ${["", "verified", "partial", "denied"].map((v) => `<option value="${v}" ${String(b.hmoCoverageStatus || "") === v ? "selected" : ""}>${v || "—"}</option>`).join("")}
-                </select>
-              </label>
-              <label>Pre-authorization ref<input name="hmoPreAuthorization" value="${escapeHtml(String(b.hmoPreAuthorization || ""))}" /></label>
-              <label>Claim status
-                <select name="hmoClaimStatus">
-                  ${["", "pending", "submitted", "approved", "rejected", "paid"].map((v) => `<option value="${v}" ${String(b.hmoClaimStatus || "") === v ? "selected" : ""}>${v || "—"}</option>`).join("")}
-                </select>
-              </label>
-              <label>Covered amount (PHP)<input name="hmoCoveredAmount" type="number" step="0.01" min="0" value="${escapeHtml(String(b.hmoCoveredAmount ?? 0))}" /></label>
-              <label>Patient co-pay (PHP)<input name="hmoPatientCopay" type="number" step="0.01" min="0" value="${escapeHtml(String(b.hmoPatientCopay ?? 0))}" /></label>
+              <div id="clinical-hmo-section" class="clinical-hmo-section">
+                <h5 class="clinical-hmo-title">Insurance / HMO</h5>
+                <label>HMO or payer name
+                  <select name="hmoProvider"><option value="">—</option>${hmoOptions}</select>
+                </label>
+                <label>Member ID<input name="hmoMemberId" value="${escapeHtml(String(b.hmoMemberId || ""))}" placeholder="Member or policy number" /></label>
+                <label>Coverage verification
+                  <select name="hmoCoverageStatus">
+                    ${["", "verified", "partial", "denied"].map((v) => `<option value="${v}" ${String(b.hmoCoverageStatus || "") === v ? "selected" : ""}>${v || "—"}</option>`).join("")}
+                  </select>
+                </label>
+                <label>Pre-authorization reference<input name="hmoPreAuthorization" value="${escapeHtml(String(b.hmoPreAuthorization || ""))}" placeholder="Authorization or approval ref" /></label>
+                <label>Claim status
+                  <select name="hmoClaimStatus">
+                    ${["", "pending", "submitted", "approved", "rejected", "paid"].map((v) => `<option value="${v}" ${String(b.hmoClaimStatus || "") === v ? "selected" : ""}>${v || "—"}</option>`).join("")}
+                  </select>
+                </label>
+                <label>Plan covered amount (PHP)<input name="hmoCoveredAmount" type="number" step="0.01" min="0" value="${escapeHtml(String(b.hmoCoveredAmount ?? 0))}" /></label>
+                <label>Patient co-pay (PHP)<input name="hmoPatientCopay" type="number" step="0.01" min="0" value="${escapeHtml(String(b.hmoPatientCopay ?? 0))}" /></label>
+              </div>
               <div class="clinical-billing-links">
                 ${b.soaUrl ? `<p><a href="${escapeHtml(b.soaUrl)}" target="_blank" rel="noopener noreferrer">Open SOA</a></p>` : ""}
                 ${b.invoiceUrl ? `<p><a href="${escapeHtml(b.invoiceUrl)}" target="_blank" rel="noopener noreferrer">Open invoice</a></p>` : ""}
               </div>
-              <label>Document type for upload
+              <label>Attachment type
                 <select id="clinical-billing-doc-kind-sel">
-                  <option value="claim">HMO claim attachment</option>
-                  <option value="soa">SOA</option>
+                  <option value="claim">HMO / insurance claim</option>
+                  <option value="soa">Statement of account</option>
                   <option value="invoice">Invoice</option>
                 </select>
               </label>
-              <label class="clinical-upload-inline">Upload file (PDF or image)
+              <label class="clinical-upload-inline">Attach PDF or image
                 <input type="file" data-billing-doc-kind accept=".pdf,.png,.jpg,.jpeg,.webp" />
               </label>
               <div class="clinical-billing-actions">
@@ -2054,6 +2099,14 @@ async function showClinicalTab(tab) {
 
         const catSel = dlg.querySelector("#clinical-pay-category");
         const methodSel = dlg.querySelector("#clinical-pay-method");
+        const hmoSection = dlg.querySelector("#clinical-hmo-section");
+        const syncHmoSection = () => {
+          if (!hmoSection || !methodSel) return;
+          const method = String(methodSel.value || "").trim();
+          const show = CLINICAL_HMO_PAYMENT_METHODS.has(method);
+          hmoSection.hidden = !show;
+          hmoSection.setAttribute("aria-hidden", show ? "false" : "true");
+        };
         const syncMethodsForCategory = () => {
           if (!catSel || !methodSel) return;
           const cat = catSel.value;
@@ -2065,8 +2118,11 @@ async function showClinicalTab(tab) {
             ...methods.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`),
           ].join("");
           if (methods.includes(keep)) methodSel.value = keep;
+          syncHmoSection();
         };
         catSel?.addEventListener("change", syncMethodsForCategory);
+        methodSel?.addEventListener("change", syncHmoSection);
+        syncHmoSection();
 
         dlg.querySelectorAll("[data-billing-close]").forEach((btn) => {
           btn.addEventListener("click", () => dlg.close());
@@ -2201,7 +2257,7 @@ function renderDoctorDashboard() {
         <div class="clinical-dash-identity">
           <p class="clinical-dash-kicker">Clinical workspace</p>
           <h2 class="clinical-dash-title">Doctor dashboard</h2>
-          <p class="clinical-muted">Tabs sync with the URL (<code>#doctor-dashboard?tab=…</code>) for reliable navigation.</p>
+          <p class="clinical-muted">Overview, patients, visits, billing, and documents — all in one place.</p>
         </div>
       </header>
       <nav class="clinical-dash-tabs" role="tablist" aria-label="Clinical sections">
@@ -2393,51 +2449,7 @@ function renderHome() {
     </section>
     ${
       signedIn
-        ? `<section class="card dashboard-messenger" id="home-messenger-root" data-messenger-scope="home">
-            <div class="card-header messenger-home-header">
-              <h3>Messages</h3>
-              <button type="button" class="btn btn-primary btn-sm" id="add-board-message">Compose</button>
-            </div>
-            <div class="messenger-layout" data-messenger-layout>
-              <aside class="messenger-sidebar">
-                <div class="messenger-sidebar-toolbar">
-                  <button type="button" class="btn btn-secondary btn-sm messenger-back-btn" data-messenger-back aria-label="Back to inbox">&larr;</button>
-                  <input type="search" data-messenger-search class="messenger-search-input" placeholder="Search conversations…" autocomplete="off" />
-                </div>
-                <div class="messenger-conversation-list" data-messenger-conversation-list></div>
-              </aside>
-              <section class="messenger-main">
-                <div class="messenger-thread-empty" data-messenger-empty>
-                  <p>Select a conversation to read and reply.</p>
-                </div>
-                <div class="messenger-thread-panel hidden" data-messenger-active>
-                  <header class="messenger-thread-topbar">
-                    <button type="button" class="btn btn-secondary btn-sm messenger-back-btn messenger-back-inline" data-messenger-back aria-label="Back">&larr;</button>
-                    <div class="messenger-peer">
-                      <img data-messenger-peer-avatar class="person-avatar" alt="" src="${DEFAULT_AVATAR_URL}" />
-                      <strong data-messenger-peer-name>Conversation</strong>
-                    </div>
-                    <button type="button" class="btn btn-secondary btn-sm messenger-clear-thread" data-messenger-clear type="button">Close</button>
-                  </header>
-                  <p class="typing-indicator messenger-typing" data-messenger-typing></p>
-                  <div class="messenger-thread-scroll thread-list" data-messenger-scroll></div>
-                  <footer class="messenger-compose-footer thread-drawer-reply">
-                    <textarea data-messenger-reply-text rows="3" placeholder="Type a message…" autocomplete="off"></textarea>
-                    <div class="messenger-compose-actions">
-                      <label class="messenger-file-upload" title="Attach file">
-                        <img src="${CHAT_UPLOAD_ICON_SRC}" alt="" width="22" height="22" />
-                        <span class="sr-only">Attach file</span>
-                        <input type="file" data-messenger-file-input accept="image/*,.pdf,.doc,.docx,.txt" />
-                      </label>
-                      <button type="button" class="messenger-send-icon-btn" data-messenger-send aria-label="Send message" title="Send">
-                        <img src="${CHAT_SEND_ICON_SRC}" alt="" width="22" height="22" class="messenger-send-icon-img" />
-                      </button>
-                    </div>
-                  </footer>
-                </div>
-              </section>
-            </div>
-          </section>`
+        ? `<p class="clinical-muted dashboard-messages-hint">Use the <strong>Messages</strong> button at the bottom-right to read and send secure chat.</p>`
         : ""
     }
   `;
@@ -2506,7 +2518,6 @@ function renderHome() {
       window.location.hash = "#book";
       renderPatientBooking();
     });
-  if (signedIn) mountDashboardWidgets();
 }
 
 function createSkeletonRows(total = 3) {
@@ -2636,7 +2647,7 @@ function buildThreadMessagesHtml(messages, currentUserId) {
           <strong>${displayName}</strong>
           <small>${msg.createdAt ? formatRelativeTime(msg.createdAt) : ""}</small>
         </div>
-        <p>${escapeHtml(msg.message || "")}</p>
+        <p class="thread-message-body">${escapeHtml(msg.message || "")}</p>
         ${attachmentMarkup}
       </div>`;
     })
@@ -2813,74 +2824,6 @@ function renderMessengerThread(rootEl) {
   if (sendBtn) sendBtn.onclick = sendAction;
 }
 
-function mountDashboardWidgets() {
-  if (!isLoggedIn()) return;
-  const rootEl = document.getElementById("home-messenger-root");
-  const addButton = document.getElementById("add-board-message");
-  if (!rootEl) return;
-
-  setupSocket();
-
-  const ui = messengerUi(rootEl);
-  if (ui.list) ui.list.innerHTML = createSkeletonRows(3);
-  wireMessengerShell(rootEl);
-
-  setTimeout(() => {
-    renderMessengerConversationList(rootEl);
-    renderMessengerThread(rootEl);
-  }, 200);
-
-  if (!addButton?.dataset.composeBound) {
-    addButton.dataset.composeBound = "1";
-    addButton.addEventListener("click", async () => {
-      showComposeMessageModal(async (note) => {
-        try {
-          if (dashboardState.conversations.length > 0) {
-            dashboardState.activeConversationId = String(
-              dashboardState.conversations[0]._id,
-            );
-            await loadMessages(dashboardState.activeConversationId);
-          } else {
-            dashboardState.activeConversationId = "";
-            dashboardState.messages = [];
-          }
-          await sendMessage(note);
-          showToast("Message sent.");
-        } catch (err) {
-          showToast(err?.message || "Unable to send message", "error");
-        }
-      });
-    });
-  }
-
-  pruneDashboardSubscribers(DASH_TAG_HOME);
-  const homeDashboardListener = () => {
-    const liveBadge = document.querySelector(".live-badge");
-    if (liveBadge)
-      liveBadge.classList.toggle("active", dashboardState.websocketActive);
-    renderMessengerConversationList(rootEl);
-    renderMessengerThread(rootEl);
-  };
-  homeDashboardListener._dashTag = DASH_TAG_HOME;
-  subscribeDashboard(homeDashboardListener);
-  loadConversations();
-
-  if (window.__drmeetMessagePoll) {
-    clearInterval(window.__drmeetMessagePoll);
-    window.__drmeetMessagePoll = null;
-  }
-  window.__drmeetMessagePoll = setInterval(async () => {
-    if (!isLoggedIn() || authSessionExpired) return;
-    const cid = dashboardState.activeConversationId;
-    try {
-      if (cid) await loadMessages(cid);
-      await loadConversations();
-    } catch (e) {
-      /* ignore */
-    }
-  }, 2800);
-}
-
 function mountFloatingChatWidget() {
   if (!isLoggedIn()) return;
   const root = document.getElementById("floating-chat-widget");
@@ -2895,6 +2838,12 @@ function mountFloatingChatWidget() {
 
   setupSocket();
 
+  const updateLiveBadgeOnly = () => {
+    const liveBadge = document.querySelector(".live-badge");
+    if (liveBadge)
+      liveBadge.classList.toggle("active", dashboardState.websocketActive);
+  };
+
   pruneDashboardSubscribers(DASH_TAG_FLOAT);
   const floatListener = () => {
     renderMessengerConversationList(shellRoot);
@@ -2903,9 +2852,30 @@ function mountFloatingChatWidget() {
   floatListener._dashTag = DASH_TAG_FLOAT;
   subscribeDashboard(floatListener);
 
+  pruneDashboardSubscribers(DASH_TAG_HOME);
+  const homeListener = () => updateLiveBadgeOnly();
+  homeListener._dashTag = DASH_TAG_HOME;
+  subscribeDashboard(homeListener);
+  updateLiveBadgeOnly();
+
   wireMessengerShell(shellRoot);
+  const ui = messengerUi(shellRoot);
+  if (ui.list) ui.list.innerHTML = createSkeletonRows(3);
   renderMessengerConversationList(shellRoot);
   renderMessengerThread(shellRoot);
+
+  if (!window.__drmeetMessagePoll) {
+    window.__drmeetMessagePoll = setInterval(async () => {
+      if (!isLoggedIn() || authSessionExpired) return;
+      const cid = dashboardState.activeConversationId;
+      try {
+        if (cid) await loadMessages(cid);
+        await loadConversations();
+      } catch (e) {
+        /* ignore */
+      }
+    }, 2800);
+  }
 
   if (!root.dataset.drmeetFloatReady) {
     root.dataset.drmeetFloatReady = "1";
@@ -2924,6 +2894,27 @@ function mountFloatingChatWidget() {
       panel.classList.add("hidden");
       toggleBtn?.setAttribute("aria-expanded", "false");
     });
+    document.getElementById("floating-chat-compose")?.addEventListener("click", () => {
+      showComposeMessageModal(async (note) => {
+        try {
+          if (dashboardState.conversations.length > 0) {
+            dashboardState.activeConversationId = String(
+              dashboardState.conversations[0]._id,
+            );
+            await loadMessages(dashboardState.activeConversationId);
+          } else {
+            dashboardState.activeConversationId = "";
+            dashboardState.messages = [];
+          }
+          await sendMessage(note);
+          showToast("Message sent.");
+          renderMessengerConversationList(shellRoot);
+          renderMessengerThread(shellRoot);
+        } catch (err) {
+          showToast(err?.message || "Unable to send message", "error");
+        }
+      });
+    });
   }
 
   loadConversations().then(() => {
@@ -2939,6 +2930,10 @@ function hideFloatingChatWidget() {
   document
     .getElementById("floating-messenger-root")
     ?.removeAttribute("data-messenger-shell-wired");
+  if (window.__drmeetMessagePoll) {
+    clearInterval(window.__drmeetMessagePoll);
+    window.__drmeetMessagePoll = null;
+  }
   if (root) {
     root.classList.add("hidden");
     root.setAttribute("aria-hidden", "true");
@@ -2946,6 +2941,7 @@ function hideFloatingChatWidget() {
   panel?.classList.add("hidden");
   toggleBtn?.setAttribute("aria-expanded", "false");
   pruneDashboardSubscribers(DASH_TAG_FLOAT);
+  pruneDashboardSubscribers(DASH_TAG_HOME);
 }
 
 // --- Authentication ---
