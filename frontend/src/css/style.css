@@ -2499,6 +2499,11 @@ body.theme-dark .messenger-thread-fab {
   max-width: 100%;
 }
 
+/* Reserve space so FAB never covers Send button */
+.floating-chat-panel .messenger-thread-body .messenger-compose-footer {
+  padding-right: calc(0.65rem + 56px + 20px);
+}
+
 /* Ensure direct children of footer can shrink without overflow */
 .messenger-compose-footer > * {
   min-width: 0;
