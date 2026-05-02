@@ -31,6 +31,7 @@ const mongoUri = process.env.MONGO_URI;
 console.log('ENV:', {
   CLIENT_ORIGIN: process.env.CLIENT_ORIGIN,
   SESSION_SECRET: !!process.env.SESSION_SECRET,
+  RESEND_API_KEY: !!process.env.RESEND_API_KEY,
   NODE_ENV: process.env.NODE_ENV,
 });
 
