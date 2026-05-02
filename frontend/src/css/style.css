@@ -2458,76 +2458,99 @@ body.theme-dark .messenger-thread-close-x:hover {
   padding-top: 0.45rem;
 }
 
-.messenger-compose-row {
+/* --- Message composer row (Messenger-style) --- */
+.messenger-compose-row,
+.message-compose-row {
   display: flex;
-  align-items: flex-end;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
   width: 100%;
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
-
-  /* ✅ ADD THIS */
-  overflow: hidden;
 }
 
-.messenger-compose-row > * {
+.messenger-compose-row > *,
+.message-compose-row > * {
   min-width: 0;
 }
 
-.messenger-compose-input {
-  flex: 1 1 0%;
-}
-
-.messenger-compose-actions {
-  flex: 0 0 auto;
-  max-width: 100%;
-   /* ✅ ADD THIS */
-  position: relative;
-  z-index: 3;
-}
-
-.messenger-compose-input {
+/* Input "pill" wrapper */
+.message-compose-pill {
   flex: 1;
   min-width: 0;
-  width: auto;
-  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 15px;
+  border-radius: 20px;
+  border: 1px solid #e2e9f7;
+  background: #f3f6fb;
   box-sizing: border-box;
-  resize: vertical;
-  min-height: 56px;
+}
+
+/* Text field inside pill */
+.message-compose-pill .messenger-compose-input {
+  border: none;
+  background: transparent;
+  flex: 1;
+  min-width: 0;
+  outline: none;
+  padding: 0;
   margin: 0;
-  padding: 0.45rem 0.55rem;
-  border-radius: 10px;
-  border: 1px solid #c9d8ee;
+  resize: none;
+  min-height: 38px;
+  max-height: 110px;
   font: inherit;
   line-height: 1.35;
-  overflow-x: hidden;
   overflow-y: auto;
+  overflow-x: hidden;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.messenger-compose-actions {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 0.45rem;
+/* Emoji icon anchored right inside pill */
+.message-compose-emoji {
   flex-shrink: 0;
-  box-sizing: border-box;
+  border: none;
+  background: transparent;
+  color: #c39a48;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 6px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+.message-compose-emoji:hover {
+  background: rgba(195, 154, 72, 0.12);
 }
 
-.messenger-file-upload {
-  position: relative;
-  cursor: pointer;
+/* Upload + send controls */
+.message-compose-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.4rem 0.45rem;
-  border-radius: 8px;
-  border: 1px solid #c9d8ee;
-  background: #fff;
-  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  border-radius: 12px;
+  padding: 0;
+  cursor: pointer;
+}
+.message-compose-btn:hover {
+  background: rgba(195, 154, 72, 0.12);
+}
+
+/* File upload uses <label>; normalize it to the same button sizing */
+.messenger-file-upload.message-compose-btn {
+  position: relative;
+  cursor: pointer;
+  display: inline-flex;
 }
 
 .messenger-action-icon {
@@ -2548,36 +2571,32 @@ body.theme-dark .messenger-thread-close-x:hover {
 
 /* Messenger-style circular send control (plane icon) */
 .messenger-send-icon-btn {
+  /* Keep for backward compatibility; composer overrides sizing via .message-compose-btn */
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
-  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 12px;
   border: none;
   padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, #1f4a99 0%, #183a7a 100%);
-  color: #fff;
+  background: transparent;
+  color: inherit;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(24, 58, 122, 0.25);
+  box-shadow: none;
   visibility: visible;
   opacity: 1;
   position: relative;
   z-index: 2;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease;
+  transition: transform 0.15s ease, background 0.15s ease;
 }
 
 .messenger-send-icon-btn:hover {
-  transform: scale(1.05);
-  box-shadow:
-    0 0 0 3px rgba(61, 111, 184, 0.35),
-    0 4px 14px rgba(24, 58, 122, 0.3);
+  transform: translateY(-1px);
+  background: rgba(195, 154, 72, 0.12);
 }
 
 .messenger-send-icon-btn:active {
@@ -2585,52 +2604,29 @@ body.theme-dark .messenger-thread-close-x:hover {
 }
 
 .messenger-send-icon-img {
-  filter: brightness(0) invert(1);
+  filter: none;
 }
 
-/*
- * Floating messenger: 2-row grid (field, then actions). max-width: none was removed —
- * it let the textarea ignore the panel width and overflow (intrinsic min + long lines).
- */
- .messenger-shell--floating .messenger-compose-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr); /* 🔥 critical fix */
-  gap: 0.5rem;
-  width: 100%;
-  min-width: 0 !important;
-  overflow: hidden;
+/* Gold/tan icon tint (SVGs as <img>) */
+.message-compose-icon {
+  filter: invert(62%) sepia(34%) saturate(564%) hue-rotate(8deg) brightness(97%) contrast(92%);
 }
 
-.messenger-shell--floating .messenger-compose-input {
-  grid-row: 1;
-  grid-column: 1;
-
-  width: 100%;
-  min-width: 0;        /* 🔥 critical */
-  max-width: 100%;
-  box-sizing: border-box;
-
-  justify-self: stretch;
-
-  overflow-wrap: anywhere; /* prevents long strings overflow */
-  word-break: break-word;
-}
-
-.messenger-shell--floating .messenger-compose-actions {
-  grid-row: 2;
-  grid-column: 1;
-  justify-self: end;
-  min-width: 0;
-}
-
-body.theme-dark .messenger-file-upload {
+body.theme-dark .message-compose-pill {
   background: #0e1a31;
   border-color: #2e456f;
 }
 
-body.theme-dark .messenger-action-icon--upload {
-  filter: brightness(0) invert(0.88);
+body.theme-dark .message-compose-emoji {
+  color: #d8b56a;
 }
+
+body.theme-dark .message-compose-btn:hover,
+body.theme-dark .messenger-send-icon-btn:hover {
+  background: rgba(216, 181, 106, 0.14);
+}
+
+/* Legacy dark tweaks no longer needed for composer buttons */
 
 @media (max-width: 768px) {
   .messenger-layout {
