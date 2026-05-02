@@ -2184,10 +2184,30 @@ body.theme-dark .clinical-field-hint {
   border: 1px solid var(--messenger-border);
 }
 
-/* Floating panel: still give the conversation list a usable minimum width */
+/*
+ * Floating messenger: single column — full-width searchable inbox OR full-width
+ * thread + composer (same pattern on desktop and mobile).
+ */
 .floating-chat-panel .messenger-layout {
   min-height: 0;
-  grid-template-columns: minmax(200px, 48%) minmax(0, 1fr);
+  grid-template-columns: 1fr;
+}
+
+.floating-chat-panel .messenger-layout:not(.messenger-show-thread) .messenger-main {
+  display: none;
+}
+
+.floating-chat-panel .messenger-layout.messenger-show-thread .messenger-sidebar {
+  display: none;
+}
+
+/* Thread header back control: visible in floating pane on all viewports */
+.floating-chat-panel .messenger-layout.messenger-show-thread .messenger-back-inline {
+  display: inline-flex !important;
+}
+
+.floating-chat-panel .messenger-sidebar {
+  border-right: none;
 }
 
 .dashboard-messenger {
