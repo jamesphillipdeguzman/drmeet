@@ -4367,33 +4367,17 @@ function showPatientForm(editId = null, familyMode = false) {
 }
 
 let cachedFacilities = null;
-// Load dropdown for Registration Facilities for Patient data edits
+
 async function loadFacilities() {
   if (cachedFacilities) return cachedFacilities;
 
   const res = await apiRequest(`${API_BASE}/patients/constants/facilities`);
-
   if (!res.ok) throw new Error("Failed to load facilities");
 
   const data = await res.json();
   cachedFacilities = data.facilities || [];
 
   return cachedFacilities;
-}
-// Load dropdown for Affiliated Hospitals / Clinics for the Doctor data edits
-async function getFacilityOptions() {
-  try {
-    const res = await apiRequest(`${API_BASE}/patients/constants/facilities`);
-    if (!res.ok) return "";
-
-    const facilities = await res.json();
-
-    return [...new Set(facilities)]
-      .map((f) => `<option value="${escapeHtml(f)}"></option>`)
-      .join("");
-  } catch (e) {
-    return "";
-  }
 }
 
 function editPatient(id) {
@@ -4774,7 +4758,7 @@ async function showDoctorForm(editId = null) {
 
       <datalist id="facility-list">
           ${facilityOptions}
-        </datalist>
+      </datalist>
       
       <label>Phone
         <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
