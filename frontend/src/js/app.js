@@ -4704,23 +4704,24 @@ async function renderDoctors() {
   }
 }
 
-let facilityOptions = "";
-
-try {
-  const res = await apiRequest(`${API_BASE}/patients/constants/facilities`);
-  if (res.ok) {
-    const facilities = await res.json();
-    facilityOptions = [...new Set(facilities)]
-      .map((f) => `<option value="${escapeHtml(f)}"></option>`)
-      .join("");
-  }
-} catch (e) {
-  facilityOptions = "";
-}
-
 async function showDoctorForm(editId = null) {
   const modal = document.getElementById("doctor-form-modal");
   modal.style.display = "block";
+
+  let facilityOptions = "";
+
+  try {
+    const res = await apiRequest(`${API_BASE}/patients/constants/facilities`);
+    if (res.ok) {
+      const facilities = await res.json();
+      facilityOptions = [...new Set(facilities)]
+        .map((f) => `<option value="${escapeHtml(f)}"></option>`)
+        .join("");
+    }
+  } catch (e) {
+    facilityOptions = "";
+  }
+
   modal.innerHTML = `
     <div class="modal-sheet card">
     <button type="button" class="modal-close-x" aria-label="Close" onclick="window.closeDoctorForm()">&times;</button>
