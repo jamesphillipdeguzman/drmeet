@@ -386,51 +386,39 @@ export const inviteReceptionist = async (req, res) => {
   try {
     const role = authRole(req);
     const uid = authUserId(req);
+
     if (role !== 'doctor') {
       return res
         .status(403)
         .json({ error: 'Only doctors can invite clinic staff.' });
     }
-    const me = await User.findById(uid);
-    if (!me) {
-      return res.status(401).json({ error: 'User not found.' });
-    }
-    await syncRoleProfilesForUser(me, { title: me.title });
+
     const doctor = await findDoctorByUserId(uid);
     if (!doctor) {
       return res.status(404).json({ error: 'Doctor profile not found.' });
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
-
+    // ================= INPUTS =================
     const email = String(req.body?.email || '')
       .trim()
       .toLowerCase();
-    if (!email) {
-      return res.status(400).json({ error: 'Receptionist email is required.' });
+    const firstName = String(req.body?.firstName || '').trim();
+    const lastName = String(req.body?.lastName || '').trim();
+
+    if (!email) return res.status(400).json({ error: 'Email required.' });
+    if (!firstName || !lastName) {
+      return res.status(400).json({ error: 'First and last name required.' });
     }
+
     const emailRegex = /^\S+@\S+\.\S+$/;
     if (!emailRegex.test(email)) {
-      return res
-        .status(400)
-        .json({ error: 'Please provide a valid email address.' });
+      return res.status(400).json({ error: 'Invalid email.' });
     }
-
-    const existing = await User.findOne({ email });
-    if (existing && existing.role !== 'receptionist') {
-      return res.status(400).json({
-        error: 'A non-receptionist account already exists for this email.',
-      });
-    }
-
-    const inviteResult = await sendReceptionistInviteEmail({
-      email,
-      doctorName: `${doctor.firstName} ${doctor.lastName}`,
-      receptionistName, // ✅ now correct full name
-      inviteLink: `${process.env.CLIENT_ORIGIN}/#accept-invite?token=${token}`,
-    });
 
     const receptionistName = `${firstName} ${lastName}`;
+
+    // ================= UPSERT USER =================
+    const existing = await User.findOne({ email });
 
     const receptionist = existing
       ? await User.findByIdAndUpdate(
@@ -438,42 +426,43 @@ export const inviteReceptionist = async (req, res) => {
           {
             role: 'receptionist',
             linkedDoctorId: doctor._id,
-            firstName: existing.firstName || firstName,
-            lastName: existing.lastName || lastName,
+            firstName,
+            lastName,
           },
           { new: true },
         )
       : await User.create({
-          firstName: firstName || 'Clinic',
-          lastName: lastName || 'Receptionist',
+          firstName,
+          lastName,
           email,
           role: 'receptionist',
           linkedDoctorId: doctor._id,
         });
 
+    // ================= TOKEN =================
+    const token = crypto.randomBytes(32).toString('hex');
+
+    // ================= EMAIL =================
     const inviteResult = await sendReceptionistInviteEmail({
       email,
       doctorName: `${doctor.firstName} ${doctor.lastName}`,
       receptionistName,
       inviteLink: `${process.env.CLIENT_ORIGIN}/#accept-invite?token=${token}`,
     });
-    global.lastEmailDisplayName = `${doctor.firstName} ${doctor.lastName}`;
-    console.log('=== EMAIL DEBUG ===');
-    console.log(inviteResult);
 
-    const emailStatus = inviteResult?.sent ? 'sent' : 'failed';
+    console.log('=== EMAIL DEBUG ===', inviteResult);
 
     return res.status(existing ? 200 : 201).json({
       message: existing
         ? 'Receptionist linked successfully.'
         : 'Receptionist invited successfully.',
-      emailStatus,
-      debug: inviteResult,
+      emailStatus: inviteResult?.sent ? 'sent' : 'failed',
       user: receptionist,
+      debug: inviteResult,
     });
   } catch (error) {
-    return res
-      .status(500)
-      .json({ error: error.message || 'Failed to invite receptionist.' });
+    return res.status(500).json({
+      error: error.message || 'Failed to invite receptionist.',
+    });
   }
 };
