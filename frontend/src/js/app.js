@@ -419,10 +419,13 @@ async function apiRequest(url, options = {}) {
     /\/auth\/(login|signup|status)/.test(urlStr) ||
     urlStr.includes("/auth/google");
   if (authSessionExpired && !skipAuthBlock) {
-    return new Response(JSON.stringify({ error: "Session expired.", code: "TOKEN_EXPIRED" }), {
-      status: 401,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "Session expired.", code: "TOKEN_EXPIRED" }),
+      {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
   }
   const headers = buildHeaders(options.headers || {});
   const res = await fetch(url, { ...options, headers, credentials: "include" });
@@ -1556,12 +1559,14 @@ async function showClinicalTab(tab) {
           <button type="button" class="btn btn-secondary btn-sm" id="clinical-refresh-overview">Refresh summary</button>
         </section>
       `;
-      document.getElementById("clinical-refresh-overview")?.addEventListener("click", async () => {
-        sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
-        doctorDashUI.loaded.overview = false;
-        await fetchDoctorOverviewFresh();
-        await showClinicalTab("overview");
-      });
+      document
+        .getElementById("clinical-refresh-overview")
+        ?.addEventListener("click", async () => {
+          sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
+          doctorDashUI.loaded.overview = false;
+          await fetchDoctorOverviewFresh();
+          await showClinicalTab("overview");
+        });
       doctorDashUI.loaded.overview = true;
       return;
     }
@@ -1569,11 +1574,16 @@ async function showClinicalTab(tab) {
     if (tab === "patients") {
       const prevSearch = document.getElementById("clinical-patient-search");
       const q = prevSearch?.value?.trim() || "";
-      const url = new URL(`${API_BASE}/doctors/me/patients`, window.location.origin);
+      const url = new URL(
+        `${API_BASE}/doctors/me/patients`,
+        window.location.origin,
+      );
       if (q) url.searchParams.set("q", q);
       const res = await apiRequest(url.toString());
       if (!res.ok)
-        throw new Error(await getApiErrorMessage(res, "Unable to load patients."));
+        throw new Error(
+          await getApiErrorMessage(res, "Unable to load patients."),
+        );
       const payload = await res.json();
       const rows = Array.isArray(payload.patients) ? payload.patients : [];
       panel.innerHTML = `
@@ -1581,14 +1591,22 @@ async function showClinicalTab(tab) {
           <input type="search" id="clinical-patient-search" class="clinical-search-input" placeholder="Name or email" value="${escapeHtml(q)}" />
         </label>
         <ul class="clinical-patient-list">
-          ${rows.length ? rows.map((p) => `
+          ${
+            rows.length
+              ? rows
+                  .map(
+                    (p) => `
             <li class="clinical-patient-row card">
               <div>
                 <strong>${escapeHtml(`${p.firstName || ""} ${p.lastName || ""}`.trim() || "Patient")}</strong>
                 <p class="clinical-muted">${escapeHtml(p.email || "")} · ${escapeHtml(p.phone || "")}</p>
               </div>
               <button type="button" class="btn btn-secondary btn-sm clinical-patient-quick" data-patient-quick="${escapeHtml(String(p._id))}">Quick view</button>
-            </li>`).join("") : `<li class="feedback">No patients match your assignment yet.</li>`}
+            </li>`,
+                  )
+                  .join("")
+              : `<li class="feedback">No patients match your assignment yet.</li>`
+          }
         </ul>
       `;
       const search = document.getElementById("clinical-patient-search");
@@ -1616,9 +1634,13 @@ async function showClinicalTab(tab) {
     }
 
     if (tab === "appointments") {
-      const res = await apiRequest(`${API_BASE}/doctors/me/appointments?scope=all`);
+      const res = await apiRequest(
+        `${API_BASE}/doctors/me/appointments?scope=all`,
+      );
       if (!res.ok)
-        throw new Error(await getApiErrorMessage(res, "Unable to load appointments."));
+        throw new Error(
+          await getApiErrorMessage(res, "Unable to load appointments."),
+        );
       const payload = await res.json();
       const upcoming = Array.isArray(payload.upcoming) ? payload.upcoming : [];
       const past = Array.isArray(payload.past) ? payload.past : [];
@@ -1685,7 +1707,9 @@ async function showClinicalTab(tab) {
               },
             );
             if (!resAp.ok)
-              throw new Error(await getApiErrorMessage(resAp, "Update failed."));
+              throw new Error(
+                await getApiErrorMessage(resAp, "Update failed."),
+              );
             showToast("Appointment updated.");
             sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
           } catch (err) {
@@ -1703,7 +1727,9 @@ async function showClinicalTab(tab) {
         apiRequest(`${API_BASE}/doctors/me/patients?limit=500`),
       ]);
       if (!res.ok)
-        throw new Error(await getApiErrorMessage(res, "Unable to load documents."));
+        throw new Error(
+          await getApiErrorMessage(res, "Unable to load documents."),
+        );
       const payload = await res.json();
       const docs = Array.isArray(payload.documents) ? payload.documents : [];
       let patientRows = [];
@@ -1714,7 +1740,8 @@ async function showClinicalTab(tab) {
       const patientOptions = [
         `<option value="">Select patient…</option>`,
         ...patientRows.map((p) => {
-          const label = `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Patient";
+          const label =
+            `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Patient";
           return `<option value="${escapeHtml(String(p._id))}">${escapeHtml(label)}</option>`;
         }),
       ].join("");
@@ -1744,7 +1771,11 @@ async function showClinicalTab(tab) {
         </section>
         <h4 class="clinical-docs-list-title">Recent uploads</h4>
         <ul class="clinical-doc-list">
-          ${docs.length ? docs.map((d) => `
+          ${
+            docs.length
+              ? docs
+                  .map(
+                    (d) => `
             <li class="card clinical-doc-row">
               <div>
                 <strong>${escapeHtml(d.name || "Document")}</strong>
@@ -1752,7 +1783,11 @@ async function showClinicalTab(tab) {
                 <p class="clinical-muted">${d.uploadedAt ? escapeHtml(new Date(d.uploadedAt).toLocaleString()) : ""}</p>
               </div>
               <a class="btn btn-secondary btn-sm" href="${escapeHtml(d.fileUrl || d.url || "#")}" target="_blank" rel="noopener noreferrer">Open</a>
-            </li>`).join("") : `<li class="feedback">No documents yet.</li>`}
+            </li>`,
+                  )
+                  .join("")
+              : `<li class="feedback">No documents yet.</li>`
+          }
         </ul>
       `;
 
@@ -1773,48 +1808,55 @@ async function showClinicalTab(tab) {
       scopeSel?.addEventListener("change", syncDocPatientField);
       syncDocPatientField();
 
-      document.getElementById("clinical-doc-upload")?.addEventListener("submit", async (ev) => {
-        ev.preventDefault();
-        const form = ev.target;
-        const fd = new FormData(form);
-        const file = fd.get("file");
-        if (!(file instanceof File) || !file.size) {
-          showToast("Choose a file to upload.", "error");
-          return;
-        }
-        const scope = String(fd.get("scope") || "clinic");
-        const patientId = String(fd.get("patientId") || "").trim();
-        if (scope === "patient" && !patientId) {
-          showToast("Select a patient for chart uploads.", "error");
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = async () => {
-          try {
-            const base64 = reader.result?.split?.(",")?.[1];
-            if (!base64) throw new Error("Unable to read file.");
-            const body = {
-              scope,
-              patientId: scope === "patient" ? patientId : "",
-              documentName: fd.get("documentName"),
-              documentFileData: base64,
-            };
-            const resUp = await apiRequest(`${API_BASE}/doctors/me/documents`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body),
-            });
-            if (!resUp.ok)
-              throw new Error(await getApiErrorMessage(resUp, "Upload failed."));
-            showToast("Document uploaded.");
-            sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
-            await showClinicalTab("documents");
-          } catch (err) {
-            showToast(err?.message || "Upload failed.", "error");
+      document
+        .getElementById("clinical-doc-upload")
+        ?.addEventListener("submit", async (ev) => {
+          ev.preventDefault();
+          const form = ev.target;
+          const fd = new FormData(form);
+          const file = fd.get("file");
+          if (!(file instanceof File) || !file.size) {
+            showToast("Choose a file to upload.", "error");
+            return;
           }
-        };
-        reader.readAsDataURL(file);
-      });
+          const scope = String(fd.get("scope") || "clinic");
+          const patientId = String(fd.get("patientId") || "").trim();
+          if (scope === "patient" && !patientId) {
+            showToast("Select a patient for chart uploads.", "error");
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = async () => {
+            try {
+              const base64 = reader.result?.split?.(",")?.[1];
+              if (!base64) throw new Error("Unable to read file.");
+              const body = {
+                scope,
+                patientId: scope === "patient" ? patientId : "",
+                documentName: fd.get("documentName"),
+                documentFileData: base64,
+              };
+              const resUp = await apiRequest(
+                `${API_BASE}/doctors/me/documents`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(body),
+                },
+              );
+              if (!resUp.ok)
+                throw new Error(
+                  await getApiErrorMessage(resUp, "Upload failed."),
+                );
+              showToast("Document uploaded.");
+              sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
+              await showClinicalTab("documents");
+            } catch (err) {
+              showToast(err?.message || "Upload failed.", "error");
+            }
+          };
+          reader.readAsDataURL(file);
+        });
       doctorDashUI.loaded.documents = true;
       return;
     }
@@ -1822,7 +1864,9 @@ async function showClinicalTab(tab) {
     if (tab === "settings") {
       const res = await apiRequest(`${API_BASE}/doctors/me/overview`);
       if (!res.ok)
-        throw new Error(await getApiErrorMessage(res, "Unable to load settings."));
+        throw new Error(
+          await getApiErrorMessage(res, "Unable to load settings."),
+        );
       const overview = await res.json();
       const prefs = overview.notificationPrefs || {};
       panel.innerHTML = `
@@ -1837,31 +1881,42 @@ async function showClinicalTab(tab) {
           <p class="clinical-muted">Theme, password, and profile fields stay in <a href="#settings">global settings</a>.</p>
         </section>
       `;
-      document.getElementById("clinical-save-prefs")?.addEventListener("click", async () => {
-        const emailAppointments = document.getElementById("clinical-pref-appt")?.checked ?? true;
-        const emailMessages = document.getElementById("clinical-pref-msg")?.checked ?? true;
-        try {
-          const resP = await apiRequest(`${API_BASE}/doctors/me/notification-prefs`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ emailAppointments, emailMessages }),
-          });
-          if (!resP.ok)
-            throw new Error(await getApiErrorMessage(resP, "Save failed."));
-          showToast("Preferences saved.");
-          sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
-        } catch (err) {
-          showToast(err?.message || "Unable to save.", "error");
-        }
-      });
+      document
+        .getElementById("clinical-save-prefs")
+        ?.addEventListener("click", async () => {
+          const emailAppointments =
+            document.getElementById("clinical-pref-appt")?.checked ?? true;
+          const emailMessages =
+            document.getElementById("clinical-pref-msg")?.checked ?? true;
+          try {
+            const resP = await apiRequest(
+              `${API_BASE}/doctors/me/notification-prefs`,
+              {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ emailAppointments, emailMessages }),
+              },
+            );
+            if (!resP.ok)
+              throw new Error(await getApiErrorMessage(resP, "Save failed."));
+            showToast("Preferences saved.");
+            sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
+          } catch (err) {
+            showToast(err?.message || "Unable to save.", "error");
+          }
+        });
       doctorDashUI.loaded.settings = true;
       return;
     }
 
     if (tab === "billing") {
-      const res = await apiRequest(`${API_BASE}/doctors/me/appointments?scope=all`);
+      const res = await apiRequest(
+        `${API_BASE}/doctors/me/appointments?scope=all`,
+      );
       if (!res.ok)
-        throw new Error(await getApiErrorMessage(res, "Unable to load visits."));
+        throw new Error(
+          await getApiErrorMessage(res, "Unable to load visits."),
+        );
       const payload = await res.json();
       const merged = [...(payload.upcoming || []), ...(payload.past || [])];
       const seen = new Set();
@@ -1899,10 +1954,15 @@ async function showClinicalTab(tab) {
                 </tr>
               </thead>
               <tbody>
-                ${rows.length ? rows.map((a) => {
-                  const b = a.billing || {};
-                  const dt = a.date ? escapeHtml(new Date(a.date).toLocaleString()) : "—";
-                  return `<tr>
+                ${
+                  rows.length
+                    ? rows
+                        .map((a) => {
+                          const b = a.billing || {};
+                          const dt = a.date
+                            ? escapeHtml(new Date(a.date).toLocaleString())
+                            : "—";
+                          return `<tr>
                     <td>${dt}</td>
                     <td>${escapeHtml(pname(a))}</td>
                     <td>${escapeHtml(String(b.consultationFee ?? 0))}</td>
@@ -1913,7 +1973,10 @@ async function showClinicalTab(tab) {
                     <td>${escapeHtml(String(b.hmoClaimStatus || "—"))}</td>
                     <td><button type="button" class="btn btn-secondary btn-sm clinical-billing-edit" data-appt-id="${escapeHtml(String(a._id))}">Edit</button></td>
                   </tr>`;
-                }).join("") : `<tr><td colspan="9" class="clinical-muted">No appointments yet.</td></tr>`}
+                        })
+                        .join("")
+                    : `<tr><td colspan="9" class="clinical-muted">No appointments yet.</td></tr>`
+                }
               </tbody>
             </table>
           </div>
@@ -1930,7 +1993,12 @@ async function showClinicalTab(tab) {
         if (pres.ok) {
           const js = await pres.json();
           const list = Array.isArray(js.providers) ? js.providers : [];
-          hmoOptions = list.map((p) => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("");
+          hmoOptions = list
+            .map(
+              (p) =>
+                `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`,
+            )
+            .join("");
         }
         if (pm.ok) {
           const pj = await pm.json();
@@ -1973,7 +2041,10 @@ async function showClinicalTab(tab) {
         const svcRows =
           lines.length > 0
             ? lines
-            : [{ description: "", amount: 0 }, { description: "", amount: 0 }];
+            : [
+                { description: "", amount: 0 },
+                { description: "", amount: 0 },
+              ];
         const savedMethod = String(b.paymentMethod || "").trim();
         const savedCat = String(b.paymentMethodCategory || "").trim();
         let initialCat = savedCat;
@@ -1989,8 +2060,12 @@ async function showClinicalTab(tab) {
           initialCat = paymentCategories[0].category;
         }
         const activeGroup =
-          paymentCategories.find((c) => c.category === initialCat) || paymentCategories[0] || {};
-        const methodsList = Array.isArray(activeGroup.methods) ? activeGroup.methods : [];
+          paymentCategories.find((c) => c.category === initialCat) ||
+          paymentCategories[0] ||
+          {};
+        const methodsList = Array.isArray(activeGroup.methods)
+          ? activeGroup.methods
+          : [];
         const payCategoryOptions = paymentCategories
           .map(
             (c) =>
@@ -2104,7 +2179,10 @@ async function showClinicalTab(tab) {
           const keep = methodSel.value;
           methodSel.innerHTML = [
             `<option value="">— Select method —</option>`,
-            ...methods.map((m) => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`),
+            ...methods.map(
+              (m) =>
+                `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`,
+            ),
           ].join("");
           if (methods.includes(keep)) methodSel.value = keep;
           syncHmoSection();
@@ -2117,89 +2195,96 @@ async function showClinicalTab(tab) {
           btn.addEventListener("click", () => dlg.close());
         });
 
-        dlg.querySelector("[data-billing-doc-kind]")?.addEventListener("change", async (ev) => {
-          const input = ev.target;
-          const file = input.files?.[0];
-          if (!file) return;
-          const kind = String(
-            dlg.querySelector("#clinical-billing-doc-kind-sel")?.value || "claim",
-          ).toLowerCase();
-          if (!["soa", "invoice", "claim"].includes(kind)) {
-            showToast("Invalid document type.", "error");
+        dlg
+          .querySelector("[data-billing-doc-kind]")
+          ?.addEventListener("change", async (ev) => {
+            const input = ev.target;
+            const file = input.files?.[0];
+            if (!file) return;
+            const kind = String(
+              dlg.querySelector("#clinical-billing-doc-kind-sel")?.value ||
+                "claim",
+            ).toLowerCase();
+            if (!["soa", "invoice", "claim"].includes(kind)) {
+              showToast("Invalid document type.", "error");
+              input.value = "";
+              return;
+            }
+            const reader = new FileReader();
+            reader.onload = async () => {
+              try {
+                const base64 = reader.result?.split?.(",")?.[1];
+                if (!base64) throw new Error("Unable to read file.");
+                const resUp = await apiRequest(
+                  `${API_BASE}/doctors/me/appointments/${appt._id}/billing/documents`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      kind,
+                      documentName: file.name,
+                      documentFileData: base64,
+                    }),
+                  },
+                );
+                if (!resUp.ok)
+                  throw new Error(
+                    await getApiErrorMessage(resUp, "Upload failed."),
+                  );
+                showToast("Document uploaded.");
+                dlg.close();
+                await showClinicalTab("billing");
+              } catch (err) {
+                showToast(err?.message || "Upload failed.", "error");
+              }
+            };
+            reader.readAsDataURL(file);
             input.value = "";
-            return;
-          }
-          const reader = new FileReader();
-          reader.onload = async () => {
+          });
+
+        dlg
+          .querySelector("#clinical-billing-form")
+          ?.addEventListener("submit", async (ev) => {
+            ev.preventDefault();
+            const fd = new FormData(ev.target);
+            const serviceLines = [];
+            for (let i = 0; i < 4; i++) {
+              const d = String(fd.get(`svc_desc_${i}`) || "").trim();
+              const amt = Number(fd.get(`svc_amt_${i}`)) || 0;
+              if (d || amt) serviceLines.push({ description: d, amount: amt });
+            }
+            const body = {
+              consultationFee: Number(fd.get("consultationFee")) || 0,
+              serviceLines,
+              paymentStatus: fd.get("paymentStatus"),
+              paymentMethodCategory: fd.get("paymentMethodCategory"),
+              paymentMethod: fd.get("paymentMethod"),
+              hmoProvider: fd.get("hmoProvider"),
+              hmoMemberId: fd.get("hmoMemberId"),
+              hmoCoverageStatus: fd.get("hmoCoverageStatus"),
+              hmoPreAuthorization: fd.get("hmoPreAuthorization"),
+              hmoClaimStatus: fd.get("hmoClaimStatus"),
+              hmoCoveredAmount: Number(fd.get("hmoCoveredAmount")) || 0,
+              hmoPatientCopay: Number(fd.get("hmoPatientCopay")) || 0,
+            };
             try {
-              const base64 = reader.result?.split?.(",")?.[1];
-              if (!base64) throw new Error("Unable to read file.");
-              const resUp = await apiRequest(
-                `${API_BASE}/doctors/me/appointments/${appt._id}/billing/documents`,
+              const resP = await apiRequest(
+                `${API_BASE}/doctors/me/appointments/${appt._id}/billing`,
                 {
-                  method: "POST",
+                  method: "PATCH",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    kind,
-                    documentName: file.name,
-                    documentFileData: base64,
-                  }),
+                  body: JSON.stringify(body),
                 },
               );
-              if (!resUp.ok)
-                throw new Error(await getApiErrorMessage(resUp, "Upload failed."));
-              showToast("Document uploaded.");
+              if (!resP.ok)
+                throw new Error(await getApiErrorMessage(resP, "Save failed."));
+              showToast("Billing saved.");
               dlg.close();
               await showClinicalTab("billing");
             } catch (err) {
-              showToast(err?.message || "Upload failed.", "error");
+              showToast(err?.message || "Unable to save billing.", "error");
             }
-          };
-          reader.readAsDataURL(file);
-          input.value = "";
-        });
-
-        dlg.querySelector("#clinical-billing-form")?.addEventListener("submit", async (ev) => {
-          ev.preventDefault();
-          const fd = new FormData(ev.target);
-          const serviceLines = [];
-          for (let i = 0; i < 4; i++) {
-            const d = String(fd.get(`svc_desc_${i}`) || "").trim();
-            const amt = Number(fd.get(`svc_amt_${i}`)) || 0;
-            if (d || amt) serviceLines.push({ description: d, amount: amt });
-          }
-          const body = {
-            consultationFee: Number(fd.get("consultationFee")) || 0,
-            serviceLines,
-            paymentStatus: fd.get("paymentStatus"),
-            paymentMethodCategory: fd.get("paymentMethodCategory"),
-            paymentMethod: fd.get("paymentMethod"),
-            hmoProvider: fd.get("hmoProvider"),
-            hmoMemberId: fd.get("hmoMemberId"),
-            hmoCoverageStatus: fd.get("hmoCoverageStatus"),
-            hmoPreAuthorization: fd.get("hmoPreAuthorization"),
-            hmoClaimStatus: fd.get("hmoClaimStatus"),
-            hmoCoveredAmount: Number(fd.get("hmoCoveredAmount")) || 0,
-            hmoPatientCopay: Number(fd.get("hmoPatientCopay")) || 0,
-          };
-          try {
-            const resP = await apiRequest(
-              `${API_BASE}/doctors/me/appointments/${appt._id}/billing`,
-              {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-              },
-            );
-            if (!resP.ok)
-              throw new Error(await getApiErrorMessage(resP, "Save failed."));
-            showToast("Billing saved.");
-            dlg.close();
-            await showClinicalTab("billing");
-          } catch (err) {
-            showToast(err?.message || "Unable to save billing.", "error");
-          }
-        });
+          });
 
         dlg.showModal();
       };
@@ -2261,13 +2346,15 @@ function renderDoctorDashboard() {
     </div>
   `;
 
-  mainContent.querySelector(".clinical-dashboard")?.addEventListener("click", (event) => {
-    const btn = event.target.closest("[data-clinical-tab]");
-    if (!btn) return;
-    const next = btn.getAttribute("data-clinical-tab");
-    if (!next || next === parseDoctorDashboardTab()) return;
-    setDoctorDashboardHashTab(next);
-  });
+  mainContent
+    .querySelector(".clinical-dashboard")
+    ?.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-clinical-tab]");
+      if (!btn) return;
+      const next = btn.getAttribute("data-clinical-tab");
+      if (!next || next === parseDoctorDashboardTab()) return;
+      setDoctorDashboardHashTab(next);
+    });
 
   void showClinicalTab(parseDoctorDashboardTab());
 }
@@ -2576,11 +2663,13 @@ function messengerUi(rootEl) {
 function wireMessengerShell(rootEl) {
   if (!rootEl || rootEl.dataset.messengerShellWired) return;
   rootEl.dataset.messengerShellWired = "1";
-  rootEl.querySelector("[data-messenger-search]")?.addEventListener("input", (e) => {
-    dashboardState.conversationSearchFilter = String(e.target.value || "");
-    /* Only refresh the inbox list — do not notify full dashboard (avoids re-running thread UI). */
-    renderMessengerConversationList(rootEl);
-  });
+  rootEl
+    .querySelector("[data-messenger-search]")
+    ?.addEventListener("input", (e) => {
+      dashboardState.conversationSearchFilter = String(e.target.value || "");
+      /* Only refresh the inbox list — do not notify full dashboard (avoids re-running thread UI). */
+      renderMessengerConversationList(rootEl);
+    });
 
   const ensureEmojiMenu = () => {
     let menu = rootEl.querySelector(".emoji-menu");
@@ -2592,12 +2681,43 @@ function wireMessengerShell(rootEl) {
     menu.innerHTML = `
       <div class="emoji-menu-grid" role="listbox">
         ${[
-          "😀","😁","😂","🤣","😊","😍","😘","😎",
-          "😅","😉","🙂","🤔","😴","😷","🤒","🤕",
-          "👍","🙏","👏","💪","🙌","🤝","✅","❌",
-          "❤️","💛","💙","💚","✨","🔥","🎉","📎",
+          "😀",
+          "😁",
+          "😂",
+          "🤣",
+          "😊",
+          "😍",
+          "😘",
+          "😎",
+          "😅",
+          "😉",
+          "🙂",
+          "🤔",
+          "😴",
+          "😷",
+          "🤒",
+          "🤕",
+          "👍",
+          "🙏",
+          "👏",
+          "💪",
+          "🙌",
+          "🤝",
+          "✅",
+          "❌",
+          "❤️",
+          "💛",
+          "💙",
+          "💚",
+          "✨",
+          "🔥",
+          "🎉",
+          "📎",
         ]
-          .map((e) => `<button type="button" class="emoji-item" data-emoji="${e}" aria-label="${e}">${e}</button>`)
+          .map(
+            (e) =>
+              `<button type="button" class="emoji-item" data-emoji="${e}" aria-label="${e}">${e}</button>`,
+          )
           .join("")}
       </div>`;
     rootEl.appendChild(menu);
@@ -2631,12 +2751,18 @@ function wireMessengerShell(rootEl) {
         const margin = 10;
         const centerX = rect.left + rect.width / 2;
         let left = Math.round(centerX - menuW / 2);
-        left = Math.max(margin, Math.min(left, window.innerWidth - margin - menuW));
+        left = Math.max(
+          margin,
+          Math.min(left, window.innerWidth - margin - menuW),
+        );
 
         // Prefer above the button; if not enough space, drop below.
         let top = Math.round(rect.top - menuH - 10);
         if (top < margin) top = Math.round(rect.bottom + 10);
-        top = Math.max(margin, Math.min(top, window.innerHeight - margin - menuH));
+        top = Math.max(
+          margin,
+          Math.min(top, window.innerHeight - margin - menuH),
+        );
 
         m.style.left = `${left}px`;
         m.style.top = `${top}px`;
@@ -2685,7 +2811,9 @@ function wireMessengerShell(rootEl) {
     dashboardState.messages = [];
     notifyDashboardSubscribers();
   };
-  rootEl.querySelector("[data-messenger-clear]")?.addEventListener("click", clearThread);
+  rootEl
+    .querySelector("[data-messenger-clear]")
+    ?.addEventListener("click", clearThread);
 }
 
 function buildThreadMessagesHtml(messages, currentUserId) {
@@ -2700,7 +2828,9 @@ function buildThreadMessagesHtml(messages, currentUserId) {
     .map((msg) => {
       const sender = msg.senderId || {};
       const senderId = msg.senderId?._id || msg.senderId || null;
-      const isYou = senderId ? String(senderId) === String(currentUserId) : false;
+      const isYou = senderId
+        ? String(senderId) === String(currentUserId)
+        : false;
       const senderName = sender
         ? `${sender.firstName || ""} ${sender.lastName || ""}`.trim()
         : "Unknown";
@@ -2728,7 +2858,9 @@ function buildThreadMessagesHtml(messages, currentUserId) {
           })()
         : "";
       const rowSide = isYou ? "outgoing" : "incoming";
-      const bubbleClass = isYou ? "thread-bubble--outgoing" : "thread-bubble--incoming";
+      const bubbleClass = isYou
+        ? "thread-bubble--outgoing"
+        : "thread-bubble--incoming";
       return `
       <div class="thread-row thread-row--${rowSide}">
         <article class="thread-bubble ${bubbleClass}" data-sender-role="${escapeHtml(roleClass)}">
@@ -2761,7 +2893,9 @@ function renderMessengerConversationList(rootEl) {
   });
   const filtered = sorted.filter((conv) => {
     if (!needle) return true;
-    const participants = Array.isArray(conv.participants) ? conv.participants : [];
+    const participants = Array.isArray(conv.participants)
+      ? conv.participants
+      : [];
     const other =
       participants.find((p) => String(p._id) !== String(currentUserId)) ||
       participants[0] ||
@@ -2774,7 +2908,9 @@ function renderMessengerConversationList(rootEl) {
   ui.list.innerHTML = filtered.length
     ? filtered
         .map((conv) => {
-          const participants = Array.isArray(conv.participants) ? conv.participants : [];
+          const participants = Array.isArray(conv.participants)
+            ? conv.participants
+            : [];
           const other =
             participants.find((p) => String(p._id) !== String(currentUserId)) ||
             participants[0] ||
@@ -2829,7 +2965,9 @@ function renderMessengerThread(rootEl) {
   const conv = dashboardState.conversations.find(
     (c) => String(c._id) === String(conversationId),
   );
-  const participants = Array.isArray(conv?.participants) ? conv.participants : [];
+  const participants = Array.isArray(conv?.participants)
+    ? conv.participants
+    : [];
   const currentUserId = getCurrentUserId();
   const other =
     participants.find((p) => String(p._id) !== String(currentUserId)) ||
@@ -2854,7 +2992,7 @@ function renderMessengerThread(rootEl) {
       dashboardState.messages,
       currentUserId,
     );
-  
+
     if (isNearBottom(ui.scroll)) {
       ui.scroll.scrollTop = ui.scroll.scrollHeight;
     } else {
@@ -2994,19 +3132,21 @@ function mountFloatingChatWidget() {
       panel.classList.add("hidden");
       toggleBtn?.setAttribute("aria-expanded", "false");
     });
-    shellRoot.querySelector("[data-messenger-compose]")?.addEventListener("click", () => {
-      showComposeMessageModal(async (note) => {
-        try {
-          // Do not auto-open/select a conversation; just send into the currently active one.
-          await sendMessage(note);
-          showToast("Message sent.");
-          renderMessengerConversationList(shellRoot);
-          renderMessengerThread(shellRoot);
-        } catch (err) {
-          showToast(err?.message || "Unable to send message", "error");
-        }
+    shellRoot
+      .querySelector("[data-messenger-compose]")
+      ?.addEventListener("click", () => {
+        showComposeMessageModal(async (note) => {
+          try {
+            // Do not auto-open/select a conversation; just send into the currently active one.
+            await sendMessage(note);
+            showToast("Message sent.");
+            renderMessengerConversationList(shellRoot);
+            renderMessengerThread(shellRoot);
+          } catch (err) {
+            showToast(err?.message || "Unable to send message", "error");
+          }
+        });
       });
-    });
   }
 
   loadConversations().then(() => {
@@ -3047,8 +3187,7 @@ function updateAuthNav() {
   const role = getCurrentUserRole();
   const doctorDashLi = document.querySelector(".nav-li-doctor-dash");
   if (doctorDashLi) {
-    doctorDashLi.style.display =
-      signedIn && role === "doctor" ? "" : "none";
+    doctorDashLi.style.display = signedIn && role === "doctor" ? "" : "none";
   }
   if (signedIn) {
     mountFloatingChatWidget();
@@ -3294,11 +3433,13 @@ function renderSignup() {
       if (submitBtn) submitBtn.disabled = false;
     }
   };
-  document.getElementById("signup-start-over")?.addEventListener("click", () => {
-    form.reset();
-    feedback.textContent = "";
-    feedback.className = "";
-  });
+  document
+    .getElementById("signup-start-over")
+    ?.addEventListener("click", () => {
+      form.reset();
+      feedback.textContent = "";
+      feedback.className = "";
+    });
 }
 
 function googleLogin({ feedbackEl = null, buttonEl = null } = {}) {
@@ -3668,7 +3809,9 @@ async function renderPatients() {
         clinicDoctors = [];
       }
     }
-    const doctorOptionsForSend = (Array.isArray(clinicDoctors) ? clinicDoctors : [])
+    const doctorOptionsForSend = (
+      Array.isArray(clinicDoctors) ? clinicDoctors : []
+    )
       .filter((d) => d?.userId)
       .map(
         (d) =>
@@ -3733,25 +3876,22 @@ async function renderPatients() {
     const bodyEl = document.getElementById("patients-table-body");
     const renderRows = (list) => {
       bodyEl.innerHTML = list
-        .map(
-          (p) => {
-            const docs = Array.isArray(p.documents) ? p.documents : [];
-            const docLinks = docs
-              .map((d) => {
-                const u = String(d.fileUrl || d.url || "").trim();
-                if (!u) return "";
-                const nm = escapeHtml(String(d.name || "Open file"));
-                return `<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">${nm}</a>`;
-              })
-              .filter(Boolean)
-              .join("<br/>");
-            const addedRel = p.createdAt
-              ? formatRelativeTime(p.createdAt)
-              : "—";
-            const deleteBtn = isAdminUser
-              ? `<button type="button" class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>`
-              : "";
-            return `
+        .map((p) => {
+          const docs = Array.isArray(p.documents) ? p.documents : [];
+          const docLinks = docs
+            .map((d) => {
+              const u = String(d.fileUrl || d.url || "").trim();
+              if (!u) return "";
+              const nm = escapeHtml(String(d.name || "Open file"));
+              return `<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">${nm}</a>`;
+            })
+            .filter(Boolean)
+            .join("<br/>");
+          const addedRel = p.createdAt ? formatRelativeTime(p.createdAt) : "—";
+          const deleteBtn = isAdminUser
+            ? `<button type="button" class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>`
+            : "";
+          return `
             <tr>
               <td><img src="${escapeHtml(String(p.photoUrl || DEFAULT_AVATAR_URL))}" alt="Patient avatar" class="doctor-avatar" />${p.firstName} ${p.lastName}</td>
               <td>${p.familyHeadName ? `Family Head: ${p.familyHeadName}` : p.relationshipToAccountHolder ? `Dependent: ${p.relationshipToAccountHolder}` : "Primary"}${p.isCareTeamLinked ? ' <span class="pill-tag">Attached</span>' : ""}</td>
@@ -3767,8 +3907,7 @@ async function renderPatients() {
               </td>
             </tr>
           `;
-          },
-        )
+        })
         .join("");
     };
     const applyPatientFilters = () => {
@@ -3822,9 +3961,11 @@ async function renderPatients() {
     document
       .getElementById("patient-sort-order")
       ?.addEventListener("change", applyPatientFilters);
-    document.getElementById("patients-refresh-btn")?.addEventListener("click", () => {
-      renderPatients();
-    });
+    document
+      .getElementById("patients-refresh-btn")
+      ?.addEventListener("click", () => {
+        renderPatients();
+      });
     document
       .getElementById("patient-switch-profile")
       ?.addEventListener("change", (event) => {
@@ -3853,9 +3994,9 @@ async function renderPatients() {
           })),
         );
       });
-    document.getElementById("patient-send-doc-btn")?.addEventListener(
-      "click",
-      async () => {
+    document
+      .getElementById("patient-send-doc-btn")
+      ?.addEventListener("click", async () => {
         const doctorUserId = String(
           document.getElementById("patient-send-doc-doctor")?.value || "",
         );
@@ -3894,8 +4035,7 @@ async function renderPatients() {
         } catch (error) {
           showToast(error?.message || "Unable to send document.", "error");
         }
-      },
-    );
+      });
     window.showPatientForm = showPatientForm;
     window.showFamilyMemberForm = () => showPatientForm(null, true);
     window.editPatient = editPatient;
@@ -4031,7 +4171,9 @@ function showPatientForm(editId = null, familyMode = false) {
   syncInsured();
   (async () => {
     try {
-      const hr = await apiRequest(`${API_BASE}/patients/constants/hmo-providers`);
+      const hr = await apiRequest(
+        `${API_BASE}/patients/constants/hmo-providers`,
+      );
       if (!hr.ok || !hmoSelect) return;
       const data = await hr.json();
       const list = Array.isArray(data?.providers) ? data.providers : [];
@@ -4138,7 +4280,9 @@ function showPatientForm(editId = null, familyMode = false) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const patient = Object.fromEntries(new FormData(form));
-    patient.isInsured = Boolean(document.getElementById("patient-is-insured")?.checked);
+    patient.isInsured = Boolean(
+      document.getElementById("patient-is-insured")?.checked,
+    );
     if (!patient.isInsured) patient.hmoProvider = "";
     const docFile = form.documentFile?.files?.[0];
     if (docFile) {
@@ -4426,6 +4570,10 @@ async function renderDoctors() {
           "invite-receptionist-feedback",
         );
         const email = String(new FormData(form).get("email") || "").trim();
+        // Add receptionist here.
+        const receptionistName = String(
+          new FormData(form).get("receptionistName") || "",
+        ).trim();
         if (!email) return;
         feedback.style.display = "block";
         feedback.className = "feedback";
@@ -4436,7 +4584,7 @@ async function renderDoctors() {
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ email }),
+              body: JSON.stringify({ email, receptionistName }),
             },
           );
           if (!inviteRes.ok) {
