@@ -1429,7 +1429,6 @@ body.theme-dark .btn.ghost.btn-secondary {
   background: #16243e;
   color: #dbe6ff;
   border-color: #355181;
-
 }
 body.theme-dark input,
 body.theme-dark select,
@@ -1450,6 +1449,9 @@ body.theme-dark .card-header h3,
 body.theme-dark .message-preview,
 body.theme-dark .thread-item,
 body.theme-dark .status-row,
+body.theme-dark [data-messenger-peer-name] {
+  color: #000;
+}
 body.theme-dark .inbox-live-row .live-status-text {
   color: #000;
 }
@@ -1906,7 +1908,9 @@ body.theme-dark .clinical-dash-tabs {
   font-weight: 700;
   cursor: pointer;
   color: #1c3264;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 .clinical-tab:hover {
   border-color: #3d6fb8;
@@ -2104,7 +2108,9 @@ body.theme-dark .clinical-dash-tabs {
 }
 
 body.theme-dark .clinical-billing-form select,
-body.theme-dark .clinical-billing-form input:not([type="file"]):not([type="checkbox"]) {
+body.theme-dark
+  .clinical-billing-form
+  input:not([type="file"]):not([type="checkbox"]) {
   background: #0f1628;
   border-color: #243559;
   color: #e8eef9;
@@ -2198,16 +2204,22 @@ body.theme-dark .clinical-field-hint {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.floating-chat-panel .messenger-layout:not(.messenger-show-thread) .messenger-main {
+.floating-chat-panel
+  .messenger-layout:not(.messenger-show-thread)
+  .messenger-main {
   display: none;
 }
 
-.floating-chat-panel .messenger-layout.messenger-show-thread .messenger-sidebar {
+.floating-chat-panel
+  .messenger-layout.messenger-show-thread
+  .messenger-sidebar {
   display: none;
 }
 
 /* Thread header back control: visible in floating pane on all viewports */
-.floating-chat-panel .messenger-layout.messenger-show-thread .messenger-back-inline {
+.floating-chat-panel
+  .messenger-layout.messenger-show-thread
+  .messenger-back-inline {
   display: inline-flex !important;
 }
 
@@ -2390,7 +2402,9 @@ body.theme-dark .clinical-field-hint {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .messenger-thread-close-x:hover {
@@ -2692,7 +2706,9 @@ body.theme-dark .emoji-menu {
   opacity: 1;
   position: relative;
   z-index: 2;
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
 }
 
 .messenger-send-icon-btn:hover {
@@ -2710,7 +2726,8 @@ body.theme-dark .emoji-menu {
 
 /* Gold/tan icon tint (SVGs as <img>) */
 .message-compose-icon {
-  filter: invert(62%) sepia(34%) saturate(564%) hue-rotate(8deg) brightness(97%) contrast(92%);
+  filter: invert(62%) sepia(34%) saturate(564%) hue-rotate(8deg) brightness(97%)
+    contrast(92%);
   width: 22px;
   height: 22px;
 }
@@ -2910,9 +2927,9 @@ body.theme-dark .floating-chat-panel {
 @media (max-width: 640px) {
   .floating-chat-widget {
     left: 50%;
-    right: auto;              /* ✅ override right anchor */
+    right: auto; /* ✅ override right anchor */
     transform: translateX(-50%); /* ✅ true centering */
-    align-items: center;      /* ✅ center children */
+    align-items: center; /* ✅ center children */
     width: 100%;
   }
 
