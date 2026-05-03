@@ -402,20 +402,21 @@ export const inviteReceptionist = async (req, res) => {
     const email = String(req.body?.email || '')
       .trim()
       .toLowerCase();
-    const firstName = String(req.body?.firstName || '').trim();
-    const lastName = String(req.body?.lastName || '').trim();
 
-    if (!email) return res.status(400).json({ error: 'Email required.' });
-    if (!firstName || !lastName) {
-      return res.status(400).json({ error: 'First and last name required.' });
+    const receptionistName = String(req.body?.receptionistName || '')
+      .trim()
+      .replace(/\s+/g, ' ');
+
+    if (!email) {
+      return res.status(400).json({ error: 'Receptionist email is required.' });
     }
 
-    const emailRegex = /^\S+@\S+\.\S+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ error: 'Invalid email.' });
+    if (!receptionistName) {
+      return res.status(400).json({ error: 'Receptionist name is required.' });
     }
 
-    const receptionistName = `${firstName} ${lastName}`;
+    // ✅ extract only first name
+    const firstName = receptionistName.split(' ').filter(Boolean)[0] || '';
 
     // ================= UPSERT USER =================
     const existing = await User.findOne({ email });
@@ -427,13 +428,13 @@ export const inviteReceptionist = async (req, res) => {
             role: 'receptionist',
             linkedDoctorId: doctor._id,
             firstName,
-            lastName,
+            receptionistName, // ✅ ADD THIS
           },
           { new: true },
         )
       : await User.create({
           firstName,
-          lastName,
+          receptionistName, // ✅ ADD THIS
           email,
           role: 'receptionist',
           linkedDoctorId: doctor._id,
