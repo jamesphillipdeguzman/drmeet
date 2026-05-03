@@ -143,13 +143,14 @@ export async function sendPatientWelcomeEmail({ email, displayName }) {
 export async function sendReceptionistInviteEmail({
   email,
   doctorName,
+  receptionistName,
   inviteLink,
 }) {
   const html = getBaseTemplate({
     title: 'Clinic Staff Invitation',
     subtitle: 'You were invited to join DrMeet as a receptionist.',
     bodyHtml: `
-      <p>Hi,</p>
+      <p>Hi ${receptionistName || 'there'},</p>
       <p>${doctorName} invited you to join their clinic team on DrMeet as a receptionist.</p>
       <p>Use the button below to sign in or continue account setup.</p>
     `,

@@ -450,9 +450,12 @@ export const inviteReceptionist = async (req, res) => {
           linkedDoctorId: doctor._id,
         });
 
+    const receptionistName = firstName || 'there';
+
     const inviteResult = await sendReceptionistInviteEmail({
       email,
       doctorName: `${doctor.firstName} ${doctor.lastName}`,
+      receptionistName,
       inviteLink: `${process.env.CLIENT_ORIGIN}/#accept-invite?token=${token}`,
     });
     global.lastEmailDisplayName = `${doctor.firstName} ${doctor.lastName}`;
