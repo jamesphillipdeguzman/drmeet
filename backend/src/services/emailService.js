@@ -92,12 +92,22 @@ export async function sendDoctorWelcomeEmail({
   const displayName = [resolvedTitle, firstName, lastName]
     .filter(Boolean)
     .join(' ');
-  console.log({ normalizedTitle, resolvedTitle, displayName });
+
+  // ✅ ADD THIS (for System Diagnostics)
+  global.lastEmailDisplayName = displayName;
+
+  // (optional but better visibility in logs)
+  console.error('[EMAIL DEBUG]', {
+    normalizedTitle,
+    resolvedTitle,
+    displayName,
+  });
   const html = getBaseTemplate({
     title: `Welcome ${displayName}`,
     subtitle: 'Your DrMeet doctor workspace is now ready.',
     bodyHtml: `
-      <p>Hi ${displayName},</p>
+    <p><strong>DEBUG NAME:</strong> ${displayName}</p>
+    <p>Hi ${displayName},</p>
       <p>Welcome to DrMeet. Your doctor account is active and you can now manage your profile, appointments, and patient communication.</p>
       <p>You can also add and link receptionists from your Doctors tab to help coordinate your clinic workflow.</p>
     `,

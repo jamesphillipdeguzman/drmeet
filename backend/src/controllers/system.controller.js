@@ -28,7 +28,8 @@ export const getDiagnostics = async (req, res) => {
         key: 'cloudinary_configured',
         label: 'Cloudinary Credentials',
         status: isCloudinaryConfigured() ? 'ok' : 'error',
-        details: 'CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME + API_KEY + API_SECRET.',
+        details:
+          'CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME + API_KEY + API_SECRET.',
       },
       {
         key: 'resend_configured',
@@ -37,6 +38,12 @@ export const getDiagnostics = async (req, res) => {
         details: 'Checks env vars presence only.',
       },
     ];
+    checks.push({
+      key: 'email_display_name',
+      label: 'Email Display Name',
+      status: 'info',
+      details: global.lastEmailDisplayName || 'No email sent yet',
+    });
     return res.status(200).json({
       generatedAt: new Date().toISOString(),
       checks,
