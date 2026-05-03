@@ -4735,10 +4735,6 @@ async function showDoctorForm(editId = null) {
   attachClearButtons(form);
   enforcePhoneInputs(form);
 
-  // ✅ INSERT HERE
-  renderFacilityDatalist();
-  attachFacilityInputBehavior('input[name="affiliatedClinics"]');
-
   // ✅ INSERT HERE (IMPORTANT)
   renderFacilityDatalist();
   attachFacilityInputBehavior('input[name="registrationFacility"]');
@@ -5270,6 +5266,11 @@ function showUserForm(editId = null) {
   const form = document.getElementById("user-form");
   attachClearButtons(form);
   enforcePhoneInputs(form);
+
+  // ✅ INSERT HERE
+  renderFacilityDatalist();
+  attachFacilityInputBehavior('input[name="affiliatedClinics"]');
+
   const specialtyWrap = form.querySelector("#user-specialty-wrap");
   const receptionistTypeWrap = form.querySelector(
     "#user-receptionist-type-wrap",
