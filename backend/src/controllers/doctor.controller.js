@@ -423,20 +423,14 @@ export const inviteReceptionist = async (req, res) => {
       });
     }
 
-    const emailLocal = email.split('@')[0] || '';
+    const inviteResult = await sendReceptionistInviteEmail({
+      email,
+      doctorName: `${doctor.firstName} ${doctor.lastName}`,
+      receptionistName, // ✅ now correct full name
+      inviteLink: `${process.env.CLIENT_ORIGIN}/#accept-invite?token=${token}`,
+    });
 
-    const parsedName = emailLocal
-      .split(/[._-]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const firstName =
-      String(req.body?.firstName || '').trim() || parsedName[0] || 'Clinic';
-
-    const lastName =
-      String(req.body?.lastName || '').trim() ||
-      parsedName.slice(1).join(' ') ||
-      'Receptionist';
+    const receptionistName = `${firstName} ${lastName}`;
 
     const receptionist = existing
       ? await User.findByIdAndUpdate(
@@ -456,8 +450,6 @@ export const inviteReceptionist = async (req, res) => {
           role: 'receptionist',
           linkedDoctorId: doctor._id,
         });
-
-    const receptionistName = firstName || 'there';
 
     const inviteResult = await sendReceptionistInviteEmail({
       email,
