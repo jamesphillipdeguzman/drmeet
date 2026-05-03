@@ -4083,7 +4083,7 @@ async function renderPatients() {
   }
 }
 
-function showPatientForm(editId = null, familyMode = false) {
+async function showPatientForm(editId = null, familyMode = false) {
   const modal = document.getElementById("patient-form-modal");
   const role = getCurrentUserRole();
   const canAttachExisting =
@@ -4156,25 +4156,24 @@ function showPatientForm(editId = null, familyMode = false) {
     </form>
     </div>
   `;
-  async function renderFacilityDatalist(listId = "facility-list") {
-    const facilities = await loadFacilities();
 
-    const datalist = document.getElementById(listId);
-    if (!datalist) return;
+  const form = document.getElementById("patient-form");
+  const insuredCb = document.getElementById("patient-is-insured");
+  const hmoWrap = document.getElementById("patient-hmo-wrap");
+  const hmoSelect = document.getElementById("patient-hmo-select");
 
-    datalist.innerHTML = facilities
-      .map((name) => `<option value="${escapeHtml(name)}"></option>`)
-      .join("");
-  }
-  function attachFacilityInputBehavior(selector) {
-    document.querySelectorAll(selector).forEach((input) => {
-      input.addEventListener("focus", () => {
-        const val = input.value;
-        input.value = " ";
-        input.value = val;
-      });
-    });
-  }
+  const syncInsured = () => {
+    const on = Boolean(insuredCb?.checked);
+    if (hmoWrap) hmoWrap.style.display = on ? "" : "none";
+    if (hmoSelect) hmoSelect.required = on;
+  };
+
+  insuredCb?.addEventListener("change", syncInsured);
+  syncInsured();
+
+  await renderFacilityDatalist();
+  attachFacilityInputBehavior('input[name="registrationFacility"]');
+
   if (canAttachExisting) {
     const searchInput = document.getElementById("patient-existing-search");
     const resultEl = document.getElementById("patient-existing-results");
@@ -4256,8 +4255,12 @@ function showPatientForm(editId = null, familyMode = false) {
         form.medicalHistory.value = Array.isArray(data.medicalHistory)
           ? data.medicalHistory.join("\n")
           : "";
-        if (form.registrationFacility)
-          form.registrationFacility.value = data.registrationFacility || "";
+        const regFacilityInput = form.querySelector(
+          '[name="registrationFacility"]',
+        );
+        if (regFacilityInput) {
+          regFacilityInput.value = data.registrationFacility || "";
+        }
         if (insuredCb) insuredCb.checked = Boolean(data.isInsured);
         if (hmoSelect && data.hmoProvider)
           hmoSelect.value = String(data.hmoProvider || "");
@@ -4336,6 +4339,26 @@ async function loadFacilities() {
   cachedFacilities = data.facilities || [];
 
   return cachedFacilities;
+}
+
+async function renderFacilityDatalist(listId = "facility-list") {
+  const facilities = await loadFacilities();
+
+  const datalist = document.getElementById(listId);
+  if (!datalist) return;
+
+  datalist.innerHTML = facilities
+    .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+    .join("");
+}
+function attachFacilityInputBehavior(selector) {
+  document.querySelectorAll(selector).forEach((input) => {
+    input.addEventListener("focus", () => {
+      const val = input.value;
+      input.value = " ";
+      input.value = val;
+    });
+  });
 }
 
 function editPatient(id) {
@@ -4735,9 +4758,10 @@ async function showDoctorForm(editId = null) {
   attachClearButtons(form);
   enforcePhoneInputs(form);
 
-  // ✅ INSERT HERE (IMPORTANT)
-  renderFacilityDatalist();
-  attachFacilityInputBehavior('input[name="registrationFacility"]');
+  const facilities = await loadFacilities();
+  renderFacilityDatalist(facilities);
+
+  attachFacilityInputBehavior('input[name="affiliatedClinics"]');
 
   attachFacilityDatalist({
     listId: "facility-list",
@@ -5266,10 +5290,6 @@ function showUserForm(editId = null) {
   const form = document.getElementById("user-form");
   attachClearButtons(form);
   enforcePhoneInputs(form);
-
-  // ✅ INSERT HERE
-  renderFacilityDatalist();
-  attachFacilityInputBehavior('input[name="affiliatedClinics"]');
 
   const specialtyWrap = form.querySelector("#user-specialty-wrap");
   const receptionistTypeWrap = form.querySelector(
