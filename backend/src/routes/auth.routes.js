@@ -40,26 +40,23 @@ function normalizeAmbiguousSignupRole(incoming) {
  * @swagger
  * /api/auth/google:
  */
-router.get(
-  '/google',
-  (req, res, next) => {
-    const requestedRole = String(req.query.role || '')
-      .trim()
-      .toLowerCase();
-    const state =
-      requestedRole === 'doctor' ||
-      requestedRole === 'patient' ||
-      requestedRole === 'receptionist'
-        ? JSON.stringify({ role: requestedRole })
-        : undefined;
-    const options = {
-      scope: ['profile', 'email'],
-      prompt: 'select_account',
-      ...(state ? { state } : {}),
-    };
-    return passport.authenticate('google', options)(req, res, next);
-  },
-);
+router.get('/google', (req, res, next) => {
+  const requestedRole = String(req.query.role || '')
+    .trim()
+    .toLowerCase();
+  const state =
+    requestedRole === 'doctor' ||
+    requestedRole === 'patient' ||
+    requestedRole === 'receptionist'
+      ? JSON.stringify({ role: requestedRole })
+      : undefined;
+  const options = {
+    scope: ['profile', 'email'],
+    prompt: 'select_account',
+    ...(state ? { state } : {}),
+  };
+  return passport.authenticate('google', options)(req, res, next);
+});
 
 /**
  * @swagger
@@ -276,7 +273,7 @@ router.post('/login', async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         linkedDoctorId: user.linkedDoctorId || null,
-        receptionistType: user.receptionistType || "",
+        receptionistType: user.receptionistType || '',
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' },
@@ -299,7 +296,16 @@ router.post('/login', async (req, res) => {
 router.post('/signup', validateUserSignup, async (req, res) => {
   try {
     const cleaned = sanitizeInput(req.body || {});
-    const { firstName, lastName, email, password, phone, address, title, specialty } = cleaned;
+    const {
+      firstName,
+      lastName,
+      email,
+      password,
+      phone,
+      address,
+      title,
+      specialty,
+    } = cleaned;
 
     const exists = await User.findOne({ email });
 
@@ -330,7 +336,9 @@ router.post('/signup', validateUserSignup, async (req, res) => {
     } else if (user.role === 'patient') {
       await sendPatientWelcomeEmail({
         email: user.email,
+        displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
         firstName: user.firstName,
+        lastName: user.lastName,
       });
     }
 
@@ -342,7 +350,7 @@ router.post('/signup', validateUserSignup, async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         linkedDoctorId: user.linkedDoctorId || null,
-        receptionistType: user.receptionistType || "",
+        receptionistType: user.receptionistType || '',
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' },

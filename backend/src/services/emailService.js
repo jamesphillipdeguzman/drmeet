@@ -123,7 +123,19 @@ export async function sendDoctorWelcomeEmail({
   });
 }
 
-export async function sendPatientWelcomeEmail({ email, displayName }) {
+export async function sendPatientWelcomeEmail({
+  email,
+  displayName,
+  firstName,
+  lastName,
+}) {
+  console.log('EMAIL DEBUG:', {
+    email,
+    displayName,
+    firstName,
+    lastName,
+  });
+
   const html = getBaseTemplate({
     title: 'Welcome to DrMeet',
     subtitle: 'Your patient account is now active.',
@@ -133,6 +145,7 @@ export async function sendPatientWelcomeEmail({ email, displayName }) {
       <p>We are glad to have you with us.</p>
     `,
   });
+
   return sendEmailSafe({
     to: email,
     subject: 'Welcome to DrMeet',
