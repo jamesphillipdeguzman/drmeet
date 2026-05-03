@@ -3762,6 +3762,9 @@ async function renderPatientBooking() {
   };
 }
 
+// Empty list of docto options on new account sign up
+let doctorOptionsForSend = "";
+
 // --- Patients ---
 async function renderPatients() {
   setPageTone("patients");
@@ -4731,7 +4734,17 @@ function showDoctorForm(editId = null) {
         <textarea name="availabilityText" placeholder="Monday - Friday 10:00-15:00&#10;Saturday 09:00-12:00"></textarea>
       </label>
       <label>Room <input name="room" placeholder="e.g. Room 204" /></label>
-      <label>Affiliated Hospitals / Clinics <input name="affiliatedClinics" placeholder="Clinic A, Hospital B" /></label>
+      <label>Affiliated Hospitals / Clinics
+        <input 
+          name="affiliatedClinics" 
+          list="facility-list"
+          placeholder="Select or type clinic/hospital"
+        />
+      </label>
+
+      <datalist id="facility-list">
+        ${facilityOptions}
+      </datalist>
       <label>Phone
         <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
         <small>Digits only, 10-11 numbers.</small>
@@ -5024,6 +5037,20 @@ async function renderAppointments() {
   } catch (err) {
     mainContent.innerHTML = `<h2>Appointments</h2><div class="feedback error">${err.message}</div>`;
   }
+}
+
+let facilityOptions = "";
+
+try {
+  const res = await apiRequest(`${API_BASE}/patients/constants/facilities`);
+  if (res.ok) {
+    const facilities = await res.json();
+    facilityOptions = [...new Set(facilities)]
+      .map((f) => `<option value="${escapeHtml(f)}"></option>`)
+      .join("");
+  }
+} catch (e) {
+  facilityOptions = "";
 }
 
 async function showAppointmentForm(editId = null) {
