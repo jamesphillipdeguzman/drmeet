@@ -4704,7 +4704,21 @@ async function renderDoctors() {
   }
 }
 
-function showDoctorForm(editId = null) {
+let facilityOptions = "";
+
+try {
+  const res = await apiRequest(`${API_BASE}/patients/constants/facilities`);
+  if (res.ok) {
+    const facilities = await res.json();
+    facilityOptions = [...new Set(facilities)]
+      .map((f) => `<option value="${escapeHtml(f)}"></option>`)
+      .join("");
+  }
+} catch (e) {
+  facilityOptions = "";
+}
+
+async function showDoctorForm(editId = null) {
   const modal = document.getElementById("doctor-form-modal");
   modal.style.display = "block";
   modal.innerHTML = `
@@ -5037,20 +5051,6 @@ async function renderAppointments() {
   } catch (err) {
     mainContent.innerHTML = `<h2>Appointments</h2><div class="feedback error">${err.message}</div>`;
   }
-}
-
-let facilityOptions = "";
-
-try {
-  const res = await apiRequest(`${API_BASE}/patients/constants/facilities`);
-  if (res.ok) {
-    const facilities = await res.json();
-    facilityOptions = [...new Set(facilities)]
-      .map((f) => `<option value="${escapeHtml(f)}"></option>`)
-      .join("");
-  }
-} catch (e) {
-  facilityOptions = "";
 }
 
 async function showAppointmentForm(editId = null) {
