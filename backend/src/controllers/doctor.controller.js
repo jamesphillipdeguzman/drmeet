@@ -399,11 +399,18 @@ export const inviteReceptionist = async (req, res) => {
     }
 
     // ================= INPUTS =================
+    // ================= INPUTS =================
+    console.log('REQ BODY:', req.body); // ✅ temporary debug
+
     const email = String(req.body?.email || '')
       .trim()
       .toLowerCase();
 
-    const receptionistName = String(req.body?.receptionistName || '')
+    // accept multiple possible frontend field names
+    const receptionistNameRaw =
+      req.body?.receptionistName || req.body?.name || req.body?.fullName || '';
+
+    const receptionistName = String(receptionistNameRaw)
       .trim()
       .replace(/\s+/g, ' ');
 
@@ -415,7 +422,7 @@ export const inviteReceptionist = async (req, res) => {
       return res.status(400).json({ error: 'Receptionist name is required.' });
     }
 
-    // ✅ extract only first name
+    // extract first name only (your simplified rule)
     const firstName = receptionistName.split(' ').filter(Boolean)[0] || '';
 
     // ================= UPSERT USER =================
