@@ -110,7 +110,7 @@ export async function sendDoctorWelcomeEmail({
     title: `Welcome ${displayName}`,
     subtitle: 'Your DrMeet doctor workspace is now ready.',
     bodyHtml: `
-    <p><strong>DEBUG NAME:</strong> ${displayName}</p>
+    
     <p>Hi ${displayName},</p>
       <p>Welcome to DrMeet. Your doctor account is active and you can now manage your profile, appointments, and patient communication.</p>
       <p>You can also add and link receptionists from your Doctors tab to help coordinate your clinic workflow.</p>
