@@ -4157,6 +4157,11 @@ async function showPatientForm(editId = null, familyMode = false) {
     </div>
   `;
 
+  modal.querySelector(".modal-close-x")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.closePatientForm();
+  });
+
   const form = document.getElementById("patient-form");
   const insuredCb = document.getElementById("patient-is-insured");
   const hmoWrap = document.getElementById("patient-hmo-wrap");
@@ -4748,9 +4753,10 @@ async function showDoctorForm(editId = null) {
     </div>
   `;
 
-  window.closeDoctorForm = () => {
-    modal.style.display = "none";
-  };
+  const closeBtn = modal.querySelector(".modal-close-x");
+  closeBtn?.addEventListener("click", () => {
+    window.closeDoctorForm();
+  });
 
   const form = document.getElementById("doctor-form");
 
@@ -5359,3 +5365,19 @@ async function deleteUser(id) {
     showToast(err.message, "error");
   }
 }
+
+window.closePatientForm = function () {
+  const modal = document.getElementById("patient-form-modal");
+  if (modal) {
+    modal.style.display = "none";
+    modal.innerHTML = "";
+  }
+};
+
+window.closeDoctorForm = function () {
+  const modal = document.getElementById("doctor-form-modal");
+  if (modal) {
+    modal.style.display = "none";
+    modal.innerHTML = "";
+  }
+};
