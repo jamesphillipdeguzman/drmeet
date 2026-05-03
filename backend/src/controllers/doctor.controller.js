@@ -423,13 +423,20 @@ export const inviteReceptionist = async (req, res) => {
       });
     }
 
-    const localPart = email.split('@')[0] || 'clinic';
-    const nameParts = localPart
+    const emailLocal = email.split('@')[0] || '';
+
+    const parsedName = emailLocal
       .split(/[._-]+/)
-      .map((p) => p.trim())
+      .map((s) => s.trim())
       .filter(Boolean);
-    const firstName = nameParts[0] || 'Clinic';
-    const lastName = nameParts.slice(1).join(' ') || 'Receptionist';
+
+    const firstName =
+      String(req.body?.firstName || '').trim() || parsedName[0] || 'Clinic';
+
+    const lastName =
+      String(req.body?.lastName || '').trim() ||
+      parsedName.slice(1).join(' ') ||
+      'Receptionist';
 
     const receptionist = existing
       ? await User.findByIdAndUpdate(
@@ -443,8 +450,8 @@ export const inviteReceptionist = async (req, res) => {
           { new: true },
         )
       : await User.create({
-          firstName,
-          lastName,
+          firstName: firstName || 'Clinic',
+          lastName: lastName || 'Receptionist',
           email,
           role: 'receptionist',
           linkedDoctorId: doctor._id,
