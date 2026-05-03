@@ -4367,7 +4367,7 @@ function showPatientForm(editId = null, familyMode = false) {
 }
 
 let cachedFacilities = null;
-
+// Load dropdown for Registration Facilities for Patient data edits
 async function loadFacilities() {
   if (cachedFacilities) return cachedFacilities;
 
@@ -4379,6 +4379,21 @@ async function loadFacilities() {
   cachedFacilities = data.facilities || [];
 
   return cachedFacilities;
+}
+// Load dropdown for Affiliated Hospitals / Clinics for the Doctor data edits
+async function getFacilityOptions() {
+  try {
+    const res = await apiRequest(`${API_BASE}/patients/constants/facilities`);
+    if (!res.ok) return "";
+
+    const facilities = await res.json();
+
+    return [...new Set(facilities)]
+      .map((f) => `<option value="${escapeHtml(f)}"></option>`)
+      .join("");
+  } catch (e) {
+    return "";
+  }
 }
 
 function editPatient(id) {
