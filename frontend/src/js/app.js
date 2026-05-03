@@ -4766,15 +4766,15 @@ async function showDoctorForm(editId = null) {
       <label>Room <input name="room" placeholder="e.g. Room 204" /></label>
       <label>Affiliated Hospitals / Clinics
         <input 
-          name="affiliatedClinics" 
           list="facility-list"
+          name="affiliatedClinics" 
           placeholder="Select or type clinic/hospital"
         />
       </label>
 
       <datalist id="facility-list">
-        ${[...new Set(facilityOptions)].map((s) => `<option value="${s}"></option>`).join("")}
-      </datalist>
+          ${facilityOptions}
+        </datalist>
       
       <label>Phone
         <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
