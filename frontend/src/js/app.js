@@ -4156,10 +4156,17 @@ function showPatientForm(editId = null, familyMode = false) {
     </form>
     </div>
   `;
-  (async () => {
+  async function attachFacilityDatalist({
+    listId = "facility-list",
+    inputSelector = 'input[name="registrationFacility"]',
+    scope = document,
+  } = {}) {
     try {
       const facilities = await loadFacilities();
-      const datalist = document.getElementById("facility-list");
+
+      const datalist = scope.getElementById
+        ? scope.getElementById(listId)
+        : document.getElementById(listId);
 
       if (datalist) {
         datalist.innerHTML = facilities
@@ -4167,20 +4174,19 @@ function showPatientForm(editId = null, familyMode = false) {
           .join("");
       }
 
-      // ✅ force dropdown to show on focus
-      const facilityInput = document.querySelector(
-        'input[name="registrationFacility"]',
-      );
+      const inputs = scope.querySelectorAll(inputSelector);
 
-      facilityInput?.addEventListener("focus", () => {
-        const val = facilityInput.value;
-        facilityInput.value = " ";
-        facilityInput.value = val;
+      inputs.forEach((input) => {
+        input.addEventListener("focus", () => {
+          const val = input.value;
+          input.value = " ";
+          input.value = val;
+        });
       });
     } catch (err) {
       console.error("Facility load error:", err);
     }
-  })();
+  }
   window.closePatientForm = () => {
     modal.style.display = "none";
   };
@@ -4707,20 +4713,6 @@ async function showDoctorForm(editId = null) {
   const modal = document.getElementById("doctor-form-modal");
   modal.style.display = "block";
 
-  let facilityOptions = "";
-
-  try {
-    const res = await apiRequest(`${API_BASE}/patients/constants/facilities`);
-    if (res.ok) {
-      const facilities = await res.json();
-      facilityOptions = [...new Set(facilities)]
-        .map((f) => `<option value="${escapeHtml(f)}"></option>`)
-        .join("");
-    }
-  } catch (e) {
-    facilityOptions = "";
-  }
-
   modal.innerHTML = `
     <div class="modal-sheet card">
     <button type="button" class="modal-close-x" aria-label="Close" onclick="window.closeDoctorForm()">&times;</button>
@@ -4756,9 +4748,7 @@ async function showDoctorForm(editId = null) {
         />
       </label>
 
-      <datalist id="facility-list">
-          ${facilityOptions}
-      </datalist>
+      <datalist id="facility-list"></datalist>
       
       <label>Phone
         <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
@@ -4782,13 +4772,22 @@ async function showDoctorForm(editId = null) {
     </form>
     </div>
   `;
+
   window.closeDoctorForm = () => {
     modal.style.display = "none";
   };
+
   const form = document.getElementById("doctor-form");
+
   addInlineTooltips(form);
   attachClearButtons(form);
   enforcePhoneInputs(form);
+
+  attachFacilityDatalist({
+    listId: "facility-list",
+    inputSelector: 'input[name="affiliatedClinics"]',
+    scope: document,
+  });
   if (editId) {
     apiRequest(`${API_BASE}/doctors/${editId}`)
       .then((res) => res.json())
