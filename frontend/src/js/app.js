@@ -4773,8 +4773,9 @@ async function showDoctorForm(editId = null) {
       </label>
 
       <datalist id="facility-list">
-        ${facilityOptions}
+        ${[...new Set(facilityOptions)].map((s) => `<option value="${s}"></option>`).join("")}
       </datalist>
+      
       <label>Phone
         <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
         <small>Digits only, 10-11 numbers.</small>
