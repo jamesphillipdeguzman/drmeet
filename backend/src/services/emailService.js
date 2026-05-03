@@ -109,12 +109,12 @@ export async function sendDoctorWelcomeEmail({
   });
 }
 
-export async function sendPatientWelcomeEmail({ email, firstName }) {
+export async function sendPatientWelcomeEmail({ email, displayName }) {
   const html = getBaseTemplate({
     title: 'Welcome to DrMeet',
     subtitle: 'Your patient account is now active.',
     bodyHtml: `
-      <p>Hi ${firstName || 'there'},</p>
+      <p>Hi ${displayName || 'there'},</p>
       <p>Welcome to DrMeet. You can now complete your patient profile, book appointments, and securely message your care team.</p>
       <p>We are glad to have you with us.</p>
     `,
