@@ -399,34 +399,45 @@ export const inviteReceptionist = async (req, res) => {
     }
 
     // ================= INPUTS =================
-    // ================= INPUTS =================
-    console.log('REQ BODY:', req.body); // ✅ temporary debug
+    console.log('REQ BODY:', req.body);
 
+    // normalize all possible field names
     const email = String(req.body?.email || '')
       .trim()
       .toLowerCase();
 
-    // accept multiple possible frontend field names
-    const receptionistNameRaw =
-      req.body?.receptionistName || req.body?.name || req.body?.fullName || '';
-
-    const receptionistName = String(receptionistNameRaw)
+    const receptionistName = String(
+      req.body?.receptionistName ||
+        req.body?.receptionist ||
+        req.body?.name ||
+        req.body?.fullName ||
+        '',
+    )
       .trim()
       .replace(/\s+/g, ' ');
+
+    // HARD DEBUG (important for Render logs)
+    console.log('EXTRACTED:', {
+      email,
+      receptionistName,
+    });
 
     if (!email) {
       return res.status(400).json({ error: 'Receptionist email is required.' });
     }
 
     if (!receptionistName) {
-      return res.status(400).json({ error: 'Receptionist name is required.' });
+      return res.status(400).json({
+        error: 'Receptionist name is required.',
+        receivedBody: req.body, // 👈 VERY IMPORTANT for debugging
+      });
     }
-
-    // extract first name only (your simplified rule)
-    const firstName = receptionistName.split(' ').filter(Boolean)[0] || '';
 
     // ================= UPSERT USER =================
     const existing = await User.findOne({ email });
+
+    // extract first name safely (your rule)
+    const firstName = receptionistName.split(' ')[0] || '';
 
     const receptionist = existing
       ? await User.findByIdAndUpdate(
@@ -435,18 +446,17 @@ export const inviteReceptionist = async (req, res) => {
             role: 'receptionist',
             linkedDoctorId: doctor._id,
             firstName,
-            receptionistName, // ✅ ADD THIS
+            receptionistName,
           },
           { new: true },
         )
       : await User.create({
           firstName,
-          receptionistName, // ✅ ADD THIS
+          receptionistName,
           email,
           role: 'receptionist',
           linkedDoctorId: doctor._id,
         });
-
     // ================= TOKEN =================
     const token = crypto.randomBytes(32).toString('hex');
 
