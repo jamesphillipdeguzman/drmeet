@@ -2924,21 +2924,21 @@ body.theme-dark .floating-chat-panel {
   max-width: 100%;
   overflow: hidden;
 }
+
 @media (max-width: 640px) {
   .floating-chat-widget {
-    left: 50%;
-    right: auto; /* ✅ override right anchor */
-    transform: translateX(-50%); /* ✅ true centering */
-    align-items: center; /* ✅ center children */
-    width: 100%;
+    right: 0; /* ✅ anchor to right */
+    left: auto; /* ✅ remove centering */
+    transform: none; /* ✅ cancel translate */
+    width: auto;
+    align-items: flex-end; /* keeps panel aligned right */
   }
 
   .floating-chat-panel {
-    width: min(420px, calc(100vw - 1rem)); /* tighter fit */
-    margin: 0 auto;
+    width: min(420px, calc(100vw - 1rem));
+    margin-right: 0.5rem; /* small padding from edge */
   }
 }
-
 /* 🔥 HARD STOP textarea overflow */
 .messenger-compose-input {
   min-width: 0 !important;
