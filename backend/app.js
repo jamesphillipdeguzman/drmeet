@@ -18,6 +18,7 @@ import swaggerSpec from './src/docs/swagger.js';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import passport from './src/config/passport.config.js';
+import constantsRoutes from './src/routes/constants.route.js';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -139,6 +140,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/medical-history', medicalHistoryRoutes);
 app.use('/api/system', systemRoutes);
+app.use('/api/patients/constants', constantsRoutes);
 
 // ========================
 export { app };

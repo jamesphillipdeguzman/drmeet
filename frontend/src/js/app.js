@@ -4126,7 +4126,8 @@ function showPatientForm(editId = null, familyMode = false) {
       ${
         staffRole
           ? `<label><span class="label-text-row" data-tooltip="Used with email and date of birth to prevent duplicate registrations at this site.">Registration facility</span>
-        <input name="registrationFacility" required placeholder="Clinic or branch name" /></label>`
+        <input list="facility-list" name="registrationFacility" required placeholder="Clinic or branch name" />
+<datalist id="facility-list"></datalist></label>`
           : `<label><span class="label-text-row" data-tooltip="Include if instructed by your clinic — combined with email and DOB prevents duplicates.">Registration facility</span>
         <input name="registrationFacility" placeholder="Optional" /></label>`
       }
@@ -4152,6 +4153,31 @@ function showPatientForm(editId = null, familyMode = false) {
     </form>
     </div>
   `;
+  (async () => {
+    try {
+      const facilities = await loadFacilities();
+      const datalist = document.getElementById("facility-list");
+
+      if (datalist) {
+        datalist.innerHTML = facilities
+          .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+          .join("");
+      }
+
+      // ✅ force dropdown to show on focus
+      const facilityInput = document.querySelector(
+        'input[name="registrationFacility"]',
+      );
+
+      facilityInput?.addEventListener("focus", () => {
+        const val = facilityInput.value;
+        facilityInput.value = " ";
+        facilityInput.value = val;
+      });
+    } catch (err) {
+      console.error("Facility load error:", err);
+    }
+  })();
   window.closePatientForm = () => {
     modal.style.display = "none";
   };
@@ -4335,6 +4361,21 @@ function showPatientForm(editId = null, familyMode = false) {
       showToast(err.message, "error");
     }
   };
+}
+
+let cachedFacilities = null;
+
+async function loadFacilities() {
+  if (cachedFacilities) return cachedFacilities;
+
+  const res = await apiRequest(`${API_BASE}/patients/constants/facilities`);
+
+  if (!res.ok) throw new Error("Failed to load facilities");
+
+  const data = await res.json();
+  cachedFacilities = data.facilities || [];
+
+  return cachedFacilities;
 }
 
 function editPatient(id) {
