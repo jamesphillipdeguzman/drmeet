@@ -455,7 +455,7 @@ export const inviteReceptionist = async (req, res) => {
       doctorName: `${doctor.firstName} ${doctor.lastName}`,
       inviteLink: `${process.env.CLIENT_ORIGIN}/#accept-invite?token=${token}`,
     });
-
+    global.lastEmailDisplayName = `${doctor.firstName} ${doctor.lastName}`;
     console.log('=== EMAIL DEBUG ===');
     console.log(inviteResult);
 
