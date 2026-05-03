@@ -94,7 +94,11 @@ export async function sendDoctorWelcomeEmail({
     .join(' ');
 
   // ✅ ADD THIS (for System Diagnostics)
+  console.error('🔥 EMAIL FUNCTION CALLED');
+  console.error('DISPLAY NAME:', displayName);
+
   global.lastEmailDisplayName = displayName;
+  console.error('GLOBAL SET:', global.lastEmailDisplayName);
 
   // (optional but better visibility in logs)
   console.error('[EMAIL DEBUG]', {
