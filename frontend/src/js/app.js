@@ -4769,11 +4769,11 @@ async function showDoctorForm(editId = null) {
 
   attachFacilityInputBehavior('input[name="affiliatedClinics"]');
 
-  attachFacilityDatalist({
-    listId: "facility-list",
-    inputSelector: 'input[name="affiliatedClinics"]',
-    scope: document,
-  });
+  // attachFacilityDatalist({
+  //   listId: "facility-list",
+  //   inputSelector: 'input[name="affiliatedClinics"]',
+  //   scope: document,
+  // });
   if (editId) {
     apiRequest(`${API_BASE}/doctors/${editId}`)
       .then((res) => res.json())
