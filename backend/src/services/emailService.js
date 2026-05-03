@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 
 const CLIENT_ORIGIN =
   process.env.CLIENT_ORIGIN || 'https://mydrmeet.netlify.app';
-const FROM_EMAIL = 'DrMeet <notifications@jamesdeguzman.com>';
+const FROM_EMAIL = 'DrMeet <hello@drmeet.jamesdeguzman.com>';
 
 function getResendClient() {
   const apiKey = process.env.RESEND_API_KEY;
@@ -83,10 +83,16 @@ export async function sendDoctorWelcomeEmail({
   firstName,
   lastName,
 }) {
-  const resolvedTitle =
-    String(title || 'Dr.').toLowerCase() === 'dra.' ? 'Dra.' : 'Dr.';
-  const displayName =
-    `${resolvedTitle} ${firstName || ''} ${lastName || ''}`.trim();
+  const normalizedTitle = String(title || 'Dr.')
+    .toLowerCase()
+    .replace('.', '');
+
+  const resolvedTitle = normalizedTitle === 'dra' ? 'Dra.' : 'Dr.';
+
+  const displayName = [resolvedTitle, firstName, lastName]
+    .filter(Boolean)
+    .join(' ');
+  console.log({ normalizedTitle, resolvedTitle, displayName });
   const html = getBaseTemplate({
     title: `Welcome ${displayName}`,
     subtitle: 'Your DrMeet doctor workspace is now ready.',
