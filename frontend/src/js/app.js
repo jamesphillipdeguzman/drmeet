@@ -4156,73 +4156,25 @@ function showPatientForm(editId = null, familyMode = false) {
     </form>
     </div>
   `;
-  async function attachFacilityDatalist({
-    listId = "facility-list",
-    inputSelector = 'input[name="registrationFacility"]',
-    scope = document,
-  } = {}) {
-    try {
-      const facilities = await loadFacilities();
+  async function renderFacilityDatalist(listId = "facility-list") {
+    const facilities = await loadFacilities();
 
-      const datalist = scope.getElementById
-        ? scope.getElementById(listId)
-        : document.getElementById(listId);
+    const datalist = document.getElementById(listId);
+    if (!datalist) return;
 
-      if (datalist) {
-        datalist.innerHTML = facilities
-          .map((name) => `<option value="${escapeHtml(name)}"></option>`)
-          .join("");
-      }
-
-      const inputs = scope.querySelectorAll(inputSelector);
-
-      inputs.forEach((input) => {
-        input.addEventListener("focus", () => {
-          const val = input.value;
-          input.value = " ";
-          input.value = val;
-        });
-      });
-    } catch (err) {
-      console.error("Facility load error:", err);
-    }
+    datalist.innerHTML = facilities
+      .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+      .join("");
   }
-  window.closePatientForm = () => {
-    modal.style.display = "none";
-  };
-  const form = document.getElementById("patient-form");
-  addInlineTooltips(form);
-  attachClearButtons(form);
-  enforcePhoneInputs(form);
-  const insuredCb = document.getElementById("patient-is-insured");
-  const hmoWrap = document.getElementById("patient-hmo-wrap");
-  const hmoSelect = document.getElementById("patient-hmo-select");
-  const syncInsured = () => {
-    const on = Boolean(insuredCb?.checked);
-    if (hmoWrap) hmoWrap.style.display = on ? "" : "none";
-    if (hmoSelect) hmoSelect.required = on;
-  };
-  insuredCb?.addEventListener("change", syncInsured);
-  syncInsured();
-  (async () => {
-    try {
-      const hr = await apiRequest(
-        `${API_BASE}/patients/constants/hmo-providers`,
-      );
-      if (!hr.ok || !hmoSelect) return;
-      const data = await hr.json();
-      const list = Array.isArray(data?.providers) ? data.providers : [];
-      hmoSelect.innerHTML = `<option value="">Select HMO</option>${list
-        .map(
-          (p) =>
-            `<option value="${escapeHtml(String(p))}">${escapeHtml(String(p))}</option>`,
-        )
-        .join("")}`;
-    } catch (e) {
-      if (hmoSelect)
-        hmoSelect.innerHTML = `<option value="">Could not load HMO list</option>`;
-    }
-  })();
+  function attachFacilityInputBehavior(selector) {
+    document.querySelectorAll(selector).forEach((input) => {
+      input.addEventListener("focus", () => {
+        const val = input.value;
+        input.value = " ";
+        input.value = val;
+      });
+    });
+  }
   if (canAttachExisting) {
     const searchInput = document.getElementById("patient-existing-search");
     const resultEl = document.getElementById("patient-existing-results");
@@ -4782,6 +4734,14 @@ async function showDoctorForm(editId = null) {
   addInlineTooltips(form);
   attachClearButtons(form);
   enforcePhoneInputs(form);
+
+  // ✅ INSERT HERE
+  renderFacilityDatalist();
+  attachFacilityInputBehavior('input[name="affiliatedClinics"]');
+
+  // ✅ INSERT HERE (IMPORTANT)
+  renderFacilityDatalist();
+  attachFacilityInputBehavior('input[name="registrationFacility"]');
 
   attachFacilityDatalist({
     listId: "facility-list",
