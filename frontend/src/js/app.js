@@ -4385,9 +4385,25 @@ async function renderDoctors() {
               <h3>Clinic Staff</h3>
               <p class="signup-lead">Invite a receptionist and link them to your clinic.</p>
               <form id="invite-receptionist-form">
-                <label>Receptionist Email <input type="email" name="email" required placeholder="reception@clinic.com" /></label>
+                <label>
+                  Receptionist Email
+                  <input type="email" name="email" required placeholder="reception@clinic.com" />
+                </label>
+
+                <label>
+                  Receptionist Name
+                  <input 
+                    type="text" 
+                    name="receptionistName" 
+                    required 
+                    placeholder="e.g. Marimar Meets" 
+                  />
+                </label>
+
                 <div class="modal-form-actions">
-                  <button type="submit" class="btn btn-secondary btn-action-edit">Invite Receptionist</button>
+                  <button type="submit" class="btn btn-secondary btn-action-edit">
+                    Invite Receptionist
+                  </button>
                 </div>
               </form>
               <div id="invite-receptionist-feedback" class="feedback" style="display:none"></div>
