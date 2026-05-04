@@ -287,6 +287,13 @@ body {
 .modal-close-x:hover {
   background: rgba(24, 36, 67, 0.16);
 }
+body.theme-dark .modal-close-x {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+}
+body.theme-dark .modal-close-x:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
 
 .modal-card-with-close {
   padding-top: 2rem;
@@ -2045,6 +2052,132 @@ body.theme-dark .clinical-dash-tabs {
 .dashboard-messages-hint {
   margin: 0.75rem 0 0;
   max-width: 42rem;
+}
+
+.facility-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+}
+
+.facility-tag-btn {
+  background: #e8f1ff;
+  color: #1c4f9b;
+  border: 1px solid #b9cff6;
+  border-radius: 999px;
+  padding: 0.22rem 0.62rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin: 0;
+  box-shadow: none;
+}
+
+.facility-tag-btn:hover {
+  background: #d9e8ff;
+  box-shadow: none;
+}
+
+body.theme-dark .facility-tag-btn {
+  background: #21355d;
+  color: #d9e6ff;
+  border-color: #3c5f9f;
+}
+
+.calendar-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 1rem;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  margin: 0.9rem 0 0.55rem;
+}
+
+.calendar-weekdays span {
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #45619a;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.calendar-day {
+  border: 1px solid #d7e4fb;
+  border-radius: 12px;
+  min-height: 132px;
+  padding: 0.45rem;
+  background: #f8fbff;
+}
+
+.calendar-day-empty {
+  background: transparent;
+  border: none;
+}
+
+.calendar-day-header {
+  font-weight: 700;
+  color: #21478e;
+  margin-bottom: 0.4rem;
+}
+
+.calendar-day-items {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.calendar-appt-item {
+  width: 100%;
+  text-align: left;
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+  margin: 0;
+  box-shadow: none;
+  border: 1px solid transparent;
+}
+
+.calendar-appt-item strong,
+.calendar-appt-item span {
+  display: block;
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+
+.calendar-day-empty-text {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: #6f809e;
+}
+
+.calendar-sidebar h3 {
+  margin-bottom: 0.5rem;
+}
+
+.calendar-sidebar-month {
+  margin: 0 0 0.7rem;
+  color: #4f628b;
+}
+
+.calendar-status-list p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin: 0 0 0.6rem;
+}
+
+@media (max-width: 980px) {
+  .calendar-section {
+    grid-template-columns: 1fr;
+  }
 }
 
 .clinical-billing-scroll {

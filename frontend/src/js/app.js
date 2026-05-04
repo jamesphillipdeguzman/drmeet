@@ -597,6 +597,11 @@ function getSearchableCommands() {
       label: "Go to Appointments",
       action: () => navigateTo("#appointments"),
     },
+    {
+      id: "calendar",
+      label: "Go to Calendar",
+      action: () => navigateTo("#calendar"),
+    },
     { id: "users", label: "Go to Users", action: () => navigateTo("#users") },
     {
       id: "settings",
@@ -665,6 +670,7 @@ function renderTopbarBreadcrumbs() {
     { hash: "#patients", label: "Patients" },
     { hash: "#doctors", label: "Doctors" },
     { hash: "#appointments", label: "Appointments" },
+    { hash: "#calendar", label: "Calendar" },
     { hash: "#users", label: "Users" },
     { hash: "#settings", label: "Settings" },
   ];
@@ -2381,6 +2387,9 @@ function renderPage() {
       break;
     case "#appointments":
       renderAppointments();
+      break;
+    case "#calendar":
+      renderCalendar();
       break;
     case "#users":
       renderUsers();
@@ -4178,6 +4187,21 @@ async function showPatientForm(editId = null, familyMode = false) {
 
   await renderFacilityDatalist();
   attachFacilityInputBehavior('input[name="registrationFacility"]');
+  try {
+    const providers = await loadHmoProviders();
+    if (hmoSelect) {
+      hmoSelect.innerHTML = `<option value="">Select HMO provider</option>${providers
+        .map(
+          (provider) =>
+            `<option value="${escapeHtml(provider)}">${escapeHtml(provider)}</option>`,
+        )
+        .join("")}`;
+    }
+  } catch (error) {
+    if (hmoSelect) {
+      hmoSelect.innerHTML = '<option value="">Unable to load providers</option>';
+    }
+  }
 
   if (canAttachExisting) {
     const searchInput = document.getElementById("patient-existing-search");
@@ -4333,6 +4357,7 @@ async function showPatientForm(editId = null, familyMode = false) {
 }
 
 let cachedFacilities = null;
+let cachedHmoProviders = null;
 
 async function loadFacilities() {
   if (cachedFacilities) return cachedFacilities;
@@ -4344,6 +4369,100 @@ async function loadFacilities() {
   cachedFacilities = data.facilities || [];
 
   return cachedFacilities;
+}
+
+async function loadHmoProviders() {
+  if (cachedHmoProviders) return cachedHmoProviders;
+  const res = await apiRequest(`${API_BASE}/patients/constants/hmo-providers`);
+  if (!res.ok) throw new Error("Failed to load HMO providers");
+  const data = await res.json();
+  cachedHmoProviders = Array.isArray(data.providers) ? data.providers : [];
+  return cachedHmoProviders;
+}
+
+function parseAffiliatedClinics(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+  }
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function setupTaggedFacilityMultiSelect({
+  inputSelector,
+  hiddenInputSelector,
+  tagsContainerSelector,
+  options,
+  initialValues = [],
+  root = document,
+}) {
+  const input = root.querySelector(inputSelector);
+  const hiddenInput = root.querySelector(hiddenInputSelector);
+  const tagsContainer = root.querySelector(tagsContainerSelector);
+  if (!input || !hiddenInput || !tagsContainer) return;
+
+  const selected = [];
+  const selectedSet = new Set();
+
+  const render = () => {
+    hiddenInput.value = selected.join(", ");
+    tagsContainer.innerHTML = selected
+      .map(
+        (name) =>
+          `<button type="button" class="facility-tag-btn" data-facility-remove="${escapeHtml(name)}">${escapeHtml(name)} <span aria-hidden="true">&times;</span></button>`,
+      )
+      .join("");
+    tagsContainer.querySelectorAll("[data-facility-remove]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const name = String(btn.getAttribute("data-facility-remove") || "");
+        if (!selectedSet.has(name)) return;
+        selectedSet.delete(name);
+        const idx = selected.indexOf(name);
+        if (idx >= 0) selected.splice(idx, 1);
+        render();
+      });
+    });
+  };
+
+  const addClinic = (raw) => {
+    const value = String(raw || "").trim();
+    if (!value) return;
+    if (selectedSet.has(value)) return;
+    selectedSet.add(value);
+    selected.push(value);
+    render();
+  };
+
+  initialValues.forEach(addClinic);
+  render();
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault();
+      addClinic(input.value);
+      input.value = "";
+    } else if (event.key === "Backspace" && !input.value.trim() && selected.length) {
+      const last = selected.pop();
+      if (last) selectedSet.delete(last);
+      render();
+    }
+  });
+
+  input.addEventListener("blur", () => {
+    if (input.value.trim()) {
+      addClinic(input.value);
+      input.value = "";
+    }
+  });
+
+  attachFacilityInputBehavior(inputSelector);
+  if (Array.isArray(options) && options.length) {
+    input.setAttribute("list", "facility-list");
+  }
 }
 
 async function renderFacilityDatalist(listId = "facility-list") {
@@ -4721,11 +4840,14 @@ async function showDoctorForm(editId = null) {
       </label>
       <label>Room <input name="room" placeholder="e.g. Room 204" /></label>
       <label>Affiliated Hospitals / Clinics
-        <input 
+        <input
+          id="doctor-affiliated-clinic-input"
           list="facility-list"
-          name="affiliatedClinics" 
-          placeholder="Select or type clinic/hospital"
+          placeholder="Type a clinic then press Enter"
         />
+        <input type="hidden" name="affiliatedClinics" />
+        <div id="doctor-affiliated-clinic-tags" class="facility-tag-list"></div>
+        <small>You can select multiple hospitals or clinics.</small>
       </label>
 
       <datalist id="facility-list"></datalist>
@@ -4765,9 +4887,16 @@ async function showDoctorForm(editId = null) {
   enforcePhoneInputs(form);
 
   const facilities = await loadFacilities();
-  renderFacilityDatalist(facilities);
-
-  attachFacilityInputBehavior('input[name="affiliatedClinics"]');
+  await renderFacilityDatalist();
+  const initDoctorClinics = (initialValues = []) =>
+    setupTaggedFacilityMultiSelect({
+      inputSelector: "#doctor-affiliated-clinic-input",
+      hiddenInputSelector: 'input[name="affiliatedClinics"]',
+      tagsContainerSelector: "#doctor-affiliated-clinic-tags",
+      options: facilities,
+      initialValues,
+      root: form,
+    });
 
   // attachFacilityDatalist({
   //   listId: "facility-list",
@@ -4796,7 +4925,7 @@ async function showDoctorForm(editId = null) {
                 .join("\n")
             : "");
         form.room.value = data.room || "";
-        form.affiliatedClinics.value = data.affiliatedClinics || "";
+        initDoctorClinics(parseAffiliatedClinics(data.affiliatedClinics));
         form.phone.value = data.phone || "";
         form.receptionistName.value = data.receptionistName || "";
         form.receptionistPhone.value = data.receptionistPhone || "";
@@ -4809,6 +4938,8 @@ async function showDoctorForm(editId = null) {
           preview.innerHTML = `<img src="${escapeHtml(data.photoUrl)}" alt="Current photo" class="doctor-avatar" /> Current profile photo`;
         }
       });
+  } else {
+    initDoctorClinics();
   }
   form.onsubmit = async (e) => {
     e.preventDefault();
@@ -4831,7 +4962,9 @@ async function showDoctorForm(editId = null) {
             timeRange: match[2].replace(/\s+/g, ""),
             startTime: match[2].split("-")[0].trim(),
             endTime: match[2].split("-")[1].trim(),
-            location: { clinicName: doctor.affiliatedClinics || "" },
+            location: {
+              clinicName: parseAffiliatedClinics(doctor.affiliatedClinics)[0] || "",
+            },
           };
         }
         return {
@@ -4839,7 +4972,9 @@ async function showDoctorForm(editId = null) {
           timeRange: "",
           startTime: "",
           endTime: "",
-          location: { clinicName: doctor.affiliatedClinics || "" },
+          location: {
+            clinicName: parseAffiliatedClinics(doctor.affiliatedClinics)[0] || "",
+          },
         };
       });
     const doctorPayload = {
@@ -5170,6 +5305,124 @@ async function deleteAppointment(id) {
     renderAppointments();
   } catch (err) {
     showToast(err.message, "error");
+  }
+}
+
+async function renderCalendar() {
+  setPageTone("appointments");
+  mainContent.innerHTML =
+    '<h2 class="page-title page-title-appointments">Calendar</h2><div class="feedback">Loading...</div>';
+  try {
+    const [appointmentRes, doctorRes, patientRes] = await Promise.all([
+      apiRequest(`${API_BASE}/appointments`),
+      apiRequest(`${API_BASE}/doctors`),
+      apiRequest(`${API_BASE}/patients`),
+    ]);
+    if (!appointmentRes.ok) throw new Error("Failed to fetch calendar data");
+    const appointments = await appointmentRes.json();
+    const doctors = doctorRes.ok ? await doctorRes.json() : [];
+    const patients = patientRes.ok ? await patientRes.json() : [];
+    const doctorLookup = new Map(
+      doctors.map((doctor) => [
+        String(doctor._id),
+        `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim(),
+      ]),
+    );
+    const patientLookup = new Map(
+      patients.map((patient) => [
+        String(patient._id),
+        `${patient.firstName || ""} ${patient.lastName || ""}`.trim(),
+      ]),
+    );
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const monthKey = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}`;
+    const monthAppointments = appointments.filter((appointment) =>
+      formatDateForInput(appointment.date).startsWith(monthKey),
+    );
+    const dayLookup = monthAppointments.reduce((acc, appointment) => {
+      const dayKey = formatDateForInput(appointment.date);
+      if (!acc[dayKey]) acc[dayKey] = [];
+      acc[dayKey].push(appointment);
+      return acc;
+    }, {});
+
+    const statusCounts = monthAppointments.reduce(
+      (acc, appointment) => {
+        const status = String(appointment.status || "pending").toLowerCase();
+        if (acc[status] === undefined) acc[status] = 0;
+        acc[status] += 1;
+        return acc;
+      },
+      { confirmed: 0, cancelled: 0, completed: 0, pending: 0 },
+    );
+
+    const totalDays = monthEnd.getDate();
+    const firstWeekday = monthStart.getDay();
+    const calendarCells = [];
+    for (let index = 0; index < firstWeekday; index += 1) {
+      calendarCells.push('<div class="calendar-day calendar-day-empty"></div>');
+    }
+    for (let day = 1; day <= totalDays; day += 1) {
+      const dateKey = `${monthKey}-${String(day).padStart(2, "0")}`;
+      const dayAppointments = dayLookup[dateKey] || [];
+      calendarCells.push(`
+        <article class="calendar-day">
+          <header class="calendar-day-header">${day}</header>
+          <div class="calendar-day-items">
+            ${dayAppointments.length
+              ? dayAppointments
+                  .map((appointment) => {
+                    const patientName =
+                      appointment.patientId?.name ||
+                      patientLookup.get(
+                        String(appointment.patient?._id || appointment.patient),
+                      ) ||
+                      "Unknown Patient";
+                    const doctorName =
+                      doctorLookup.get(
+                        String(appointment.doctor?._id || appointment.doctor),
+                      ) || "Unknown Doctor";
+                    return `<button type="button" class="calendar-appt-item status-${escapeHtml(String(appointment.status || "pending").toLowerCase())}" title="${escapeHtml(doctorName)}">
+                      <strong>${escapeHtml(String(appointment.time || "Time n/a"))}</strong>
+                      <span>${escapeHtml(patientName)}</span>
+                    </button>`;
+                  })
+                  .join("")
+              : '<p class="calendar-day-empty-text">No appointments</p>'}
+          </div>
+        </article>`);
+    }
+
+    mainContent.innerHTML = `
+      <section class="calendar-section">
+        <div class="calendar-main">
+          <h2 class="page-title page-title-appointments">Calendar - ${monthStart.toLocaleString(undefined, { month: "long", year: "numeric" })}</h2>
+          <div class="calendar-weekdays">
+            ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+              .map((day) => `<span>${day}</span>`)
+              .join("")}
+          </div>
+          <div class="calendar-grid">
+            ${calendarCells.join("")}
+          </div>
+        </div>
+        <aside class="calendar-sidebar card">
+          <h3>Monthly appointment status</h3>
+          <p class="calendar-sidebar-month">${monthStart.toLocaleString(undefined, { month: "long", year: "numeric" })}</p>
+          <div class="calendar-status-list">
+            <p><span class="status-pill status-confirmed">Confirmed</span> <strong>${statusCounts.confirmed}</strong></p>
+            <p><span class="status-pill status-cancelled">Cancelled</span> <strong>${statusCounts.cancelled}</strong></p>
+            <p><span class="status-pill status-completed">Completed</span> <strong>${statusCounts.completed}</strong></p>
+            <p><span class="status-pill status-pending">Pending</span> <strong>${statusCounts.pending}</strong></p>
+          </div>
+        </aside>
+      </section>
+    `;
+  } catch (error) {
+    mainContent.innerHTML = `<h2>Calendar</h2><div class="feedback error">${error.message}</div>`;
   }
 }
 
