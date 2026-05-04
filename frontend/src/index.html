@@ -57,6 +57,10 @@
     </div>
     <div id="command-palette" class="command-palette hidden">
         <div class="command-panel">
+            <div class="command-panel-head">
+                <strong>Search</strong>
+                <button id="command-close-btn" type="button" class="btn btn-secondary btn-sm" aria-label="Close search">Close</button>
+            </div>
             <input id="command-input" type="text" placeholder="Jump to pages, doctors, patients, appointments..." />
             <ul id="command-results"></ul>
         </div>
@@ -134,6 +138,7 @@
         <p>&copy; 2026 DrMeet. All rights reserved.</p>
     </footer>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="js/utils/common.js"></script>
     <script src="js/app.js"></script>
 </body>
 

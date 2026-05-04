@@ -1302,6 +1302,13 @@ textarea {
   box-shadow: 0 24px 64px rgba(9, 23, 58, 0.36);
   padding: 0.85rem;
 }
+.command-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
 .command-panel input {
   width: 100%;
   border: 1px solid #ccd5ec;
@@ -1325,6 +1332,23 @@ textarea {
 }
 .command-item:hover {
   color: #fff;
+}
+
+.password-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.password-input-wrap input {
+  flex: 1;
+}
+
+.password-toggle-btn {
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  padding: 0.3rem;
+  border-radius: 8px;
 }
 
 .skeleton-row {
@@ -2215,6 +2239,12 @@ body.theme-dark .facility-tag-btn {
   justify-content: space-between;
   gap: 0.55rem;
   margin: 0 0 0.6rem;
+}
+
+.calendar-detail-modal {
+  width: min(560px, 96%);
+  max-height: 85vh;
+  overflow: auto;
 }
 
 .doctor-photo-preview {

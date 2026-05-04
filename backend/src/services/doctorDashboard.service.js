@@ -65,7 +65,7 @@ export async function listPatientsForDoctorSearch(doctorId, { q = "", limit = 40
 
   const patients = await Patient.find(query)
     .select(
-      "firstName lastName email phone gender birthdate photoUrl userId notes createdAt",
+      "title firstName lastName email phone gender birthdate photoUrl userId notes createdAt",
     )
     .sort({ lastName: 1, firstName: 1 })
     .limit(Math.min(Math.max(Number(limit) || 40, 1), 100))

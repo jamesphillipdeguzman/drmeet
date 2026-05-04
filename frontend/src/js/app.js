@@ -264,14 +264,10 @@ const DOCTOR_SPECIALTIES = [
 ];
 
 function normalizeFetchErrorMessage(err, fallbackMessage) {
-  const message = String(err?.message || "");
-  if (
-    message.toLowerCase().includes("failed to fetch") ||
-    err instanceof TypeError
-  ) {
-    return "Unable to reach the server right now. Please check your connection and try again.";
+  if (window.DrMeetUtils?.normalizeFetchErrorMessage) {
+    return window.DrMeetUtils.normalizeFetchErrorMessage(err, fallbackMessage);
   }
-  return message || fallbackMessage;
+  return String(err?.message || "") || fallbackMessage;
 }
 
 function clearGoogleAuthLoading(message, isError = false) {
@@ -448,44 +444,24 @@ async function apiRequest(url, options = {}) {
 }
 
 async function getApiErrorMessage(res, fallbackMessage) {
-  try {
-    const payload = await res.json();
-    if (payload?.error) return payload.error;
-    if (Array.isArray(payload?.missingFields) && payload.missingFields.length) {
-      return `Missing required fields: ${payload.missingFields.join(", ")}`;
-    }
-    if (Array.isArray(payload?.errors) && payload.errors.length) {
-      return payload.errors
-        .map((item) => item.msg || item.message)
-        .filter(Boolean)
-        .join(", ");
-    }
-    if (Array.isArray(payload?.details) && payload.details.length) {
-      return payload.details.join(", ");
-    }
-  } catch (error) {
-    // Ignore JSON parse errors and use fallback text.
+  if (window.DrMeetUtils?.getApiErrorMessage) {
+    return window.DrMeetUtils.getApiErrorMessage(res, fallbackMessage);
   }
   return fallbackMessage;
 }
 
 function formatDateForInput(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
+  if (window.DrMeetUtils?.formatDateForInput) {
+    return window.DrMeetUtils.formatDateForInput(value);
+  }
+  return "";
 }
 
 function formatDateDisplay(value) {
-  if (!value) return "";
-  const date = new Date(value);
-  if (isNaN(date)) return value;
-
-  return date.toLocaleDateString("en-PH", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  if (window.DrMeetUtils?.formatDateDisplay) {
+    return window.DrMeetUtils.formatDateDisplay(value);
+  }
+  return String(value || "");
 }
 
 function buildDoctorAvailabilityLabel(doctor) {
@@ -548,6 +524,9 @@ function setupShellInteractions() {
 function setupCommandPalette() {
   if (!commandPalette || !commandInput || !commandResults) return;
   commandPaletteTrigger?.addEventListener("click", openCommandPalette);
+  document
+    .getElementById("command-close-btn")
+    ?.addEventListener("click", closeCommandPalette);
   document.addEventListener("keydown", (event) => {
     const pressedK = event.key.toLowerCase() === "k";
     if ((event.ctrlKey || event.metaKey) && pressedK) {
@@ -749,16 +728,10 @@ function parseIsoDate(value) {
 }
 
 function formatRelativeTime(isoValue) {
-  const date = parseIsoDate(isoValue);
-  if (!date) return "just now";
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.floor(diffMs / 60000);
-  if (minutes <= 0) return "just now";
-  if (minutes < 60) return `${minutes} min${minutes === 1 ? "" : "s"} ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} day${days === 1 ? "" : "s"} ago`;
+  if (window.DrMeetUtils?.formatRelativeTime) {
+    return window.DrMeetUtils.formatRelativeTime(isoValue);
+  }
+  return "just now";
 }
 
 function sortPatientsByCreated(list, order) {
@@ -780,20 +753,10 @@ function sortMessagesByRecent(messages) {
 }
 
 function decodeJwtPayload(token) {
-  // Basic JWT payload decoder (no signature verification on client).
-  try {
-    const base64Url = token.split(".")[1];
-    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const json = decodeURIComponent(
-      atob(base64)
-        .split("")
-        .map((c) => `%${c.charCodeAt(0).toString(16).padStart(2, "0")}`)
-        .join(""),
-    );
-    return JSON.parse(json);
-  } catch (error) {
-    return null;
+  if (window.DrMeetUtils?.decodeJwtPayload) {
+    return window.DrMeetUtils.decodeJwtPayload(token);
   }
+  return null;
 }
 
 function getCurrentUserId() {
@@ -891,13 +854,10 @@ async function refreshCurrentUserCacheFromApi() {
 }
 
 function rowsToCsv(rows = []) {
-  if (!Array.isArray(rows) || !rows.length) return "";
-  const headers = Object.keys(rows[0]);
-  const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
-  const body = rows
-    .map((row) => headers.map((h) => escape(row[h])).join(","))
-    .join("\n");
-  return `${headers.join(",")}\n${body}`;
+  if (window.DrMeetUtils?.rowsToCsv) {
+    return window.DrMeetUtils.rowsToCsv(rows);
+  }
+  return "";
 }
 
 function downloadCsv(filename, rows = []) {
@@ -1043,12 +1003,10 @@ async function fetchMyPatientRecord() {
 }
 
 function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+  if (window.DrMeetUtils?.escapeHtml) {
+    return window.DrMeetUtils.escapeHtml(value);
+  }
+  return String(value || "");
 }
 
 function showToast(message, type = "success") {
@@ -1177,16 +1135,10 @@ function attachClearButtons(scope = document) {
 }
 
 function fileToDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    if (!file) {
-      reject(new Error("No file selected."));
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Failed to read file."));
-    reader.readAsDataURL(file);
-  });
+  if (window.DrMeetUtils?.fileToDataUrl) {
+    return window.DrMeetUtils.fileToDataUrl(file);
+  }
+  return Promise.reject(new Error("No file selected."));
 }
 
 async function sendDocumentMessage({
@@ -1234,6 +1186,13 @@ function formatDoctorDisplayName(d) {
   if (!d) return "";
   const t = d.title ? `${d.title} ` : "";
   return `${t}${d.firstName || ""} ${d.lastName || ""}`.trim();
+}
+
+function formatPatientDisplayName(p) {
+  if (!p) return "";
+  const t = String(p.title || "").trim();
+  const name = `${p.firstName || ""} ${p.lastName || ""}`.trim();
+  return `${t ? `${t} ` : ""}${name}`.trim();
 }
 
 async function loadConversations() {
@@ -1624,7 +1583,7 @@ async function showClinicalTab(tab) {
                     (p) => `
             <li class="clinical-patient-row card">
               <div>
-                <strong>${escapeHtml(`${p.firstName || ""} ${p.lastName || ""}`.trim() || "Patient")}</strong>
+                <strong>${escapeHtml(formatPatientDisplayName(p) || "Patient")}</strong>
                 <p class="clinical-muted">${escapeHtml(p.email || "")} · ${escapeHtml(p.phone || "")}</p>
               </div>
               <button type="button" class="btn btn-secondary btn-sm clinical-patient-quick" data-patient-quick="${escapeHtml(String(p._id))}">Quick view</button>
@@ -1673,8 +1632,9 @@ async function showClinicalTab(tab) {
 
       const renderApptRow = (a) => {
         const pname =
-          typeof a.patientId === "object" && a.patientId?.name
-            ? a.patientId.name
+          typeof a.patientId === "object"
+            ? formatPatientDisplayName(a.patientId) ||
+              String(a.patientId?.name || "")
             : "";
         const dt = a.date ? new Date(a.date).toLocaleString() : "";
         const statusOpts = ["pending", "confirmed", "completed", "cancelled"]
@@ -1766,8 +1726,7 @@ async function showClinicalTab(tab) {
       const patientOptions = [
         `<option value="">Select patient…</option>`,
         ...patientRows.map((p) => {
-          const label =
-            `${p.firstName || ""} ${p.lastName || ""}`.trim() || "Patient";
+          const label = formatPatientDisplayName(p) || "Patient";
           return `<option value="${escapeHtml(String(p._id))}">${escapeHtml(label)}</option>`;
         }),
       ].join("");
@@ -1956,8 +1915,9 @@ async function showClinicalTab(tab) {
       rows.sort((a, b) => new Date(b.date) - new Date(a.date));
 
       const pname = (a) =>
-        typeof a.patientId === "object" && a.patientId?.name
-          ? a.patientId.name
+        typeof a.patientId === "object"
+          ? formatPatientDisplayName(a.patientId) ||
+            String(a.patientId?.name || "Patient")
           : "Patient";
 
       panel.innerHTML = `
@@ -2175,8 +2135,9 @@ async function showClinicalTab(tab) {
                 </select>
               </label>
               <label class="clinical-upload-inline">Attach PDF or image
-                <input type="file" data-billing-doc-kind accept=".pdf,.png,.jpg,.jpeg,.webp" />
+                <input type="file" id="clinical-billing-doc-input" data-billing-doc-kind accept=".pdf,.png,.jpg,.jpeg,.webp" />
               </label>
+              <button type="button" class="btn btn-secondary btn-sm" id="clinical-billing-upload-btn">Upload attachment</button>
               <div class="clinical-billing-actions">
                 <button type="submit" class="btn btn-primary">Save billing</button>
                 <button type="button" class="btn btn-secondary" data-billing-close>Cancel</button>
@@ -2221,11 +2182,9 @@ async function showClinicalTab(tab) {
           btn.addEventListener("click", () => dlg.close());
         });
 
-        dlg
-          .querySelector("[data-billing-doc-kind]")
-          ?.addEventListener("change", async (ev) => {
-            const input = ev.target;
-            const file = input.files?.[0];
+        const uploadBillingAttachment = async () => {
+          const input = dlg.querySelector("#clinical-billing-doc-input");
+          const file = input?.files?.[0];
             if (!file) return;
             const kind = String(
               dlg.querySelector("#clinical-billing-doc-kind-sel")?.value ||
@@ -2233,7 +2192,7 @@ async function showClinicalTab(tab) {
             ).toLowerCase();
             if (!["soa", "invoice", "claim"].includes(kind)) {
               showToast("Invalid document type.", "error");
-              input.value = "";
+              if (input) input.value = "";
               return;
             }
             const reader = new FileReader();
@@ -2265,13 +2224,25 @@ async function showClinicalTab(tab) {
               }
             };
             reader.readAsDataURL(file);
-            input.value = "";
-          });
+            if (input) input.value = "";
+          };
+        dlg
+          .querySelector("#clinical-billing-doc-input")
+          ?.addEventListener("change", uploadBillingAttachment);
+        dlg
+          .querySelector("#clinical-billing-upload-btn")
+          ?.addEventListener("click", uploadBillingAttachment);
 
         dlg
           .querySelector("#clinical-billing-form")
           ?.addEventListener("submit", async (ev) => {
             ev.preventDefault();
+            const submitBtn = ev.target.querySelector('button[type="submit"]');
+            if (submitBtn?.dataset.saving === "1") return;
+            if (submitBtn) {
+              submitBtn.dataset.saving = "1";
+              submitBtn.disabled = true;
+            }
             const fd = new FormData(ev.target);
             const serviceLines = [];
             for (let i = 0; i < 4; i++) {
@@ -2309,6 +2280,11 @@ async function showClinicalTab(tab) {
               await showClinicalTab("billing");
             } catch (err) {
               showToast(err?.message || "Unable to save billing.", "error");
+            } finally {
+              if (submitBtn) {
+                submitBtn.dataset.saving = "0";
+                submitBtn.disabled = false;
+              }
             }
           });
 
@@ -3291,8 +3267,16 @@ function renderLogin() {
     <h2>Login</h2>
     <form id="login-form">
       <label>Email <input name="email" type="email" required /></label>
-      <label><span class="label-text-row">Password</span><input name="password" type="password" required autocomplete="current-password" /></label>
-      <button type="submit" class="btn btn-primary">Sign in</button>
+      <label><span class="label-text-row">Password</span>
+        <span class="password-input-wrap">
+          <input id="login-password" name="password" type="password" required autocomplete="current-password" />
+          <button type="button" class="password-toggle-btn" data-password-target="login-password" aria-label="Show password">👁</button>
+        </span>
+      </label>
+      <div class="signup-actions">
+        <button type="submit" class="btn btn-primary">Sign in</button>
+        <button type="reset" class="btn btn-secondary">Reset</button>
+      </div>
     </form>
     <button id="google-login-btn" type="button" class="btn btn-google" style="margin-top:1rem;">Continue with Google</button>
     <div id="login-feedback"></div>
@@ -3300,6 +3284,11 @@ function renderLogin() {
   const googleLoginBtn = document.getElementById("google-login-btn");
   const form = document.getElementById("login-form");
   const feedback = document.getElementById("login-feedback");
+  wirePasswordToggles(form);
+  form.addEventListener("reset", () => {
+    feedback.textContent = "";
+    feedback.className = "";
+  });
   const oauthSuccessToken = consumeOauthSuccessTokenFromHash();
   if (oauthSuccessToken) {
     clearGoogleAuthLoading("Google sign-in successful.");
@@ -3337,7 +3326,10 @@ function renderLogin() {
       if (data.token) {
         resetMessagingSocket();
         localStorage.setItem("token", data.token);
-        if (String(user.role || selectedRole || "").toLowerCase() === "patient") {
+        if (
+          String(data.user?.role || getCurrentUserRole() || "").toLowerCase() ===
+          "patient"
+        ) {
           localStorage.setItem(CLEAR_SEND_DOC_DOCTOR_KEY, "1");
         }
         clearSessionExpiredState();
@@ -3388,7 +3380,12 @@ function renderSignup() {
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
-      <label>Password <input name="password" type="password" required /></label>
+      <label>Password
+        <span class="password-input-wrap">
+          <input id="signup-password" name="password" type="password" required />
+          <button type="button" class="password-toggle-btn" data-password-target="signup-password" aria-label="Show password">👁</button>
+        </span>
+      </label>
       <label>Phone
         <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
         <small>Digits only, 10-11 numbers.</small>
@@ -3413,6 +3410,7 @@ function renderSignup() {
   const form = document.getElementById("signup-form");
   addInlineTooltips(form);
   enforcePhoneInputs(form);
+  wirePasswordToggles(form);
   const feedback = document.getElementById("signup-feedback");
   const oauthSuccessToken = consumeOauthSuccessTokenFromHash();
   if (oauthSuccessToken) {
@@ -3530,6 +3528,20 @@ function googleLogin({ feedbackEl = null, buttonEl = null } = {}) {
   }, 500);
 }
 
+function wirePasswordToggles(scope = document) {
+  scope.querySelectorAll("[data-password-target]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetId = btn.getAttribute("data-password-target");
+      const input = scope.querySelector(`#${targetId}`);
+      if (!input) return;
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.textContent = show ? "🙈" : "👁";
+      btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    });
+  });
+}
+
 function handleGoogleAuthMessage(event) {
   if (!event.data) return;
   if (event.data.type === "GOOGLE_AUTH_SUCCESS" && event.data.token) {
@@ -3624,7 +3636,7 @@ async function renderPatientBooking() {
         <a href="#patients" class="btn btn-primary btn-sm">Complete my profile</a>
       </div>`;
   } else {
-    profileBanner.innerHTML = `<p class="patient-profile-ok"><strong>Profile on file:</strong> ${myPatient.firstName} ${myPatient.lastName}</p>`;
+    profileBanner.innerHTML = `<p class="patient-profile-ok"><strong>Profile on file:</strong> ${escapeHtml(formatPatientDisplayName(myPatient))}</p>`;
   }
 
   const grid = document.getElementById("patient-doctor-grid");
@@ -3816,7 +3828,7 @@ async function renderPatients() {
     const patientOptions = patients
       .map(
         (p) =>
-          `<option value="${p._id}">${p.firstName || ""} ${p.lastName || ""}</option>`,
+          `<option value="${p._id}">${escapeHtml(formatPatientDisplayName(p))}</option>`,
       )
       .join("");
     const isDoctor = role === "doctor";
@@ -3942,7 +3954,7 @@ async function renderPatients() {
             : "";
           return `
             <tr>
-              <td><img src="${escapeHtml(String(p.photoUrl || DEFAULT_AVATAR_URL))}" alt="Patient avatar" class="doctor-avatar" />${p.firstName} ${p.lastName}</td>
+              <td><img src="${escapeHtml(String(p.photoUrl || DEFAULT_AVATAR_URL))}" alt="Patient avatar" class="doctor-avatar" />${escapeHtml(formatPatientDisplayName(p))}</td>
               <td>${p.familyHeadName ? `Family Head: ${p.familyHeadName}` : p.relationshipToAccountHolder ? `Dependent: ${p.relationshipToAccountHolder}` : "Primary"}${p.isCareTeamLinked ? ' <span class="pill-tag">Attached</span>' : ""}</td>
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
@@ -3984,7 +3996,7 @@ async function renderPatients() {
         document.getElementById("patient-sort-order")?.value || "newest";
       const sorted = sortPatientsByCreated(patients, order);
       const filtered = sorted.filter((p) => {
-        const name = `${p.firstName || ""} ${p.lastName || ""}`.toLowerCase();
+        const name = formatPatientDisplayName(p).toLowerCase();
         const email = String(p.email || "").toLowerCase();
         const phone = String(p.phone || "").toLowerCase();
         const dob = formatDateForInput(p.birthdate).toLowerCase();
@@ -4036,7 +4048,7 @@ async function renderPatients() {
         downloadCsv(
           `patients-${Date.now()}.csv`,
           patients.map((p) => ({
-            name: `${p.firstName || ""} ${p.lastName || ""}`.trim(),
+            name: formatPatientDisplayName(p),
             email: p.email || "",
             phone: p.phone || "",
             dob: formatDateForInput(p.birthdate),
@@ -4320,6 +4332,7 @@ async function showPatientForm(editId = null, familyMode = false) {
     apiRequest(`${API_BASE}/patients/${editId}`)
       .then((res) => res.json())
       .then((data) => {
+        form.title.value = data.title || "";
         form.firstName.value = data.firstName || "";
         form.lastName.value = data.lastName || "";
         form.title.value = data.title || "";
@@ -5093,8 +5106,11 @@ async function renderAppointments() {
     const patientLookup = new Map(
       patients.map((patient) => [
         String(patient._id),
-        `${patient.firstName || ""} ${patient.lastName || ""}`.trim(),
+        formatPatientDisplayName(patient),
       ]),
+    );
+    const patientById = new Map(
+      patients.map((patient) => [String(patient._id), patient]),
     );
     mainContent.innerHTML = `
       <h2 class="page-title page-title-appointments">Appointments</h2>
@@ -5121,7 +5137,7 @@ async function renderAppointments() {
           (a) => `
             <tr class="${String(a.status || "").toLowerCase() === "cancelled" ? "row-cancelled" : ""}">
               <td>${doctorLookup.get(String(a.doctor?._id || a.doctor)) || a.doctor || ""}</td>
-              <td>${a.patientId?.name || patientLookup.get(String(a.patient?._id || a.patient)) || "Unknown Patient"}${a.patientId?.title ? ` (${a.patientId.title})` : ""}</td>
+              <td>${(typeof a.patientId === "object" ? (formatPatientDisplayName(a.patientId) || a.patientId?.name || "") : "") || patientLookup.get(String(a.patient?._id || a.patient)) || "Unknown Patient"}</td>
               <td>${formatDateDisplay(a.date) || ""}</td>
               <td>${a.time || ""}</td>
               <td><span class="status-pill status-${String(a.status || "pending").toLowerCase()}">${a.status || ""}</span></td>
@@ -5209,7 +5225,9 @@ async function renderAppointments() {
               a.doctor ||
               "",
             patient:
-              a.patientId?.name ||
+              (typeof a.patientId === "object"
+                ? formatPatientDisplayName(a.patientId) || a.patientId?.name
+                : "") ||
               patientLookup.get(String(a.patient?._id || a.patient)) ||
               "Unknown Patient",
             date: formatDateForInput(a.date),
@@ -5263,8 +5281,7 @@ async function showAppointmentForm(editId = null) {
 
   const patientOptions = patients
     .map((patient) => {
-      const fullName =
-        `${patient.firstName || ""} ${patient.lastName || ""}`.trim();
+      const fullName = formatPatientDisplayName(patient);
       return `<option value="${patient._id}">${fullName} (${patient.email || "No email"})</option>`;
     })
     .join("");
@@ -5383,7 +5400,7 @@ async function renderCalendar() {
     const patientLookup = new Map(
       patients.map((patient) => [
         String(patient._id),
-        `${patient.firstName || ""} ${patient.lastName || ""}`.trim(),
+        formatPatientDisplayName(patient),
       ]),
     );
 
@@ -5447,7 +5464,10 @@ async function renderCalendar() {
               ? dayAppointments
                   .map((appointment) => {
                     const patientName =
-                      appointment.patientId?.name ||
+                      (typeof appointment.patientId === "object"
+                        ? formatPatientDisplayName(appointment.patientId) ||
+                          appointment.patientId?.name
+                        : "") ||
                       patientLookup.get(
                         String(appointment.patient?._id || appointment.patient),
                       ) ||
@@ -5456,7 +5476,7 @@ async function renderCalendar() {
                       doctorLookup.get(
                         String(appointment.doctor?._id || appointment.doctor),
                       ) || "Unknown Doctor";
-                    return `<button type="button" class="calendar-appt-item status-${escapeHtml(String(appointment.status || "pending").toLowerCase())}" title="${escapeHtml(doctorName)}">
+                    return `<button type="button" data-calendar-appt-id="${escapeHtml(String(appointment._id))}" class="calendar-appt-item status-${escapeHtml(String(appointment.status || "pending").toLowerCase())}" title="${escapeHtml(doctorName)}">
                       <strong>${escapeHtml(String(appointment.time || "Time n/a"))}</strong>
                       <span>${escapeHtml(patientName)}</span>
                     </button>`;
@@ -5522,6 +5542,59 @@ async function renderCalendar() {
     document.getElementById("calendar-year-select")?.addEventListener("change", (event) => {
       window.__calendarViewYear = Number(event.target.value);
       renderCalendar();
+    });
+    const openCalendarAppointmentDetails = (appointmentId) => {
+      const appointment = appointments.find(
+        (row) => String(row._id) === String(appointmentId),
+      );
+      if (!appointment) return;
+      const patientId = String(
+        appointment.patient?._id || appointment.patient || "",
+      );
+      const patient = patientById.get(patientId) || {};
+      const doctorName =
+        doctorLookup.get(String(appointment.doctor?._id || appointment.doctor)) ||
+        "Unknown Doctor";
+      const patientName =
+        (typeof appointment.patientId === "object"
+          ? formatPatientDisplayName(appointment.patientId) ||
+            appointment.patientId?.name
+          : "") ||
+        patientLookup.get(String(appointment.patient?._id || appointment.patient)) ||
+        "Unknown Patient";
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay";
+      overlay.innerHTML = `
+        <div class="card modal-card-with-close calendar-detail-modal">
+          <button type="button" class="modal-close-x" aria-label="Close">&times;</button>
+          <h3>Appointment Details</h3>
+          <p><strong>Patient:</strong> ${escapeHtml(patientName)}</p>
+          <p><strong>Doctor:</strong> ${escapeHtml(doctorName)}</p>
+          <p><strong>Date:</strong> ${escapeHtml(formatDateDisplay(appointment.date) || "—")}</p>
+          <p><strong>Time:</strong> ${escapeHtml(String(appointment.time || "—"))}</p>
+          <p><strong>Status:</strong> ${escapeHtml(String(appointment.status || "pending"))}</p>
+          <hr class="section-divider" />
+          <p><strong>Title:</strong> ${escapeHtml(String(patient.title || "—"))}</p>
+          <p><strong>Email:</strong> ${escapeHtml(String(patient.email || "—"))}</p>
+          <p><strong>Phone:</strong> ${escapeHtml(String(patient.phone || "—"))}</p>
+          <p><strong>Birthdate:</strong> ${escapeHtml(formatDateDisplay(patient.birthdate) || "—")}</p>
+          <p><strong>Gender:</strong> ${escapeHtml(String(patient.gender || "—"))}</p>
+          <p><strong>Address:</strong> ${escapeHtml(String(patient.address || "—"))}</p>
+          <p><strong>HMO:</strong> ${escapeHtml(String(patient.hmoProvider || "—"))}</p>
+          <p><strong>Notes:</strong> ${escapeHtml(String(patient.notes || "—"))}</p>
+        </div>
+      `;
+      const close = () => overlay.remove();
+      overlay.querySelector(".modal-close-x")?.addEventListener("click", close);
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) close();
+      });
+      document.body.appendChild(overlay);
+    };
+    document.querySelector(".calendar-grid")?.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-calendar-appt-id]");
+      if (!btn) return;
+      openCalendarAppointmentDetails(btn.getAttribute("data-calendar-appt-id"));
     });
   } catch (error) {
     mainContent.innerHTML = `<h2>Calendar</h2><div class="feedback error">${error.message}</div>`;

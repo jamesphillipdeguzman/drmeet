@@ -490,6 +490,7 @@ export const postPatient = async (req, res) => {
       await User.findByIdAndUpdate(
         newPatient.userId,
         {
+          title: newPatient.title || '',
           firstName: newPatient.firstName || '',
           lastName: newPatient.lastName || '',
           email: newPatient.email || '',
@@ -610,6 +611,7 @@ export const updatePatient = async (req, res) => {
       await User.findByIdAndUpdate(
         linkedUserId,
         {
+          title: updatedPatient.title || '',
           firstName: updatedPatient.firstName || '',
           lastName: updatedPatient.lastName || '',
           email: updatedPatient.email || '',

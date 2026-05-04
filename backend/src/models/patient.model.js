@@ -38,6 +38,10 @@ const patientSchema = new mongoose.Schema(
       default: "unknown",
       required: true,
     },
+    title: {
+      type: String,
+      default: "",
+    },
     email: {
       type: String,
       required: false,
