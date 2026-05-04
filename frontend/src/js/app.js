@@ -26,6 +26,7 @@ const API_BASE = `${API_ORIGIN}/api`;
 const DASHBOARD_STATE_KEY = "drmeet-dashboard-state";
 const USER_CACHE_KEY = "drmeet-user-cache";
 const THEME_KEY = "drmeet-theme";
+const CLEAR_SEND_DOC_DOCTOR_KEY = "drmeet-clear-send-doc-doctor";
 const DOCTOR_OVERVIEW_CACHE_KEY = "drmeet-doctor-overview";
 const DOCTOR_OVERVIEW_TTL_MS = 45000;
 const DASH_TAG_HOME = "home";
@@ -840,6 +841,7 @@ function cacheCurrentUserProfile() {
       role: payload?.role || "",
       linkedDoctorId: payload?.linkedDoctorId || "",
       receptionistType: payload?.receptionistType || "",
+      photoUrl: payload?.photoUrl || payload?.picture || "",
       cachedAt: Date.now(),
     }),
   );
@@ -849,6 +851,15 @@ function getCurrentReceptionistType() {
   try {
     const cached = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
     return String(cached?.receptionistType || "").toLowerCase();
+  } catch (error) {
+    return "";
+  }
+}
+
+function getCurrentUserPhotoUrl() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
+    return String(cached?.photoUrl || cached?.picture || "").trim();
   } catch (error) {
     return "";
   }
@@ -870,6 +881,7 @@ async function refreshCurrentUserCacheFromApi() {
         role: user?.role || "",
         linkedDoctorId: user?.linkedDoctorId || "",
         receptionistType: user?.receptionistType || "",
+        photoUrl: user?.photoUrl || "",
         cachedAt: Date.now(),
       }),
     );
@@ -942,8 +954,16 @@ function updateSidebarAccountInfo() {
   const timeText = now.toLocaleTimeString("en-PH");
   const roleLabel = getSidebarRoleLabel(role);
   const initial = (fullName || role || "U").charAt(0).toUpperCase();
-  if (sidebarAvatarCircle)
-    sidebarAvatarCircle.textContent = signedIn ? initial : "U";
+  if (sidebarAvatarCircle) {
+    const photoUrl = getCurrentUserPhotoUrl();
+    if (signedIn && photoUrl) {
+      sidebarAvatarCircle.innerHTML = `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(fullName || "User")} profile photo" />`;
+      sidebarAvatarCircle.classList.add("has-photo");
+    } else {
+      sidebarAvatarCircle.textContent = signedIn ? initial : "U";
+      sidebarAvatarCircle.classList.remove("has-photo");
+    }
+  }
   if (sidebarAvatarName)
     sidebarAvatarName.textContent = signedIn
       ? fullName || "My Account"
@@ -3042,11 +3062,13 @@ function renderMessengerThread(rootEl) {
   }
 
   const sendAction = async () => {
+    if (sendBtn?.dataset.sending === "1") return;
     const content = String(textarea?.value || "").trim();
     const file = fileInput?.files?.[0];
     if ((!content && !file) || !conversationIdRef) return;
     dashboardState.activeConversationId = conversationIdRef;
     try {
+      if (sendBtn) sendBtn.dataset.sending = "1";
       if (file) {
         await sendDocumentMessage({
           conversationId: conversationIdRef,
@@ -3065,6 +3087,8 @@ function renderMessengerThread(rootEl) {
       if (ui.scroll) ui.scroll.scrollTop = ui.scroll.scrollHeight;
     } catch (err) {
       showToast(err?.message || "Unable to send message", "error");
+    } finally {
+      if (sendBtn) sendBtn.dataset.sending = "0";
     }
   };
 
@@ -3313,6 +3337,9 @@ function renderLogin() {
       if (data.token) {
         resetMessagingSocket();
         localStorage.setItem("token", data.token);
+        if (String(user.role || selectedRole || "").toLowerCase() === "patient") {
+          localStorage.setItem(CLEAR_SEND_DOC_DOCTOR_KEY, "1");
+        }
         clearSessionExpiredState();
         feedback.textContent = "Login successful!";
         updateAuthNav();
@@ -3821,7 +3848,11 @@ async function renderPatients() {
         clinicDoctors = [];
       }
     }
-    const doctorOptionsForSend = (
+    const clearDoctorDropdown =
+      localStorage.getItem(CLEAR_SEND_DOC_DOCTOR_KEY) === "1";
+    doctorOptionsForSend = clearDoctorDropdown
+      ? ""
+      : (
       Array.isArray(clinicDoctors) ? clinicDoctors : []
     )
       .filter((d) => d?.userId)
@@ -3830,6 +3861,9 @@ async function renderPatients() {
           `<option value="${d.userId}">${escapeHtml(formatDoctorDisplayName(d))}</option>`,
       )
       .join("");
+    if (clearDoctorDropdown) {
+      localStorage.removeItem(CLEAR_SEND_DOC_DOCTOR_KEY);
+    }
     mainContent.innerHTML = `
       <h2 class="page-title page-title-patients">Patients</h2>
       <div class="patients-toolbar">
@@ -3839,12 +3873,15 @@ async function renderPatients() {
         ${isAdminUser ? '<button class="cta-primary btn-secondary" id="export-patients-csv">Export CSV</button>' : ""}
       </div>
       ${
-        isPatient && doctorOptionsForSend
+        isPatient
           ? `<section class="card patient-send-doc-card">
         <h3>Send document to clinic</h3>
         <p class="signup-lead">Choose a doctor, attach an image or PDF, and upload. Your clinic receives it in messaging.</p>
         <label>Doctor / clinic
-          <select id="patient-send-doc-doctor">${doctorOptionsForSend}</select>
+          <select id="patient-send-doc-doctor">
+            <option value="">${doctorOptionsForSend ? "Select a doctor" : "No doctor selected (new registration)"}</option>
+            ${doctorOptionsForSend}
+          </select>
         </label>
         <label>File
           <input type="file" id="patient-send-doc-file" accept="image/*,.pdf,.doc,.docx,.txt" />
@@ -4118,6 +4155,16 @@ async function showPatientForm(editId = null, familyMode = false) {
       `
           : ""
       }
+      <label>Title
+        <select name="title">
+          <option value="">(blank)</option>
+          <option value="Mr.">Mr.</option>
+          <option value="Ms.">Ms.</option>
+          <option value="Mrs.">Mrs.</option>
+          <option value="Dr.">Dr.</option>
+          <option value="Dra.">Dra.</option>
+        </select>
+      </label>
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" ${familyMode ? "" : "required"} /></label>
@@ -4275,6 +4322,7 @@ async function showPatientForm(editId = null, familyMode = false) {
       .then((data) => {
         form.firstName.value = data.firstName || "";
         form.lastName.value = data.lastName || "";
+        form.title.value = data.title || "";
         form.email.value = data.email || "";
         form.phone.value = data.phone || "";
         form.birthdate.value = formatDateForInput(data.birthdate);
@@ -4349,6 +4397,10 @@ async function showPatientForm(editId = null, familyMode = false) {
         );
       }
       modal.style.display = "none";
+      const sendDocDoctorSelect = document.getElementById(
+        "patient-send-doc-doctor",
+      );
+      if (sendDocDoctorSelect) sendDocDoctorSelect.value = "";
       renderPatients();
     } catch (err) {
       showToast(err.message, "error");
@@ -4934,8 +4986,8 @@ async function showDoctorForm(editId = null) {
         if (data.photoUrl) {
           const preview = document.getElementById("doctor-photo-preview");
           preview.style.display = "block";
-          preview.className = "feedback";
-          preview.innerHTML = `<img src="${escapeHtml(data.photoUrl)}" alt="Current photo" class="doctor-avatar" /> Current profile photo`;
+          preview.className = "feedback doctor-photo-preview";
+          preview.innerHTML = `<img src="${escapeHtml(data.photoUrl)}" alt="Current photo" class="doctor-avatar" /><span>Current profile photo</span>`;
         }
       });
   } else {
@@ -5336,8 +5388,27 @@ async function renderCalendar() {
     );
 
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const [minYear, maxYear] = appointments.reduce(
+      (acc, appointment) => {
+        const d = new Date(appointment.date);
+        if (Number.isNaN(d.getTime())) return acc;
+        const y = d.getFullYear();
+        return [Math.min(acc[0], y), Math.max(acc[1], y)];
+      },
+      [now.getFullYear(), now.getFullYear()],
+    );
+    if (typeof window.__calendarViewYear !== "number") {
+      window.__calendarViewYear = now.getFullYear();
+    }
+    if (typeof window.__calendarViewMonth !== "number") {
+      window.__calendarViewMonth = now.getMonth();
+    }
+    const monthStart = new Date(window.__calendarViewYear, window.__calendarViewMonth, 1);
+    const monthEnd = new Date(
+      window.__calendarViewYear,
+      window.__calendarViewMonth + 1,
+      0,
+    );
     const monthKey = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}`;
     const monthAppointments = appointments.filter((appointment) =>
       formatDateForInput(appointment.date).startsWith(monthKey),
@@ -5399,7 +5470,18 @@ async function renderCalendar() {
     mainContent.innerHTML = `
       <section class="calendar-section">
         <div class="calendar-main">
-          <h2 class="page-title page-title-appointments">Calendar - ${monthStart.toLocaleString(undefined, { month: "long", year: "numeric" })}</h2>
+          <div class="calendar-toolbar">
+            <h2 class="page-title page-title-appointments">Calendar - ${monthStart.toLocaleString(undefined, { month: "long", year: "numeric" })}</h2>
+            <div class="calendar-toolbar-controls">
+              <button type="button" class="btn btn-secondary btn-sm" id="calendar-prev-month">Prev</button>
+              <select id="calendar-month-select">${Array.from({ length: 12 }).map((_, idx) => `<option value="${idx}" ${idx === window.__calendarViewMonth ? "selected" : ""}>${new Date(2026, idx, 1).toLocaleString(undefined, { month: "long" })}</option>`).join("")}</select>
+              <select id="calendar-year-select">${Array.from({ length: maxYear - minYear + 5 }).map((_, idx) => {
+                const year = minYear - 2 + idx;
+                return `<option value="${year}" ${year === window.__calendarViewYear ? "selected" : ""}>${year}</option>`;
+              }).join("")}</select>
+              <button type="button" class="btn btn-secondary btn-sm" id="calendar-next-month">Next</button>
+            </div>
+          </div>
           <div class="calendar-weekdays">
             ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
               .map((day) => `<span>${day}</span>`)
@@ -5421,6 +5503,26 @@ async function renderCalendar() {
         </aside>
       </section>
     `;
+    document.getElementById("calendar-prev-month")?.addEventListener("click", () => {
+      const viewDate = new Date(window.__calendarViewYear, window.__calendarViewMonth - 1, 1);
+      window.__calendarViewYear = viewDate.getFullYear();
+      window.__calendarViewMonth = viewDate.getMonth();
+      renderCalendar();
+    });
+    document.getElementById("calendar-next-month")?.addEventListener("click", () => {
+      const viewDate = new Date(window.__calendarViewYear, window.__calendarViewMonth + 1, 1);
+      window.__calendarViewYear = viewDate.getFullYear();
+      window.__calendarViewMonth = viewDate.getMonth();
+      renderCalendar();
+    });
+    document.getElementById("calendar-month-select")?.addEventListener("change", (event) => {
+      window.__calendarViewMonth = Number(event.target.value);
+      renderCalendar();
+    });
+    document.getElementById("calendar-year-select")?.addEventListener("change", (event) => {
+      window.__calendarViewYear = Number(event.target.value);
+      renderCalendar();
+    });
   } catch (error) {
     mainContent.innerHTML = `<h2>Calendar</h2><div class="feedback error">${error.message}</div>`;
   }
@@ -5451,9 +5553,21 @@ async function renderUsers() {
       <h2 class="page-title page-title-users">Users</h2>
       ${isReceptionist ? "" : '<button class="cta-primary" onclick="window.showUserForm()">Add User</button>'}
       <hr class="section-divider" />
+      <div class="list-filters">
+        <input type="search" id="user-filter-name" placeholder="Filter by name" />
+        <input type="search" id="user-filter-email" placeholder="Filter by email" />
+        <input type="search" id="user-filter-role" placeholder="Filter by role" />
+        <input type="search" id="user-filter-receptionist-type" placeholder="Filter by receptionist type" />
+        <input type="search" id="user-filter-specialty" placeholder="Filter by specialty" />
+        <input type="search" id="user-filter-phone" placeholder="Filter by phone" />
+        <select id="user-sort-name">
+          <option value="az">Sort Name A-Z</option>
+          <option value="za">Sort Name Z-A</option>
+        </select>
+      </div>
       <table>
         <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Receptionist Type</th><th>Specialty</th><th>Phone</th><th>Actions</th></tr></thead>
-        <tbody>
+        <tbody id="users-table-body">
           ${users
             .map(
               (u) => `
@@ -5483,6 +5597,71 @@ async function renderUsers() {
       </table>
       <div id="user-form-modal" style="display:none"></div>
     `;
+    const userBody = document.getElementById("users-table-body");
+    const renderUserRows = (list) => {
+      userBody.innerHTML = list
+        .map(
+          (u) => `
+            <tr>
+              <td>${u.title ? `${u.title} ` : ""}${u.firstName} ${u.lastName}</td>
+              <td>${u.email || ""}</td>
+              <td>${u.role || ""}</td>
+              <td>${u.receptionistType === "small_clinic" ? "Small Clinic" : u.receptionistType === "hospital" ? "Hospital" : "—"}</td>
+              <td>${u.specialty || "—"}</td>
+              <td>${u.phone || ""}</td>
+              <td>
+                ${
+                  isReceptionist
+                    ? "—"
+                    : `<button type="button" class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button>${
+                        isAdminUser
+                          ? `<button type="button" class="btn btn-action-delete" onclick="window.deleteUser('${u._id}')">Delete</button>`
+                          : ""
+                      }`
+                }
+              </td>
+            </tr>
+          `,
+        )
+        .join("");
+    };
+    const applyUserFilters = () => {
+      const nameQ = String(document.getElementById("user-filter-name")?.value || "").toLowerCase().trim();
+      const emailQ = String(document.getElementById("user-filter-email")?.value || "").toLowerCase().trim();
+      const roleQ = String(document.getElementById("user-filter-role")?.value || "").toLowerCase().trim();
+      const recQ = String(document.getElementById("user-filter-receptionist-type")?.value || "").toLowerCase().trim();
+      const specQ = String(document.getElementById("user-filter-specialty")?.value || "").toLowerCase().trim();
+      const phoneQ = String(document.getElementById("user-filter-phone")?.value || "").toLowerCase().trim();
+      const sortQ = String(document.getElementById("user-sort-name")?.value || "az");
+      const filtered = users
+        .filter((u) => {
+          const name = `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase();
+          const email = String(u.email || "").toLowerCase();
+          const role = String(u.role || "").toLowerCase();
+          const recType = String(u.receptionistType || "").toLowerCase();
+          const specialty = String(u.specialty || "").toLowerCase();
+          const phone = String(u.phone || "").toLowerCase();
+          return (
+            (!nameQ || name.includes(nameQ)) &&
+            (!emailQ || email.includes(emailQ)) &&
+            (!roleQ || role.includes(roleQ)) &&
+            (!recQ || recType.includes(recQ)) &&
+            (!specQ || specialty.includes(specQ)) &&
+            (!phoneQ || phone.includes(phoneQ))
+          );
+        })
+        .sort((a, b) => {
+          const left = `${a.firstName || ""} ${a.lastName || ""}`.trim().toLowerCase();
+          const right = `${b.firstName || ""} ${b.lastName || ""}`.trim().toLowerCase();
+          return sortQ === "za" ? right.localeCompare(left) : left.localeCompare(right);
+        });
+      renderUserRows(filtered);
+    };
+    ["user-filter-name", "user-filter-email", "user-filter-role", "user-filter-receptionist-type", "user-filter-specialty", "user-filter-phone", "user-sort-name"].forEach((id) => {
+      document.getElementById(id)?.addEventListener("input", applyUserFilters);
+      document.getElementById(id)?.addEventListener("change", applyUserFilters);
+    });
+    applyUserFilters();
     window.showUserForm = showUserForm;
     window.editUser = editUser;
     window.deleteUser = deleteUser;
@@ -5499,9 +5678,6 @@ function showUserForm(editId = null) {
     <button type="button" class="modal-close-x" aria-label="Close" onclick="window.closeUserForm()">&times;</button>
     <form id="user-form">
       <h3>${editId ? "Edit" : "Add"} User</h3>
-      <label>First Name <input name="firstName" required /></label>
-      <label>Last Name <input name="lastName" required /></label>
-      <label>Email <input name="email" type="email" required /></label>
       <label>Title
         <select name="title">
           <option value="">(blank)</option>
@@ -5512,6 +5688,9 @@ function showUserForm(editId = null) {
           <option value="Dra.">Dra.</option>
         </select>
       </label>
+      <label>First Name <input name="firstName" required /></label>
+      <label>Last Name <input name="lastName" required /></label>
+      <label>Email <input name="email" type="email" required /></label>
       <label>Role
         <select name="role" required>
           <option value="patient">Patient</option>

@@ -105,6 +105,19 @@ body {
   font-weight: 700;
   background: #4a5ca5;
   color: #fff;
+  overflow: hidden;
+  transition: transform 0.16s ease;
+}
+
+.sidebar-avatar-circle.has-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sidebar-avatar-btn:hover .sidebar-avatar-circle.has-photo {
+  transform: scale(1.25);
 }
 
 .sidebar-avatar-name {
@@ -533,6 +546,7 @@ button,
 button:hover,
 .btn:hover {
   background: #0f55be;
+  color: #fff;
   transform: translateY(-1px);
   box-shadow: 0 6px 14px rgba(15, 85, 190, 0.22);
 }
@@ -1308,6 +1322,9 @@ textarea {
   color: #23326a;
   border: 1px solid #dae3f3;
   margin: 0 0 0.4rem;
+}
+.command-item:hover {
+  color: #fff;
 }
 
 .skeleton-row {
@@ -2104,6 +2121,25 @@ body.theme-dark .facility-tag-btn {
   color: #45619a;
 }
 
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.calendar-toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.calendar-toolbar-controls select {
+  min-width: 120px;
+}
+
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -2150,6 +2186,13 @@ body.theme-dark .facility-tag-btn {
   font-size: 0.76rem;
   line-height: 1.25;
 }
+.calendar-appt-item:hover {
+  color: #fff;
+}
+.calendar-appt-item:hover strong,
+.calendar-appt-item:hover span {
+  color: #fff;
+}
 
 .calendar-day-empty-text {
   margin: 0.2rem 0 0;
@@ -2172,6 +2215,18 @@ body.theme-dark .facility-tag-btn {
   justify-content: space-between;
   gap: 0.55rem;
   margin: 0 0 0.6rem;
+}
+
+.doctor-photo-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #1a2d58;
+  font-weight: 600;
+}
+
+body.theme-dark .doctor-photo-preview {
+  color: #dbe7ff;
 }
 
 @media (max-width: 980px) {
