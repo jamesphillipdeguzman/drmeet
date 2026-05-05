@@ -517,6 +517,8 @@ function getSearchableCommands() {
       },
     ];
   }
+  const staffRoles = new Set(["doctor", "receptionist", "admin"]);
+  const userRole = String(getCurrentUserRole() || "");
   const staticCommands = [
     { id: "home", label: "Go to Home", action: () => navigateTo("#home") },
     {
@@ -539,12 +541,16 @@ function getSearchableCommands() {
       label: "Go to Appointments",
       action: () => navigateTo("#appointments"),
     },
-    {
-      id: "calendar",
-      label: "Go to Calendar",
-      action: () => navigateTo("#calendar"),
-    },
-    { id: "users", label: "Go to Users", action: () => navigateTo("#users") },
+    ...(staffRoles.has(userRole)
+      ? [
+          {
+            id: "calendar",
+            label: "Go to Calendar",
+            action: () => navigateTo("#calendar"),
+          },
+          { id: "users", label: "Go to Users", action: () => navigateTo("#users") },
+        ]
+      : []),
     {
       id: "settings",
       label: "Go to Settings",
@@ -605,6 +611,8 @@ function renderTopbarBreadcrumbs() {
   const container = document.getElementById("topbar-nav-tools");
   if (!container) return;
   const route = getHashRoute();
+  const staffRoles = new Set(["doctor", "receptionist", "admin"]);
+  const userRole = String(getCurrentUserRole() || "");
   const pages = [
     { hash: "#home", label: "Home" },
     { hash: "#doctor-dashboard", label: "Clinical" },
@@ -612,8 +620,12 @@ function renderTopbarBreadcrumbs() {
     { hash: "#patients", label: "Patients" },
     { hash: "#doctors", label: "Doctors" },
     { hash: "#appointments", label: "Appointments" },
-    { hash: "#calendar", label: "Calendar" },
-    { hash: "#users", label: "Users" },
+    ...(staffRoles.has(userRole)
+      ? [
+          { hash: "#calendar", label: "Calendar" },
+          { hash: "#users", label: "Users" },
+        ]
+      : []),
     { hash: "#settings", label: "Settings" },
   ];
   const crumbs = pages
@@ -1153,8 +1165,36 @@ function formatDoctorDisplayName(d) {
 function formatPatientDisplayName(p) {
   if (!p) return "";
   const t = String(p.title || "").trim();
-  const name = `${p.firstName || ""} ${p.lastName || ""}`.trim();
+  const nameFromParts = `${p.firstName || ""} ${p.lastName || ""}`.trim();
+  const name = nameFromParts || String(p.name || "").trim();
   return `${t ? `${t} ` : ""}${name}`.trim();
+}
+
+function formatPatientAddress(addr) {
+  if (!addr) return "—";
+  if (typeof addr === "string") return addr.trim() || "—";
+  const a = addr;
+  const line = [
+    a.address1,
+    a.address2,
+    a.city,
+    a.province,
+    a.postcode,
+    a.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  return line || "—";
+}
+
+function resolveAppointmentDoctorName(a, doctorLookup) {
+  const named = String(a?.doctorDisplayName || "").trim();
+  if (named) return named;
+  const id = String(a?.doctor?._id || a?.doctor || "").trim();
+  if (id && doctorLookup?.has?.(id)) return doctorLookup.get(id);
+  if (typeof a?.doctor === "object" && (a.doctor?.firstName || a.doctor?.lastName))
+    return formatDoctorDisplayName(a.doctor);
+  return id ? "Unknown doctor" : "—";
 }
 
 async function loadConversations() {
@@ -3238,6 +3278,11 @@ function updateAuthNav() {
   if (doctorDashLi) {
     doctorDashLi.style.display = signedIn && role === "doctor" ? "" : "none";
   }
+  const staffNavLis = document.querySelectorAll(".nav-li-staff-only");
+  const staffNavRoles = new Set(["doctor", "receptionist", "admin"]);
+  staffNavLis.forEach((li) => {
+    li.style.display = signedIn && staffNavRoles.has(String(role || "")) ? "" : "none";
+  });
   if (signedIn) {
     mountFloatingChatWidget();
   } else {
@@ -4239,12 +4284,12 @@ async function showPatientForm(editId = null, familyMode = false) {
       ${
         staffRole
           ? `<label><span class="label-text-row" data-tooltip="Used with email and date of birth to prevent duplicate registrations at this site.">Registration facility</span>
-        <input list="facility-list" name="registrationFacility" required placeholder="Clinic or branch name" />
-<datalist id="facility-list"></datalist></label>`
+        <input list="patient-reg-facility-datalist" name="registrationFacility" required placeholder="Clinic or branch name" autocomplete="off" />
+        </label>`
           : `<label><span class="label-text-row" data-tooltip="Include if instructed by your clinic — combined with email and DOB prevents duplicates.">Registration facility</span>
-        <input name="registrationFacility" placeholder="Optional" /></label>`
+        <input list="patient-reg-facility-datalist" name="registrationFacility" placeholder="Optional" autocomplete="off" /></label>`
       }
-      <label><input type="checkbox" name="isInsured" id="patient-is-insured" value="true" /> Has HMO / insured</label>
+      <label class="patient-insured-inline"><input type="checkbox" name="isInsured" id="patient-is-insured" value="true" /><span>Has HMO / insured</span></label>
       <label id="patient-hmo-wrap" style="display:none">HMO provider (required if insured)
         <select name="hmoProvider" id="patient-hmo-select"></select>
       </label>
@@ -4260,6 +4305,7 @@ async function showPatientForm(editId = null, familyMode = false) {
       <label><span class="label-text-row" data-tooltip="Accepted formats: PDF, DOCX, JPG, PNG. Images and PDFs upload to secure storage.">Upload Records</span>
         <input name="documentFile" type="file" accept="image/*,.pdf,.doc,.docx,.txt" />
       </label>
+      <datalist id="patient-reg-facility-datalist"></datalist>
       <div class="modal-form-actions">
         <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
         <button type="button" class="btn btn-action-delete" onclick="window.closePatientForm()">Cancel</button>
@@ -4288,7 +4334,7 @@ async function showPatientForm(editId = null, familyMode = false) {
   insuredCb?.addEventListener("change", syncInsured);
   syncInsured();
 
-  await renderFacilityDatalist();
+  await renderFacilityDatalist("patient-reg-facility-datalist");
   attachFacilityInputBehavior('input[name="registrationFacility"]');
   try {
     const providers = await loadHmoProviders();
@@ -5204,7 +5250,7 @@ async function renderAppointments() {
         .map(
           (a) => `
             <tr class="${String(a.status || "").toLowerCase() === "cancelled" ? "row-cancelled" : ""}">
-              <td>${doctorLookup.get(String(a.doctor?._id || a.doctor)) || a.doctor || ""}</td>
+              <td>${escapeHtml(resolveAppointmentDoctorName(a, doctorLookup))}</td>
               <td>${(typeof a.patientId === "object" ? (formatPatientDisplayName(a.patientId) || a.patientId?.name || "") : "") || patientLookup.get(String(a.patient?._id || a.patient)) || "Unknown Patient"}</td>
               <td>${formatDateDisplay(a.date) || ""}</td>
               <td>${a.time || ""}</td>
@@ -5250,7 +5296,7 @@ async function renderAppointments() {
         .trim();
       const filtered = appointments.filter((a) => {
         const doctor = String(
-          doctorLookup.get(String(a.doctor?._id || a.doctor)) || a.doctor || "",
+          resolveAppointmentDoctorName(a, doctorLookup) || "",
         ).toLowerCase();
         const patient = String(
           patientLookup.get(String(a.patient?._id || a.patient)) ||
@@ -5288,10 +5334,7 @@ async function renderAppointments() {
         downloadCsv(
           `appointments-${Date.now()}.csv`,
           appointments.map((a) => ({
-            doctor:
-              doctorLookup.get(String(a.doctor?._id || a.doctor)) ||
-              a.doctor ||
-              "",
+            doctor: resolveAppointmentDoctorName(a, doctorLookup),
             patient:
               (typeof a.patientId === "object"
                 ? formatPatientDisplayName(a.patientId) || a.patientId?.name
@@ -5447,6 +5490,11 @@ async function deleteAppointment(id) {
 
 async function renderCalendar() {
   setPageTone("appointments");
+  const calRole = getCurrentUserRole();
+  if (!["doctor", "receptionist", "admin"].includes(String(calRole || ""))) {
+    mainContent.innerHTML = `<h2 class="page-title page-title-appointments">Calendar</h2><div class="feedback error">The calendar is available to doctor, receptionist, and admin accounts.</div>`;
+    return;
+  }
   mainContent.innerHTML =
     '<h2 class="page-title page-title-appointments">Calendar</h2><div class="feedback">Loading...</div>';
   try {
@@ -5470,6 +5518,9 @@ async function renderCalendar() {
         String(patient._id),
         formatPatientDisplayName(patient),
       ]),
+    );
+    const patientById = new Map(
+      patients.map((patient) => [String(patient._id), patient]),
     );
 
     const now = new Date();
@@ -5541,9 +5592,7 @@ async function renderCalendar() {
                       ) ||
                       "Unknown Patient";
                     const doctorName =
-                      doctorLookup.get(
-                        String(appointment.doctor?._id || appointment.doctor),
-                      ) || "Unknown Doctor";
+                      resolveAppointmentDoctorName(appointment, doctorLookup);
                     return `<button type="button" data-calendar-appt-id="${escapeHtml(String(appointment._id))}" class="calendar-appt-item status-${escapeHtml(String(appointment.status || "pending").toLowerCase())}" title="${escapeHtml(doctorName)}">
                       <strong>${escapeHtml(String(appointment.time || "Time n/a"))}</strong>
                       <span>${escapeHtml(patientName)}</span>
@@ -5620,15 +5669,14 @@ async function renderCalendar() {
         appointment.patient?._id || appointment.patient || "",
       );
       const patient = patientById.get(patientId) || {};
-      const doctorName =
-        doctorLookup.get(String(appointment.doctor?._id || appointment.doctor)) ||
-        "Unknown Doctor";
+      const doctorName = resolveAppointmentDoctorName(appointment, doctorLookup);
       const patientName =
         (typeof appointment.patientId === "object"
           ? formatPatientDisplayName(appointment.patientId) ||
             appointment.patientId?.name
           : "") ||
         patientLookup.get(String(appointment.patient?._id || appointment.patient)) ||
+        formatPatientDisplayName(patient) ||
         "Unknown Patient";
       const overlay = document.createElement("div");
       overlay.className = "modal-overlay";
@@ -5641,13 +5689,15 @@ async function renderCalendar() {
           <p><strong>Date:</strong> ${escapeHtml(formatDateDisplay(appointment.date) || "—")}</p>
           <p><strong>Time:</strong> ${escapeHtml(String(appointment.time || "—"))}</p>
           <p><strong>Status:</strong> ${escapeHtml(String(appointment.status || "pending"))}</p>
+          <p><strong>Reason / notes:</strong> ${escapeHtml(String(appointment.reason || appointment.notes || "—"))}</p>
           <hr class="section-divider" />
+          <h4>Patient chart</h4>
           <p><strong>Title:</strong> ${escapeHtml(String(patient.title || "—"))}</p>
           <p><strong>Email:</strong> ${escapeHtml(String(patient.email || "—"))}</p>
           <p><strong>Phone:</strong> ${escapeHtml(String(patient.phone || "—"))}</p>
           <p><strong>Birthdate:</strong> ${escapeHtml(formatDateDisplay(patient.birthdate) || "—")}</p>
           <p><strong>Gender:</strong> ${escapeHtml(String(patient.gender || "—"))}</p>
-          <p><strong>Address:</strong> ${escapeHtml(String(patient.address || "—"))}</p>
+          <p><strong>Address:</strong> ${escapeHtml(formatPatientAddress(patient.address))}</p>
           <p><strong>HMO:</strong> ${escapeHtml(String(patient.hmoProvider || "—"))}</p>
           <p><strong>Notes:</strong> ${escapeHtml(String(patient.notes || "—"))}</p>
         </div>
@@ -5676,20 +5726,15 @@ async function renderUsers() {
     '<h2 class="page-title page-title-users">Users</h2><div class="feedback">Loading...</div>';
   try {
     const role = getCurrentUserRole();
+    if (!["doctor", "receptionist", "admin"].includes(String(role || ""))) {
+      mainContent.innerHTML = `<h2 class="page-title page-title-users">Users</h2><div class="feedback error">The Users directory is available to doctor, receptionist, and admin accounts.</div>`;
+      return;
+    }
     const isAdminUser = role === "admin";
     const isReceptionist = role === "receptionist";
-    const currentUserId = getCurrentUserId();
-    let users = [];
-    if (role === "patient" && currentUserId) {
-      const ownRes = await apiRequest(`${API_BASE}/users/${currentUserId}`);
-      if (!ownRes.ok) throw new Error("Failed to fetch active profile");
-      const ownUser = await ownRes.json();
-      users = ownUser ? [ownUser] : [];
-    } else {
-      const res = await apiRequest(`${API_BASE}/users`);
-      if (!res.ok) throw new Error("Failed to fetch users");
-      users = await res.json();
-    }
+    const res = await apiRequest(`${API_BASE}/users`);
+    if (!res.ok) throw new Error("Failed to fetch users");
+    const users = await res.json();
     mainContent.innerHTML = `
       <h2 class="page-title page-title-users">Users</h2>
       ${isReceptionist ? "" : '<button class="cta-primary" onclick="window.showUserForm()">Add User</button>'}
@@ -5698,8 +5743,6 @@ async function renderUsers() {
         <input type="search" id="user-filter-name" placeholder="Filter by name" />
         <input type="search" id="user-filter-email" placeholder="Filter by email" />
         <input type="search" id="user-filter-role" placeholder="Filter by role" />
-        <input type="search" id="user-filter-receptionist-type" placeholder="Filter by receptionist type" />
-        <input type="search" id="user-filter-specialty" placeholder="Filter by specialty" />
         <input type="search" id="user-filter-phone" placeholder="Filter by phone" />
         <select id="user-sort-name">
           <option value="az">Sort Name A-Z</option>
@@ -5707,7 +5750,7 @@ async function renderUsers() {
         </select>
       </div>
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Receptionist Type</th><th>Specialty</th><th>Phone</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>Actions</th></tr></thead>
         <tbody id="users-table-body">
           ${users
             .map(
@@ -5716,8 +5759,6 @@ async function renderUsers() {
               <td>${u.title ? `${u.title} ` : ""}${u.firstName} ${u.lastName}</td>
               <td>${u.email || ""}</td>
               <td>${u.role || ""}</td>
-              <td>${u.receptionistType === "small_clinic" ? "Small Clinic" : u.receptionistType === "hospital" ? "Hospital" : "—"}</td>
-              <td>${u.specialty || "—"}</td>
               <td>${u.phone || ""}</td>
               <td>
                 ${
@@ -5747,8 +5788,6 @@ async function renderUsers() {
               <td>${u.title ? `${u.title} ` : ""}${u.firstName} ${u.lastName}</td>
               <td>${u.email || ""}</td>
               <td>${u.role || ""}</td>
-              <td>${u.receptionistType === "small_clinic" ? "Small Clinic" : u.receptionistType === "hospital" ? "Hospital" : "—"}</td>
-              <td>${u.specialty || "—"}</td>
               <td>${u.phone || ""}</td>
               <td>
                 ${
@@ -5770,24 +5809,18 @@ async function renderUsers() {
       const nameQ = String(document.getElementById("user-filter-name")?.value || "").toLowerCase().trim();
       const emailQ = String(document.getElementById("user-filter-email")?.value || "").toLowerCase().trim();
       const roleQ = String(document.getElementById("user-filter-role")?.value || "").toLowerCase().trim();
-      const recQ = String(document.getElementById("user-filter-receptionist-type")?.value || "").toLowerCase().trim();
-      const specQ = String(document.getElementById("user-filter-specialty")?.value || "").toLowerCase().trim();
       const phoneQ = String(document.getElementById("user-filter-phone")?.value || "").toLowerCase().trim();
       const sortQ = String(document.getElementById("user-sort-name")?.value || "az");
       const filtered = users
         .filter((u) => {
           const name = `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase();
           const email = String(u.email || "").toLowerCase();
-          const role = String(u.role || "").toLowerCase();
-          const recType = String(u.receptionistType || "").toLowerCase();
-          const specialty = String(u.specialty || "").toLowerCase();
+          const roleStr = String(u.role || "").toLowerCase();
           const phone = String(u.phone || "").toLowerCase();
           return (
             (!nameQ || name.includes(nameQ)) &&
             (!emailQ || email.includes(emailQ)) &&
-            (!roleQ || role.includes(roleQ)) &&
-            (!recQ || recType.includes(recQ)) &&
-            (!specQ || specialty.includes(specQ)) &&
+            (!roleQ || roleStr.includes(roleQ)) &&
             (!phoneQ || phone.includes(phoneQ))
           );
         })
@@ -5798,7 +5831,7 @@ async function renderUsers() {
         });
       renderUserRows(filtered);
     };
-    ["user-filter-name", "user-filter-email", "user-filter-role", "user-filter-receptionist-type", "user-filter-specialty", "user-filter-phone", "user-sort-name"].forEach((id) => {
+    ["user-filter-name", "user-filter-email", "user-filter-role", "user-filter-phone", "user-sort-name"].forEach((id) => {
       document.getElementById(id)?.addEventListener("input", applyUserFilters);
       document.getElementById(id)?.addEventListener("change", applyUserFilters);
     });

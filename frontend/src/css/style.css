@@ -1699,6 +1699,49 @@ body.theme-dark .nav-link.nav-link-patient.active {
   margin: 0.5rem 0 0;
 }
 
+.patient-insured-inline {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.patient-insured-inline input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+body.theme-dark .patient-booking-page .doctor-pick-name,
+body.theme-dark .patient-booking-page .doctor-pick-specialty,
+body.theme-dark .patient-booking-page .doctor-pick-meta,
+body.theme-dark .patient-booking-page .doctor-pick-clinic,
+body.theme-dark .patient-booking-page .doctor-pick-reception,
+body.theme-dark .patient-booking-page .doctor-pick-avail {
+  color: #0f0f0f;
+}
+body.theme-dark .patient-book-toolbar .patient-book-search {
+  color: #0f0f0f;
+  background: #eef2ff;
+  border-color: #a8b8e0;
+}
+body.theme-dark .patient-book-toolbar .patient-book-search:focus {
+  background: #fff;
+  color: #0f0f0f;
+}
+body.theme-dark .patient-search-label,
+body.theme-dark .patient-book-count,
+body.theme-dark .patient-booking-page .patient-booking-lead {
+  color: #0f0f0f;
+}
+body.theme-dark .patient-booking-page .doctor-pick-card {
+  background: #e8edfb;
+  border-color: #b6c4e8;
+}
+body.theme-dark .patient-booking-page .doctor-specialty-heading {
+  color: #0f0f0f;
+}
+
 .signup-lead {
   color: var(--slate);
   max-width: 42rem;

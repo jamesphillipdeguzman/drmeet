@@ -1,6 +1,7 @@
 // appointment.service.js
 import Appointment from "../models/appointment.model.js";
 import Patient from "../models/patient.model.js";
+import Doctor from "../models/doctor.model.js";
 
 const apptSort = { date: -1, time: 1 };
 
@@ -36,6 +37,8 @@ async function withPatientMeta(appointments = []) {
         String(p._id),
         {
           name: fullName || "Unknown Patient",
+          firstName: p.firstName || "",
+          lastName: p.lastName || "",
           title: fullName ? toTitleCase(p.firstName || "") : "",
           photoUrl: String(p.photoUrl || "").trim(),
         },
@@ -50,10 +53,53 @@ async function withPatientMeta(appointments = []) {
       ...plain,
       patientId: patientLookup.get(patientId) || {
         name: "Unknown Patient",
+        firstName: "",
+        lastName: "",
         title: "",
       },
     };
   });
+}
+
+async function withDoctorMeta(appointments = []) {
+  if (!Array.isArray(appointments) || !appointments.length) return [];
+  const doctorIds = [
+    ...new Set(
+      appointments
+        .map((appt) => {
+          const plain = appt?.toObject ? appt.toObject() : appt;
+          return String(plain.doctor || "").trim();
+        })
+        .filter(Boolean),
+    ),
+  ];
+  if (!doctorIds.length) return appointments;
+
+  const doctorDocs = await Doctor.find({ _id: { $in: doctorIds } })
+    .select("firstName lastName title")
+    .lean();
+  const doctorLookup = new Map(
+    doctorDocs.map((d) => {
+      const t = d.title ? `${d.title} ` : "";
+      const name =
+        `${t}${d.firstName || ""} ${d.lastName || ""}`.trim() || "Unknown Doctor";
+      return [String(d._id), name];
+    }),
+  );
+
+  return appointments.map((appt) => {
+    const plain = appt?.toObject ? appt.toObject() : appt;
+    const did = String(plain.doctor || "");
+    return {
+      ...plain,
+      doctorDisplayName: doctorLookup.get(did) || "",
+    };
+  });
+}
+
+async function withAppointmentListMeta(appointments) {
+  const withPatient = await withPatientMeta(appointments);
+  return withDoctorMeta(withPatient);
 }
 
 // Get a single appointment by ID
@@ -73,21 +119,23 @@ export const deleteAppointmentById = async (id) =>
 // Find all appointments by a specific doctor
 export const findAppointmentsByDoctor = async (doctorId) => {
   const appointments = await Appointment.find({ doctor: String(doctorId) }).sort(apptSort);
-  return withPatientMeta(appointments);
+  return withAppointmentListMeta(appointments);
 };
 
 // Find all appointments by a specific patient
-export const findAppointmentsByPatient = async (patientId) =>
-  Appointment.find({ patient: patientId }).sort(apptSort);
+export const findAppointmentsByPatient = async (patientId) => {
+  const appointments = await Appointment.find({ patient: patientId }).sort(apptSort);
+  return withAppointmentListMeta(appointments);
+};
 
 export const findAppointmentsByDoctorForRoleScope = async (doctorId) => {
   const appointments = await Appointment.find({ doctor: String(doctorId) }).sort(apptSort);
-  return withPatientMeta(appointments);
+  return withAppointmentListMeta(appointments);
 };
 
 export const findAllAppointmentsWithPatientMeta = async () => {
   const appointments = await Appointment.find().sort(apptSort);
-  return withPatientMeta(appointments);
+  return withAppointmentListMeta(appointments);
 };
 
 export const appointmentExistsForDoctorPatient = async (doctorId, patientId) =>
