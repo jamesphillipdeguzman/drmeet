@@ -2545,6 +2545,10 @@ async function renderSettings() {
     cache = {};
   }
   const theme = localStorage.getItem(THEME_KEY) || "light";
+  const role = getCurrentUserRole();
+  const isStaffBookingPolicyRole = ["doctor", "receptionist"].includes(
+    String(role || ""),
+  );
   const presetRole = getCurrentUserRole() === "doctor" ? "doctor" : "patient";
   mainContent.innerHTML = `
     <h2 class="page-title">Settings</h2>
@@ -2577,6 +2581,19 @@ async function renderSettings() {
       <p class="signup-lead">Appointment and message alerts can be expanded here in a future update.</p>
       <label><input type="checkbox" id="settings-notify-email" disabled /> Email reminders (coming soon)</label>
     </section>
+    ${
+      isStaffBookingPolicyRole
+        ? `<section class="card">
+      <h3>Booking Strategy</h3>
+      <p class="signup-lead">Set a daily patient booking cap for your clinic calendar.</p>
+      <label>Maximum patients per day
+        <input id="settings-max-bookings-day" type="number" min="1" max="200" step="1" value="10" />
+      </label>
+      <button type="button" class="btn btn-primary" id="settings-save-booking-limit">Save booking limit</button>
+      <p id="settings-booking-limit-feedback" class="feedback" style="display:none" role="status"></p>
+    </section>`
+        : ""
+    }
   `;
   const profCard = mainContent.querySelector(".settings-profile-card");
   const settingsFileInput = document.getElementById("settings-profile-photo-file");
@@ -2636,6 +2653,80 @@ async function renderSettings() {
       applyTheme(sel.value);
       renderTopbarBreadcrumbs();
     });
+  }
+  if (isStaffBookingPolicyRole) {
+    const dailyInput = document.getElementById("settings-max-bookings-day");
+    const feedback = document.getElementById("settings-booking-limit-feedback");
+    let policyDoctorId = "";
+    try {
+      const linkedDoctorId = getCurrentLinkedDoctorId();
+      const docRes = await apiRequest(`${API_BASE}/doctors`);
+      if (docRes.ok) {
+        const docs = await docRes.json();
+        const rows = Array.isArray(docs) ? docs : [];
+        if (role === "doctor") {
+          const uid = getCurrentUserId();
+          const mine = rows.find(
+            (d) => String(d.userId || "") === String(uid || ""),
+          );
+          policyDoctorId = String(mine?._id || rows[0]?._id || "");
+          if (dailyInput && mine?.bookingPolicy?.maxPatientsPerDay) {
+            dailyInput.value = String(
+              Number(mine.bookingPolicy.maxPatientsPerDay) || 10,
+            );
+          }
+        } else {
+          const linked = rows.find(
+            (d) => String(d._id) === String(linkedDoctorId || ""),
+          );
+          policyDoctorId = String(linked?._id || linkedDoctorId || "");
+          if (dailyInput && linked?.bookingPolicy?.maxPatientsPerDay) {
+            dailyInput.value = String(
+              Number(linked.bookingPolicy.maxPatientsPerDay) || 10,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      /* ignore prefill errors */
+    }
+    document
+      .getElementById("settings-save-booking-limit")
+      ?.addEventListener("click", async () => {
+        const maxPatientsPerDay = Number(dailyInput?.value || 0);
+        if (!Number.isFinite(maxPatientsPerDay) || maxPatientsPerDay < 1) {
+          showToast("Enter a valid daily booking limit.", "error");
+          return;
+        }
+        try {
+          const res = await apiRequest(`${API_BASE}/appointments/booking-policy`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              doctorId: policyDoctorId || undefined,
+              maxPatientsPerDay,
+            }),
+          });
+          if (!res.ok) {
+            throw new Error(
+              await getApiErrorMessage(res, "Unable to save booking limit."),
+            );
+          }
+          if (feedback) {
+            feedback.style.display = "block";
+            feedback.className = "feedback success";
+            feedback.textContent = "Booking limit saved.";
+          }
+          showToast("Booking limit saved.");
+        } catch (err) {
+          if (feedback) {
+            feedback.style.display = "block";
+            feedback.className = "feedback error";
+            feedback.textContent = err?.message || "Unable to save booking limit.";
+          }
+          showToast(err?.message || "Unable to save booking limit.", "error");
+        }
+      });
   }
 }
 
@@ -5565,6 +5656,8 @@ async function showAppointmentForm(editId = null) {
       </label>
       <label>Date <input name="date" type="date" required /></label>
       <label>Time <input name="time" type="time" required /></label>
+      <div id="appointment-smart-hint" class="feedback" style="display:none"></div>
+      <div id="appointment-smart-times" class="calendar-detail-modal-actions"></div>
       <label>Status
         <select name="status">
           <option value="pending">Pending</option>
@@ -5586,6 +5679,77 @@ async function showAppointmentForm(editId = null) {
   };
   const form = document.getElementById("appointment-form");
   attachClearButtons(form);
+  if (getCurrentUserRole() === "patient" && form.patient) {
+    form.patient.disabled = true;
+    form.patient.setAttribute("aria-disabled", "true");
+  }
+  const hintEl = document.getElementById("appointment-smart-hint");
+  const timesEl = document.getElementById("appointment-smart-times");
+  const renderSmartBookingHint = async () => {
+    const doctorId = String(form.doctor?.value || "").trim();
+    const date = String(form.date?.value || "").trim();
+    if (!doctorId || !date) {
+      if (hintEl) hintEl.style.display = "none";
+      if (timesEl) timesEl.innerHTML = "";
+      return;
+    }
+    try {
+      const url = new URL(`${API_BASE}/appointments/booking-hints`, window.location.origin);
+      url.searchParams.set("doctorId", doctorId);
+      url.searchParams.set("date", date);
+      if (editId) url.searchParams.set("excludeAppointmentId", String(editId));
+      const res = await apiRequest(url.toString());
+      if (!res.ok) {
+        if (hintEl) {
+          hintEl.style.display = "block";
+          hintEl.className = "feedback error";
+          hintEl.textContent = await getApiErrorMessage(
+            res,
+            "Unable to load booking hints.",
+          );
+        }
+        if (timesEl) timesEl.innerHTML = "";
+        return;
+      }
+      const info = await res.json();
+      if (hintEl) {
+        hintEl.style.display = "block";
+        hintEl.className =
+          Number(info.remainingSlots) > 0 ? "feedback" : "feedback error";
+        hintEl.textContent = String(info.hint || "");
+      }
+      const suggest = Array.isArray(info.suggestedAvailableTimes)
+        ? info.suggestedAvailableTimes
+        : [];
+      if (timesEl) {
+        timesEl.innerHTML = suggest.length
+          ? suggest
+              .map(
+                (timeVal) =>
+                  `<button type="button" class="btn btn-secondary btn-sm" data-smart-time="${escapeHtml(String(timeVal))}">${escapeHtml(String(timeVal))}</button>`,
+              )
+              .join("")
+          : "";
+      }
+      timesEl?.querySelectorAll("[data-smart-time]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const next = btn.getAttribute("data-smart-time");
+          if (!next || !form.time) return;
+          form.time.value = next;
+        });
+      });
+    } catch (error) {
+      if (hintEl) {
+        hintEl.style.display = "block";
+        hintEl.className = "feedback error";
+        hintEl.textContent = "Unable to load booking hints.";
+      }
+      if (timesEl) timesEl.innerHTML = "";
+    }
+  };
+  form.doctor?.addEventListener("change", renderSmartBookingHint);
+  form.date?.addEventListener("change", renderSmartBookingHint);
+  form.time?.addEventListener("change", renderSmartBookingHint);
   if (editId) {
     try {
       const res = await apiRequest(`${API_BASE}/appointments/${editId}`);
@@ -5596,9 +5760,13 @@ async function showAppointmentForm(editId = null) {
       form.time.value = data.time || "";
       form.status.value = data.status || "pending";
       form.notes.value = data.notes || data.reason || "";
+      await renderSmartBookingHint();
     } catch (error) {
       console.error(error);
     }
+  }
+  if (!editId) {
+    await renderSmartBookingHint();
   }
   form.onsubmit = async (e) => {
     e.preventDefault();
@@ -5612,7 +5780,10 @@ async function showAppointmentForm(editId = null) {
           body: JSON.stringify(appointment),
         },
       );
-      if (!res.ok) throw new Error("Failed to save appointment");
+      if (!res.ok)
+        throw new Error(
+          await getApiErrorMessage(res, "Failed to save appointment"),
+        );
       modal.style.display = "none";
       renderAppointments();
     } catch (err) {

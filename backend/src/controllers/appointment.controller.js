@@ -2,6 +2,8 @@ import mongoose from 'mongoose';
 
 import Patient from '../models/patient.model.js';
 import User from '../models/user.model.js';
+import Doctor from '../models/doctor.model.js';
+import Appointment from '../models/appointment.model.js';
 import { patientActiveQuery } from '../services/patient.service.js';
 
 import {
@@ -22,6 +24,138 @@ function authUserId(req) {
 
 function authRole(req) {
     return String(req.user?.role || '').toLowerCase();
+}
+
+function normalizeDayStart(value) {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return null;
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+function normalizeDayEnd(value) {
+    const d = normalizeDayStart(value);
+    if (!d) return null;
+    d.setHours(23, 59, 59, 999);
+    return d;
+}
+
+function toMinutes(timeText) {
+    const m = String(timeText || '').trim().match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    const h = Number(m[1]);
+    const mm = Number(m[2]);
+    if (h < 0 || h > 23 || mm < 0 || mm > 59) return null;
+    return h * 60 + mm;
+}
+
+function minutesToText(total) {
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function buildSuggestedTimes(usedTimes = [], max = 8) {
+    const used = new Set(
+        usedTimes
+            .map((t) => toMinutes(t))
+            .filter((v) => typeof v === 'number'),
+    );
+    const suggestions = [];
+    for (let mins = 8 * 60; mins <= 18 * 60; mins += 30) {
+        if (used.has(mins)) continue;
+        suggestions.push(minutesToText(mins));
+        if (suggestions.length >= max) break;
+    }
+    return suggestions;
+}
+
+async function resolveDoctorBookingPolicyOwner(req, requestedDoctorId = '') {
+    const role = authRole(req);
+    const uid = authUserId(req);
+    if (!uid) return null;
+
+    if (role === 'doctor') {
+        const mine = await findDoctorByUserId(uid);
+        if (!mine) return null;
+        if (
+            requestedDoctorId &&
+            mongoose.Types.ObjectId.isValid(requestedDoctorId) &&
+            String(mine._id) !== String(requestedDoctorId)
+        ) {
+            return null;
+        }
+        return mine;
+    }
+    if (role === 'receptionist') {
+        let linkedDoctorId = req.user?.linkedDoctorId;
+        if (!linkedDoctorId) {
+            const ru = await User.findById(uid).select('linkedDoctorId').lean();
+            linkedDoctorId = ru?.linkedDoctorId || null;
+        }
+        if (!linkedDoctorId) return null;
+        if (
+            requestedDoctorId &&
+            mongoose.Types.ObjectId.isValid(requestedDoctorId) &&
+            String(linkedDoctorId) !== String(requestedDoctorId)
+        ) {
+            return null;
+        }
+        return Doctor.findById(String(linkedDoctorId));
+    }
+    if (role === 'admin' && requestedDoctorId && mongoose.Types.ObjectId.isValid(requestedDoctorId)) {
+        return Doctor.findById(String(requestedDoctorId));
+    }
+    return null;
+}
+
+async function getDoctorDailyBookingLimit(doctorId) {
+    if (!doctorId || !mongoose.Types.ObjectId.isValid(String(doctorId))) return 10;
+    const doctor = await Doctor.findById(String(doctorId)).select('bookingPolicy').lean();
+    const max = Number(doctor?.bookingPolicy?.maxPatientsPerDay);
+    if (!Number.isFinite(max) || max < 1) return 10;
+    return Math.floor(max);
+}
+
+async function getDoctorBookingsForDay({ doctorId, date, excludeAppointmentId = '' }) {
+    const dayStart = normalizeDayStart(date);
+    const dayEnd = normalizeDayEnd(date);
+    if (!dayStart || !dayEnd) return [];
+    const query = {
+        doctor: String(doctorId || ''),
+        date: { $gte: dayStart, $lte: dayEnd },
+        status: { $ne: 'cancelled' },
+    };
+    if (excludeAppointmentId && mongoose.Types.ObjectId.isValid(excludeAppointmentId)) {
+        query._id = { $ne: new mongoose.Types.ObjectId(excludeAppointmentId) };
+    }
+    return Appointment.find(query).select('_id time patient status').lean();
+}
+
+async function assertSmartBookingOrThrow({ doctorId, date, time, excludeAppointmentId = '' }) {
+    if (!doctorId || !date || !time) return;
+    const maxPatientsPerDay = await getDoctorDailyBookingLimit(doctorId);
+    const existing = await getDoctorBookingsForDay({
+        doctorId,
+        date,
+        excludeAppointmentId,
+    });
+    const bookedCount = existing.length;
+    if (bookedCount >= maxPatientsPerDay) {
+        const err = new Error(
+            `Daily booking limit reached for this doctor (${bookedCount}/${maxPatientsPerDay}). Please choose another day or doctor.`,
+        );
+        err.statusCode = 409;
+        throw err;
+    }
+    const conflict = existing.find((a) => String(a.time || '') === String(time || ''));
+    if (conflict) {
+        const err = new Error(
+            `Selected time ${time} is already booked for this doctor. Please choose another available time.`,
+        );
+        err.statusCode = 409;
+        throw err;
+    }
 }
 
 async function getScopedAppointments(req) {
@@ -133,6 +267,90 @@ export const getAppointmentById = async (req, res) => {
 };
 
 /**
+ * @route GET /api/appointments/booking-hints?doctorId=&date=&excludeAppointmentId=
+ * @desc Smart booking hints for patient scheduler.
+ */
+export const getBookingHints = async (req, res) => {
+    try {
+        const role = authRole(req);
+        if (!['patient', 'doctor', 'receptionist', 'admin'].includes(role)) {
+            return res.status(403).json({ error: 'Forbidden.' });
+        }
+        const doctorId = String(req.query.doctorId || '').trim();
+        const date = String(req.query.date || '').trim();
+        const excludeAppointmentId = String(req.query.excludeAppointmentId || '').trim();
+        if (!doctorId || !mongoose.Types.ObjectId.isValid(doctorId)) {
+            return res.status(400).json({ error: 'Valid doctorId is required.' });
+        }
+        const dayStart = normalizeDayStart(date);
+        if (!dayStart) {
+            return res.status(400).json({ error: 'Valid date is required.' });
+        }
+
+        const maxPatientsPerDay = await getDoctorDailyBookingLimit(doctorId);
+        const existing = await getDoctorBookingsForDay({
+            doctorId,
+            date,
+            excludeAppointmentId,
+        });
+        const conflictingTimes = [
+            ...new Set(existing.map((a) => String(a.time || '').trim()).filter(Boolean)),
+        ].sort((a, b) => (toMinutes(a) || 0) - (toMinutes(b) || 0));
+        const bookedCount = existing.length;
+        const remainingSlots = Math.max(maxPatientsPerDay - bookedCount, 0);
+        const suggestedAvailableTimes = buildSuggestedTimes(conflictingTimes, 10);
+
+        return res.status(200).json({
+            doctorId,
+            date: dayStart.toISOString(),
+            maxPatientsPerDay,
+            bookedCount,
+            remainingSlots,
+            conflictingTimes,
+            suggestedAvailableTimes,
+            hint: `Booked ${bookedCount}/${maxPatientsPerDay}. ${remainingSlots > 0 ? `${remainingSlots} slot(s) left.` : 'No slots left for this day.'}`,
+        });
+    } catch (error) {
+        return res.status(500).json({ error: 'Failed to load booking hints.' });
+    }
+};
+
+/**
+ * @route PATCH /api/appointments/booking-policy
+ * @desc Staff-managed max booking limit per doctor/day.
+ */
+export const patchBookingPolicy = async (req, res) => {
+    try {
+        const role = authRole(req);
+        if (!['doctor', 'receptionist', 'admin'].includes(role)) {
+            return res.status(403).json({ error: 'Forbidden.' });
+        }
+        const requestedDoctorId = String(req.body?.doctorId || '').trim();
+        const doctor = await resolveDoctorBookingPolicyOwner(req, requestedDoctorId);
+        if (!doctor) return res.status(403).json({ error: 'Forbidden.' });
+
+        const raw = Number(req.body?.maxPatientsPerDay);
+        const maxPatientsPerDay = Math.floor(raw);
+        if (!Number.isFinite(maxPatientsPerDay) || maxPatientsPerDay < 1 || maxPatientsPerDay > 200) {
+            return res.status(400).json({
+                error: 'maxPatientsPerDay must be a number between 1 and 200.',
+            });
+        }
+
+        const updated = await Doctor.findByIdAndUpdate(
+            doctor._id,
+            { $set: { 'bookingPolicy.maxPatientsPerDay': maxPatientsPerDay } },
+            { new: true },
+        ).select('bookingPolicy');
+        return res.status(200).json({
+            bookingPolicy: updated?.bookingPolicy || { maxPatientsPerDay },
+        });
+    } catch (error) {
+        return res.status(500).json({ error: 'Failed to update booking policy.' });
+    }
+};
+
+/**
  * @route POST /api/appointments
  * @desc Create a new appointment
  */
@@ -154,6 +372,13 @@ export const postAppointment = async (req, res) => {
             }
             appointmentData.patient = String(patient._id);
         }
+        if (String(appointmentData.status || 'pending').toLowerCase() !== 'cancelled') {
+            await assertSmartBookingOrThrow({
+                doctorId: appointmentData.doctor,
+                date: appointmentData.date,
+                time: appointmentData.time,
+            });
+        }
 
         const newAppointment = await createAppointmentService(appointmentData);
         if (!newAppointment) {
@@ -165,7 +390,7 @@ export const postAppointment = async (req, res) => {
         return res.status(201).json(newAppointment);
     } catch (error) {
         console.error('Error creating the appointment: ', error);
-        return res.status(500).json({
+        return res.status(error.statusCode || 500).json({
             error: error.message || 'An error occured while creating the appointment.',
         });
     }
@@ -196,10 +421,16 @@ export const updateAppointment = async (req, res) => {
         }
         const role = authRole(req);
         if (role === 'patient') {
-            // Patients can update schedule/status notes for their own appointment,
-            // but cannot reassign doctor/patient ownership.
+            // Patients can now reassign doctor for their own booking; keep patient ownership fixed.
             delete updates.patient;
-            delete updates.doctor;
+        }
+        if (String(updates.status || existing.status || 'pending').toLowerCase() !== 'cancelled') {
+            await assertSmartBookingOrThrow({
+                doctorId: updates.doctor || existing.doctor,
+                date: updates.date || existing.date,
+                time: updates.time || existing.time,
+                excludeAppointmentId: id,
+            });
         }
 
         const updatedAppointment = await updateAppointmentByIdService(id, updates);
@@ -212,8 +443,8 @@ export const updateAppointment = async (req, res) => {
     } catch (error) {
         console.log(`Error updating the appointment with ${id}:`, error);
         return res
-            .status(500)
-            .json({ error: 'An error occured while updating the appointment.' });
+            .status(error.statusCode || 500)
+            .json({ error: error.message || 'An error occured while updating the appointment.' });
     }
 };
 

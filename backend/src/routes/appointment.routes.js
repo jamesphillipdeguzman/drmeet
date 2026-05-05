@@ -3,6 +3,8 @@ import { hybridAuth } from '../middlewares/auth.middleware.js';
 import {
   getAllAppointments,
   getAppointmentById,
+  getBookingHints,
+  patchBookingPolicy,
   postAppointment,
   updateAppointment,
   deleteAppointment,
@@ -26,6 +28,8 @@ const router = express.Router();
  *        description: An error occurred while fetching appointments
  */
 router.get('/', hybridAuth, getAllAppointments);
+router.get('/booking-hints', hybridAuth, getBookingHints);
+router.patch('/booking-policy', hybridAuth, patchBookingPolicy);
 
 /**
  * @swagger
