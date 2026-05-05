@@ -99,6 +99,19 @@ const doctorSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    prcLicenseNumber: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    prcExpirationDate: {
+      type: Date,
+      default: null,
+    },
+    prcIdFileUrl: {
+      type: String,
+      default: "",
+    },
 
     /**
      * Explicitly pinned patients; merged with appointment/care-team discovery in APIs.

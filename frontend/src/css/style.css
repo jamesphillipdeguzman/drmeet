@@ -1752,7 +1752,7 @@ body.theme-dark .patient-book-toolbar .patient-book-search:focus {
 body.theme-dark .patient-search-label,
 body.theme-dark .patient-book-count,
 body.theme-dark .patient-booking-page .patient-booking-lead {
-  color: #0f0f0f;
+  color: #eef4ff;
 }
 body.theme-dark .patient-booking-page .doctor-pick-card {
   background: #e8edfb;
@@ -1760,6 +1760,16 @@ body.theme-dark .patient-booking-page .doctor-pick-card {
 }
 body.theme-dark .patient-booking-page .doctor-specialty-heading {
   color: #0f0f0f;
+}
+body.theme-dark .patient-profile-missing,
+body.theme-dark .patient-profile-missing .btn {
+  color: #eef4ff;
+}
+
+.license-details {
+  border-top: 1px solid var(--line);
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
 }
 
 .signup-lead {

@@ -2306,8 +2306,8 @@ async function showClinicalTab(tab) {
             const reader = new FileReader();
             reader.onload = async () => {
               try {
-                const base64 = reader.result?.split?.(",")?.[1];
-                if (!base64) throw new Error("Unable to read file.");
+                const documentFileData = String(reader.result || "");
+                if (!documentFileData) throw new Error("Unable to read file.");
                 const resUp = await apiRequest(
                   `${API_BASE}/doctors/me/appointments/${appt._id}/billing/documents`,
                   {
@@ -2316,7 +2316,7 @@ async function showClinicalTab(tab) {
                     body: JSON.stringify({
                       kind,
                       documentName: file.name,
-                      documentFileData: base64,
+                      documentFileData,
                     }),
                   },
                 );
@@ -5129,6 +5129,22 @@ async function showDoctorForm(editId = null) {
       </label>
       <label>Receptionist Email <input name="receptionistEmail" type="email" placeholder="reception@clinic.com" /></label>
       <label>Address <input name="address" /></label>
+      <div class="section license-details">
+        <h3>License Details</h3>
+        <p class="clinical-muted">Required for verification</p>
+        <div class="form-group">
+          <label for="prcLicenseNumber">PRC License Number</label>
+          <input type="text" id="prcLicenseNumber" name="prcLicenseNumber" required />
+        </div>
+        <div class="form-group">
+          <label for="prcExpirationDate">PRC ID Expiration Date</label>
+          <input type="date" id="prcExpirationDate" name="prcExpirationDate" required />
+        </div>
+        <div class="form-group">
+          <label for="prcIdFile">Upload PRC ID</label>
+          <input type="file" id="prcIdFile" name="prcIdFile" accept=".jpg,.jpeg,.png,.pdf" required />
+        </div>
+      </div>
       <label>Profile Photo
         <input name="photoFile" type="file" accept="image/*" />
       </label>
@@ -5199,6 +5215,15 @@ async function showDoctorForm(editId = null) {
         form.receptionistPhone.value = data.receptionistPhone || "";
         form.receptionistEmail.value = data.receptionistEmail || "";
         form.address.value = data.address || "";
+        form.prcLicenseNumber.value =
+          data.prcLicenseNumber || data.licenseNumber || "";
+        form.prcExpirationDate.value = formatDateForInput(
+          data.prcExpirationDate || "",
+        );
+        const prcIdFileInput = form.querySelector('[name="prcIdFile"]');
+        if (prcIdFileInput && data.prcIdFileUrl) {
+          prcIdFileInput.required = false;
+        }
         if (data.photoUrl) {
           const preview = document.getElementById("doctor-photo-preview");
           preview.style.display = "block";
@@ -5212,6 +5237,25 @@ async function showDoctorForm(editId = null) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const doctor = Object.fromEntries(new FormData(form));
+    const prcLicenseNumber = String(doctor.prcLicenseNumber || "").trim();
+    const prcExpirationDate = String(doctor.prcExpirationDate || "").trim();
+    const prcIdFile = form.prcIdFile?.files?.[0];
+    if (!prcLicenseNumber || !prcExpirationDate || (!prcIdFile && !editId)) {
+      showToast("Complete all License Details fields.", "error");
+      return;
+    }
+    if (prcExpirationDate) {
+      const expDate = new Date(`${prcExpirationDate}T23:59:59`);
+      if (Number.isNaN(expDate.getTime()) || expDate <= new Date()) {
+        showToast("PRC ID expiration date must be in the future.", "error");
+        return;
+      }
+    }
+    if (prcIdFile) {
+      doctor.prcIdFileData = await fileToDataUrl(prcIdFile);
+      doctor.prcIdFileName = prcIdFile.name || "prc-id";
+    }
+    doctor.licenseNumber = prcLicenseNumber;
     const photoFile = form.photoFile?.files?.[0];
     if (photoFile) {
       doctor.photoFileData = await fileToDataUrl(photoFile);
@@ -5851,7 +5895,10 @@ async function renderUsers() {
     const users = await res.json();
     mainContent.innerHTML = `
       <h2 class="page-title page-title-users">Users</h2>
-      ${isReceptionist ? "" : '<button class="cta-primary" onclick="window.showUserForm()">Add User</button>'}
+      <div class="appointments-toolbar">
+        <button type="button" class="btn btn-secondary" id="users-refresh-btn">Refresh</button>
+        ${isReceptionist ? "" : '<button class="cta-primary" onclick="window.showUserForm()">Add User</button>'}
+      </div>
       <hr class="section-divider" />
       <div class="list-filters">
         <input type="search" id="user-filter-name" placeholder="Filter by name" />
@@ -5948,6 +5995,9 @@ async function renderUsers() {
     ["user-filter-name", "user-filter-email", "user-filter-role", "user-filter-phone", "user-sort-name"].forEach((id) => {
       document.getElementById(id)?.addEventListener("input", applyUserFilters);
       document.getElementById(id)?.addEventListener("change", applyUserFilters);
+    });
+    document.getElementById("users-refresh-btn")?.addEventListener("click", () => {
+      void renderUsers();
     });
     applyUserFilters();
     window.showUserForm = showUserForm;

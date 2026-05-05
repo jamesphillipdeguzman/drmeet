@@ -202,10 +202,17 @@ export const postDoctor = async (req, res) => {
   try {
     const body = sanitizeInput(req.body || {});
     let photoUpload = null;
+    let prcUpload = null;
     if (body.photoFileData) {
       photoUpload = await uploadToCloudinary(body.photoFileData, {
         folder: 'drmeet/doctors',
         resource_type: 'image',
+      });
+    }
+    if (body.prcIdFileData || body.prcIdFile) {
+      prcUpload = await uploadToCloudinary(body.prcIdFileData || body.prcIdFile, {
+        folder: 'drmeet/doctors/licenses',
+        resource_type: 'auto',
       });
     }
 
@@ -216,8 +223,15 @@ export const postDoctor = async (req, res) => {
       lastName: body.lastName?.trim(),
       email: body.email?.trim(),
       specialty: body.specialty,
+      licenseNumber: String(body.licenseNumber || body.prcLicenseNumber || '').trim(),
+      prcLicenseNumber: String(body.prcLicenseNumber || body.licenseNumber || '').trim(),
+      prcExpirationDate: body.prcExpirationDate || null,
+      prcIdFileUrl: prcUpload?.secure_url || body.prcIdFileUrl || '',
       photoUrl: photoUpload?.secure_url || body.photoUrl || '',
     };
+    delete doctorData.prcIdFileData;
+    delete doctorData.prcIdFile;
+    delete doctorData.prcIdFileName;
 
     if (!doctorData.userId) {
       delete doctorData.userId;
@@ -302,6 +316,29 @@ export const updateDoctor = async (req, res) => {
       });
       updates.photoUrl = photoUpload?.secure_url || updates.photoUrl || '';
     }
+    if (cleanedBody.prcIdFileData || cleanedBody.prcIdFile) {
+      const prcUpload = await uploadToCloudinary(
+        cleanedBody.prcIdFileData || cleanedBody.prcIdFile,
+        {
+          folder: 'drmeet/doctors/licenses',
+          resource_type: 'auto',
+        },
+      );
+      updates.prcIdFileUrl = prcUpload?.secure_url || updates.prcIdFileUrl || '';
+    }
+    if ('prcLicenseNumber' in cleanedBody || 'licenseNumber' in cleanedBody) {
+      const license = String(
+        cleanedBody.prcLicenseNumber || cleanedBody.licenseNumber || '',
+      ).trim();
+      updates.prcLicenseNumber = license;
+      updates.licenseNumber = license;
+    }
+    if ('prcExpirationDate' in cleanedBody) {
+      updates.prcExpirationDate = cleanedBody.prcExpirationDate || null;
+    }
+    delete updates.prcIdFileData;
+    delete updates.prcIdFile;
+    delete updates.prcIdFileName;
     if (role === 'doctor') {
       const mine = await findDoctorByUserId(uid);
       if (!mine || String(mine._id) !== String(id)) {
