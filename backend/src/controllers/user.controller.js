@@ -11,6 +11,7 @@ import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service
 import { findDoctorByUserId } from '../services/doctor.service.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
 import Doctor from '../models/doctor.model.js';
+import { uploadToCloudinary } from '../services/cloudinary.service.js';
 
 function csvEscape(val) {
     const s = String(val ?? '');
@@ -186,12 +187,27 @@ export const postUser = async (req, res) => {
  */
 export const updateUser = async (req, res) => {
     const { id } = req.params;
-    const updates = sanitizeInput(req.body || {});
+    const requesterId = String(req.user?._id || req.user?.id || '');
+    const requesterRole = String(req.user?.role || '').toLowerCase();
+    if (requesterRole !== 'admin' && requesterId !== String(id)) {
+        return res.status(403).json({ error: 'Forbidden.' });
+    }
+    const cleaned = sanitizeInput(req.body || {});
+    const updates = { ...cleaned };
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid user ID format.' });
     }
 
     try {
+        if (cleaned.pictureFileData) {
+            const photoUpload = await uploadToCloudinary(cleaned.pictureFileData, {
+                folder: 'drmeet/users',
+                resource_type: 'image',
+            });
+            updates.picture = photoUpload.secure_url;
+        }
+        delete updates.pictureFileData;
+
         const updatedUser = await updateUserByIdService(id, updates);
         if (!updatedUser) {
             return res.status(404).json({ error: 'User not found. ' });

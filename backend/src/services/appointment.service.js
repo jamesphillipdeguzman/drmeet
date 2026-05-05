@@ -27,7 +27,7 @@ async function withPatientMeta(appointments = []) {
   if (!patientIds.length) return appointments;
 
   const patientDocs = await Patient.find({ _id: { $in: patientIds } })
-    .select("firstName lastName")
+    .select("firstName lastName photoUrl")
     .lean();
   const patientLookup = new Map(
     patientDocs.map((p) => {
@@ -37,6 +37,7 @@ async function withPatientMeta(appointments = []) {
         {
           name: fullName || "Unknown Patient",
           title: fullName ? toTitleCase(p.firstName || "") : "",
+          photoUrl: String(p.photoUrl || "").trim(),
         },
       ];
     }),

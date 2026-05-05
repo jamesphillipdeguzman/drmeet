@@ -123,6 +123,17 @@ function mergeAppointmentBilling(prev, body = {}) {
   const svcSum = (out.serviceLines || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
   out.totalAmount = fee + svcSum;
 
+  const method = String(out.paymentMethod || "").trim();
+  if (method !== "HMO Coverage" && method !== "HMO Co-pay") {
+    out.hmoProvider = "";
+    out.hmoMemberId = "";
+    out.hmoCoverageStatus = "";
+    out.hmoPreAuthorization = "";
+    out.hmoClaimStatus = "";
+    out.hmoCoveredAmount = 0;
+    out.hmoPatientCopay = 0;
+  }
+
   return out;
 }
 
@@ -527,8 +538,15 @@ export const patchDoctorAppointmentBilling = async (req, res) => {
 
     const body = sanitizeInput(req.body || {});
     const prev = plainBillingDoc(apptCtx.appt.billing);
+    const payMethod = String(body.paymentMethod ?? prev.paymentMethod ?? "").trim();
+    const hmoBilling =
+      payMethod === "HMO Coverage" || payMethod === "HMO Co-pay";
 
-    if (body.hmoProvider && !PHILIPPINES_HMO_PROVIDERS.includes(body.hmoProvider)) {
+    if (
+      hmoBilling &&
+      body.hmoProvider &&
+      !PHILIPPINES_HMO_PROVIDERS.includes(body.hmoProvider)
+    ) {
       return res.status(400).json({
         error: "Select a valid HMO / payer from the Philippines providers list.",
       });

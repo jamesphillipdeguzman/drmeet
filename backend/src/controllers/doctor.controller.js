@@ -248,6 +248,7 @@ export const postDoctor = async (req, res) => {
           email: newDoctor.email || '',
           phone: newDoctor.phone || '',
           specialty: newDoctor.specialty || '',
+          ...(newDoctor.photoUrl ? { picture: newDoctor.photoUrl } : {}),
           ...(newDoctor.title ? { title: newDoctor.title } : {}),
         },
         { new: true },
@@ -324,6 +325,9 @@ export const updateDoctor = async (req, res) => {
           email: updatedDoctor.email || '',
           phone: updatedDoctor.phone || '',
           specialty: updatedDoctor.specialty || '',
+          ...(updatedDoctor.photoUrl
+            ? { picture: updatedDoctor.photoUrl }
+            : {}),
           ...(updatedDoctor.title ? { title: updatedDoctor.title } : {}),
         },
         { new: true },

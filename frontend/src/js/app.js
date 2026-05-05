@@ -135,133 +135,91 @@ const googleAuthState = {
   inProgress: false,
 };
 let sidebarClockIntervalId = null;
-const DOCTOR_SPECIALTIES = [
-  "Family Medicine",
-  "Fam Med",
-  "General Practice",
-  "GP",
-  "Internal Medicine",
-  "IM",
-  "Internist",
-  "Pediatrics",
-  "Pedia",
-  "Emergency Medicine",
-  "ER",
-  "Geriatric Medicine",
-  "Geriatrics",
-  "Cardiology",
-  "Cardio",
-  "Endocrinology, Diabetes & Metabolism",
-  "Endocrinology",
-  "Gastroenterology",
-  "GI",
-  "Hepatology",
-  "Liver Specialist",
-  "Infectious Diseases",
-  "ID",
-  "Nephrology",
-  "Kidney Specialist",
-  "Pulmonology",
-  "Pulmo",
-  "Rheumatology",
-  "Rheuma",
-  "Allergy & Immunology",
-  "Allergist",
-  "Hematology",
-  "Hema",
-  "Medical Oncology",
-  "Onco",
-  "Clinical Pharmacology",
-  "General Surgery",
-  "GS",
-  "Colorectal Surgery",
-  "Hepatobiliary & Pancreatic Surgery",
-  "HPB Surgery",
-  "Breast Surgery",
-  "Minimally Invasive / Laparoscopic Surgery",
-  "MIS",
-  "Orthopedic Surgery",
-  "Ortho",
-  "Neurosurgery",
-  "Neuro Surgery",
-  "Cardiothoracic Surgery",
-  "CTS",
-  "Vascular Surgery",
-  "Plastic & Reconstructive Surgery",
-  "Plastic Surgery",
-  "Hand Surgery",
-  "Urology",
-  "Uro",
-  "Obstetrics and Gynecology",
-  "OB-GYN",
-  "OB",
-  "Maternal-Fetal Medicine",
-  "High-Risk Pregnancy",
-  "Reproductive Endocrinology & Infertility",
-  "Fertility Specialist",
-  "Gynecologic Oncology",
-  "Gyne Onco",
-  "Urogynecology",
-  "Neonatology",
-  "NICU",
-  "Pediatric Cardiology",
-  "Pediatric Pulmonology",
-  "Pediatric Nephrology",
-  "Pediatric Gastroenterology",
-  "Pediatric Endocrinology",
-  "Pediatric Hematology-Oncology",
-  "Pedia Onco",
-  "Pediatric Infectious Diseases",
-  "Pediatric Neurology",
-  "Developmental & Behavioral Pediatrics",
-  "Dev Peds",
-  "Neurology",
-  "Neuro",
-  "Psychiatry",
-  "Psych",
-  "Child & Adolescent Psychiatry",
-  "Addiction Medicine",
-  "Ophthalmology",
-  "Eye Specialist",
-  "Otolaryngology – Head and Neck Surgery",
-  "ENT",
-  "Dermatology",
-  "Derma",
-  "Cosmetic Dermatology / Aesthetic Medicine",
-  "Aesthetic",
-  "Radiology",
-  "Diagnostic Radiology",
-  "Interventional Radiology",
-  "IR",
-  "Pathology",
-  "Lab Medicine",
-  "Nuclear Medicine",
-  "Anesthesiology",
-  "Anesthesia",
-  "Physical Medicine & Rehabilitation",
-  "Physiatry",
-  "Rehab Med",
-  "Pain Medicine",
-  "Pain Management",
-  "Palliative Medicine",
-  "Hospice Care",
-  "Occupational Medicine",
-  "Occ Med",
-  "Sports Medicine",
-  "Lifestyle Medicine",
-  "Preventive Medicine",
-  "Physical Therapy",
-  "PT",
-  "Occupational Therapy",
-  "OT",
-  "Speech-Language Pathology",
-  "Speech Therapy",
-  "Clinical Psychology",
-  "Nutrition & Dietetics",
-  "Dietitian",
-  "Respiratory Therapy",
-  "RT",
-];
+
+let doctorSpecialtiesPromise = null;
+async function ensureDoctorSpecialtiesLoaded() {
+  if (!doctorSpecialtiesPromise) {
+    doctorSpecialtiesPromise = fetch("data/doctor-specialties.json")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((arr) => {
+        window.__DRMEET_DOCTOR_SPECIALTIES__ = Array.isArray(arr) ? arr : [];
+        return window.__DRMEET_DOCTOR_SPECIALTIES__;
+      })
+      .catch(() => {
+        window.__DRMEET_DOCTOR_SPECIALTIES__ = [];
+        return [];
+      });
+  }
+  return doctorSpecialtiesPromise;
+}
+
+function getDoctorSpecialties() {
+  return window.__DRMEET_DOCTOR_SPECIALTIES__ || [];
+}
+
+let avatarPresetsPromise = null;
+async function ensureAvatarPresetsLoaded() {
+  if (!avatarPresetsPromise) {
+    avatarPresetsPromise = fetch("data/avatar-presets.json")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data) => {
+        window.__DRMEET_AVATAR_PRESETS__ =
+          data && typeof data === "object" ? data : {};
+        return window.__DRMEET_AVATAR_PRESETS__;
+      })
+      .catch(() => {
+        window.__DRMEET_AVATAR_PRESETS__ = {};
+        return {};
+      });
+  }
+  return avatarPresetsPromise;
+}
+
+function isAllowedPresetImageUrl(url) {
+  const s = String(url || "").trim();
+  return /^images\/[a-zA-Z0-9._-]+\.(webp|png|jpg|jpeg|svg)$/i.test(s);
+}
+
+function buildAvatarPresetGridHtml(role) {
+  const key = role === "doctor" ? "doctor" : "patient";
+  const presets = window.__DRMEET_AVATAR_PRESETS__?.[key];
+  if (!Array.isArray(presets) || !presets.length) return "";
+  const chips = presets
+    .filter((u) => isAllowedPresetImageUrl(u))
+    .map(
+      (src) =>
+        `<button type="button" class="avatar-preset-btn" data-preset-url="${escapeHtml(src)}" title="Use this avatar" aria-label="Use preset avatar"><img src="${escapeHtml(src)}" alt="" /></button>`,
+    )
+    .join("");
+  if (!chips) return "";
+  return `<div class="avatar-preset-wrap"><span class="avatar-preset-label">Or choose a preset avatar</span><div class="avatar-preset-grid">${chips}</div><input type="hidden" name="presetPhotoUrl" value="" /></div>`;
+}
+
+function wireAvatarPresetGrid(root, fileInput) {
+  const hidden = root.querySelector('input[name="presetPhotoUrl"]');
+  root.querySelectorAll(".avatar-preset-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const url = btn.getAttribute("data-preset-url") || "";
+      if (!isAllowedPresetImageUrl(url)) return;
+      root.querySelectorAll(".avatar-preset-btn").forEach((b) =>
+        b.classList.remove("is-selected"),
+      );
+      btn.classList.add("is-selected");
+      if (hidden) hidden.value = url;
+      if (fileInput) fileInput.value = "";
+    });
+  });
+  if (fileInput) {
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files?.[0]) {
+        if (hidden) hidden.value = "";
+        root.querySelectorAll(".avatar-preset-btn").forEach((b) =>
+          b.classList.remove("is-selected"),
+        );
+      }
+    });
+  }
+}
 
 function normalizeFetchErrorMessage(err, fallbackMessage) {
   if (window.DrMeetUtils?.normalizeFetchErrorMessage) {
@@ -494,6 +452,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupShellInteractions();
   setupCommandPalette();
   checkAuthStatus();
+  void ensureDoctorSpecialtiesLoaded();
   updateAuthNav();
   renderPage();
   window.addEventListener("message", handleGoogleAuthMessage);
@@ -504,7 +463,10 @@ function setupShellInteractions() {
   sidebarToggle.addEventListener("click", () => {
     sidebar.classList.toggle("collapsed");
   });
-  sidebarUserTrigger?.addEventListener("click", () => {});
+  sidebarUserTrigger?.addEventListener("click", (e) => {
+    e.preventDefault();
+    sidebarUserPopover?.classList.toggle("hidden");
+  });
   sidebarLogoutBtn?.addEventListener("click", () => {
     if (window.__drmeetMessagePoll) {
       clearInterval(window.__drmeetMessagePoll);
@@ -515,7 +477,7 @@ function setupShellInteractions() {
     clearSessionExpiredState();
     resetMessagingSocket();
     updateAuthNav();
-    if (sidebarUserPopover) sidebarUserPopover.classList.remove("hidden");
+    if (sidebarUserPopover) sidebarUserPopover.classList.add("hidden");
     window.location.hash = "#login";
     renderLogin();
   });
@@ -844,7 +806,7 @@ async function refreshCurrentUserCacheFromApi() {
         role: user?.role || "",
         linkedDoctorId: user?.linkedDoctorId || "",
         receptionistType: user?.receptionistType || "",
-        photoUrl: user?.photoUrl || "",
+        photoUrl: user?.picture || user?.photoUrl || "",
         cachedAt: Date.now(),
       }),
     );
@@ -1919,6 +1881,12 @@ async function showClinicalTab(tab) {
           ? formatPatientDisplayName(a.patientId) ||
             String(a.patientId?.name || "Patient")
           : "Patient";
+      const patientPhoto = (a) => {
+        const o = a.patientId;
+        if (typeof o === "object" && o?.photoUrl)
+          return String(o.photoUrl).trim();
+        return "";
+      };
 
       panel.innerHTML = `
         <section class="card">
@@ -1948,9 +1916,12 @@ async function showClinicalTab(tab) {
                           const dt = a.date
                             ? escapeHtml(new Date(a.date).toLocaleString())
                             : "—";
+                          const pimg = escapeHtml(
+                            patientPhoto(a) || DEFAULT_AVATAR_URL,
+                          );
                           return `<tr>
                     <td>${dt}</td>
-                    <td>${escapeHtml(pname(a))}</td>
+                    <td class="clinical-billing-patient-cell"><span class="clinical-billing-patient-identity"><img class="clinical-billing-patient-avatar" src="${pimg}" alt="" width="32" height="32" />${escapeHtml(pname(a))}</span></td>
                     <td>${escapeHtml(String(b.consultationFee ?? 0))}</td>
                     <td>${escapeHtml(String(b.totalAmount ?? 0))}</td>
                     <td>${escapeHtml(String(b.paymentStatus || "unpaid"))}</td>
@@ -2135,7 +2106,7 @@ async function showClinicalTab(tab) {
                 </select>
               </label>
               <label class="clinical-upload-inline">Attach PDF or image
-                <input type="file" id="clinical-billing-doc-input" data-billing-doc-kind accept=".pdf,.png,.jpg,.jpeg,.webp" />
+                <input type="file" id="clinical-billing-doc-input" data-billing-doc-kind accept=".pdf,.png,.jpg,.jpeg,.webp,image/*" />
               </label>
               <button type="button" class="btn btn-secondary btn-sm" id="clinical-billing-upload-btn">Upload attachment</button>
               <div class="clinical-billing-actions">
@@ -2217,6 +2188,7 @@ async function showClinicalTab(tab) {
                     await getApiErrorMessage(resUp, "Upload failed."),
                   );
                 showToast("Document uploaded.");
+                if (input) input.value = "";
                 dlg.close();
                 await showClinicalTab("billing");
               } catch (err) {
@@ -2224,11 +2196,7 @@ async function showClinicalTab(tab) {
               }
             };
             reader.readAsDataURL(file);
-            if (input) input.value = "";
           };
-        dlg
-          .querySelector("#clinical-billing-doc-input")
-          ?.addEventListener("change", uploadBillingAttachment);
         dlg
           .querySelector("#clinical-billing-upload-btn")
           ?.addEventListener("click", uploadBillingAttachment);
@@ -2237,19 +2205,21 @@ async function showClinicalTab(tab) {
           .querySelector("#clinical-billing-form")
           ?.addEventListener("submit", async (ev) => {
             ev.preventDefault();
-            const submitBtn = ev.target.querySelector('button[type="submit"]');
+            const formEl = ev.currentTarget;
+            const submitBtn = formEl.querySelector('button[type="submit"]');
             if (submitBtn?.dataset.saving === "1") return;
             if (submitBtn) {
               submitBtn.dataset.saving = "1";
               submitBtn.disabled = true;
             }
-            const fd = new FormData(ev.target);
+            const fd = new FormData(formEl);
             const serviceLines = [];
             for (let i = 0; i < 4; i++) {
               const d = String(fd.get(`svc_desc_${i}`) || "").trim();
               const amt = Number(fd.get(`svc_amt_${i}`)) || 0;
               if (d || amt) serviceLines.push({ description: d, amount: amt });
             }
+            const methodForSave = String(fd.get("paymentMethod") || "").trim();
             const body = {
               consultationFee: Number(fd.get("consultationFee")) || 0,
               serviceLines,
@@ -2264,6 +2234,15 @@ async function showClinicalTab(tab) {
               hmoCoveredAmount: Number(fd.get("hmoCoveredAmount")) || 0,
               hmoPatientCopay: Number(fd.get("hmoPatientCopay")) || 0,
             };
+            if (!CLINICAL_HMO_PAYMENT_METHODS.has(methodForSave)) {
+              body.hmoProvider = "";
+              body.hmoMemberId = "";
+              body.hmoCoverageStatus = "";
+              body.hmoPreAuthorization = "";
+              body.hmoClaimStatus = "";
+              body.hmoCoveredAmount = 0;
+              body.hmoPatientCopay = 0;
+            }
             try {
               const resP = await apiRequest(
                 `${API_BASE}/doctors/me/appointments/${appt._id}/billing`,
@@ -2370,7 +2349,7 @@ function renderPage() {
       renderDoctorDashboard();
       break;
     case "#settings":
-      renderSettings();
+      void renderSettings();
       break;
     case "#privacy":
       renderPrivacy();
@@ -2394,7 +2373,7 @@ function renderPage() {
       renderLogin();
       break;
     case "#signup":
-      renderSignup();
+      void renderSignup();
       break;
     case "#book":
       renderPatientBooking();
@@ -2415,12 +2394,13 @@ function setPageTone(kind) {
   if (kind) mainContent.classList.add(`page-tone-${kind}`);
 }
 
-function renderSettings() {
+async function renderSettings() {
   setPageTone("");
   if (!isLoggedIn()) {
     mainContent.innerHTML = `<div class="feedback error">Please log in to view settings.</div>`;
     return;
   }
+  await ensureAvatarPresetsLoaded();
   let cache = {};
   try {
     cache = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
@@ -2428,12 +2408,23 @@ function renderSettings() {
     cache = {};
   }
   const theme = localStorage.getItem(THEME_KEY) || "light";
+  const presetRole = getCurrentUserRole() === "doctor" ? "doctor" : "patient";
   mainContent.innerHTML = `
     <h2 class="page-title">Settings</h2>
     <section class="card">
       <h3>Profile</h3>
       <p><strong>Name:</strong> ${escapeHtml(`${cache.firstName || ""} ${cache.lastName || ""}`.trim() || "—")}</p>
       <p><strong>Role:</strong> ${escapeHtml(String(cache.role || "—"))}</p>
+    </section>
+    <section class="card settings-profile-card">
+      <h3>Profile photo</h3>
+      <p class="signup-lead">Pick a preset (${presetRole === "doctor" ? "doctor" : "patient"} library) or upload your own image.</p>
+      ${buildAvatarPresetGridHtml(presetRole)}
+      <label>Upload custom image
+        <input type="file" id="settings-profile-photo-file" accept="image/*" />
+      </label>
+      <button type="button" class="btn btn-primary" id="settings-save-profile-photo">Save profile photo</button>
+      <p id="settings-profile-photo-feedback" class="feedback" style="display:none" role="status"></p>
     </section>
     <section class="card">
       <h3>Preferences</h3>
@@ -2450,6 +2441,55 @@ function renderSettings() {
       <label><input type="checkbox" id="settings-notify-email" disabled /> Email reminders (coming soon)</label>
     </section>
   `;
+  const profCard = mainContent.querySelector(".settings-profile-card");
+  const settingsFileInput = document.getElementById("settings-profile-photo-file");
+  if (profCard && settingsFileInput) {
+    wireAvatarPresetGrid(profCard, settingsFileInput);
+  }
+  document
+    .getElementById("settings-save-profile-photo")
+    ?.addEventListener("click", async () => {
+      const uid = getCurrentUserId();
+      if (!uid) return;
+      const fb = document.getElementById("settings-profile-photo-feedback");
+      const preset = String(
+        profCard?.querySelector('[name="presetPhotoUrl"]')?.value || "",
+      ).trim();
+      const file = settingsFileInput?.files?.[0];
+      try {
+        const body = {};
+        if (file) {
+          body.pictureFileData = await fileToDataUrl(file);
+        } else if (preset && isAllowedPresetImageUrl(preset)) {
+          body.picture = preset;
+        } else {
+          showToast("Choose a preset or an image file.", "error");
+          return;
+        }
+        const res = await apiRequest(`${API_BASE}/users/${uid}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (!res.ok)
+          throw new Error(await getApiErrorMessage(res, "Unable to save photo."));
+        await refreshCurrentUserCacheFromApi();
+        updateSidebarAccountInfo();
+        if (fb) {
+          fb.style.display = "block";
+          fb.className = "feedback success";
+          fb.textContent = "Profile photo updated.";
+        }
+        showToast("Profile photo saved.");
+      } catch (err) {
+        showToast(err?.message || "Unable to save profile photo.", "error");
+        if (fb) {
+          fb.style.display = "block";
+          fb.className = "feedback error";
+          fb.textContent = err?.message || "Save failed.";
+        }
+      }
+    });
   const sel = document.getElementById("settings-theme");
   if (sel) {
     sel.value = theme === "dark" ? "dark" : "light";
@@ -2582,7 +2622,7 @@ function renderHome() {
     ?.addEventListener("click", () => {
       if (!isLoggedIn()) {
         window.location.hash = "#signup?role=doctor";
-        renderSignup();
+        void renderSignup();
         return;
       }
       window.location.hash = "#doctors";
@@ -2593,7 +2633,7 @@ function renderHome() {
     ?.addEventListener("click", () => {
       if (!isLoggedIn()) {
         window.location.hash = "#signup?role=patient";
-        renderSignup();
+        void renderSignup();
         return;
       }
       window.location.hash = "#book";
@@ -3222,10 +3262,10 @@ function updateAuthNav() {
     sidebarUserMenu.style.display = signedIn ? "" : "none";
   }
   if (sidebarUserPopover) {
-    sidebarUserPopover.classList.remove("hidden");
+    sidebarUserPopover.classList.add("hidden");
   }
   if (sidebarUserTrigger) {
-    sidebarUserTrigger.style.display = signedIn ? "none" : "";
+    sidebarUserTrigger.style.display = signedIn ? "" : "none";
   }
   updateSidebarAccountInfo();
   if (sidebarClockIntervalId) {
@@ -3351,7 +3391,8 @@ function renderLogin() {
   };
 }
 
-function renderSignup() {
+async function renderSignup() {
+  await ensureDoctorSpecialtiesLoaded();
   setPageTone("");
   if (isLoggedIn()) {
     mainContent.innerHTML = `<div class="feedback success">You are already logged in.</div>`;
@@ -3395,7 +3436,7 @@ function renderSignup() {
         selectedRole === "doctor"
           ? `<label><span class="label-text-row" data-tooltip="Set the primary board-certified specialty used for profile matching.">Primary Specialty</span><input name="specialty" list="doctor-specialties-signup" required placeholder="e.g. Cardiology" /></label>
              <datalist id="doctor-specialties-signup">
-               ${[...new Set(DOCTOR_SPECIALTIES)].map((s) => `<option value="${s}"></option>`).join("")}
+               ${[...new Set(getDoctorSpecialties())].map((s) => `<option value="${s}"></option>`).join("")}
              </datalist>`
           : ""
       }
@@ -4146,6 +4187,7 @@ async function showPatientForm(editId = null, familyMode = false) {
   const role = getCurrentUserRole();
   const canAttachExisting =
     !editId && (role === "doctor" || role === "receptionist");
+  await ensureAvatarPresetsLoaded();
   modal.style.display = "block";
   const staffRole =
     role === "doctor" || role === "receptionist" || role === "admin";
@@ -4209,6 +4251,7 @@ async function showPatientForm(editId = null, familyMode = false) {
       <label>Profile Photo
         <input name="profilePhotoFile" type="file" accept="image/*" />
       </label>
+      ${buildAvatarPresetGridHtml("patient")}
       ${familyMode ? `<label>Relationship to Account Holder <input name="relationshipToAccountHolder" required placeholder="e.g. Son, Daughter, Spouse" /></label>` : ""}
       <label>Notes <textarea name="notes" placeholder="Medical notes or reminders"></textarea></label>
       <label>Medical History
@@ -4231,6 +4274,7 @@ async function showPatientForm(editId = null, familyMode = false) {
   });
 
   const form = document.getElementById("patient-form");
+  wireAvatarPresetGrid(form, form?.querySelector('[name="profilePhotoFile"]'));
   const insuredCb = document.getElementById("patient-is-insured");
   const hmoWrap = document.getElementById("patient-hmo-wrap");
   const hmoSelect = document.getElementById("patient-hmo-select");
@@ -4372,6 +4416,16 @@ async function showPatientForm(editId = null, familyMode = false) {
     const profilePhotoFile = form.profilePhotoFile?.files?.[0];
     if (profilePhotoFile) {
       patient.photoFileData = await fileToDataUrl(profilePhotoFile);
+    }
+    const presetPatientPhoto = String(
+      form.querySelector('[name="presetPhotoUrl"]')?.value || "",
+    ).trim();
+    if (
+      presetPatientPhoto &&
+      isAllowedPresetImageUrl(presetPatientPhoto) &&
+      !profilePhotoFile
+    ) {
+      patient.photoUrl = presetPatientPhoto;
     }
     if (familyMode) {
       patient.relationshipToAccountHolder = String(
@@ -4875,6 +4929,8 @@ async function renderDoctors() {
 
 async function showDoctorForm(editId = null) {
   const modal = document.getElementById("doctor-form-modal");
+  await ensureDoctorSpecialtiesLoaded();
+  await ensureAvatarPresetsLoaded();
   modal.style.display = "block";
 
   modal.innerHTML = `
@@ -4897,7 +4953,7 @@ async function showDoctorForm(editId = null) {
       <label>Email <input name="email" type="email" required /></label>
       <label><span class="label-text-row" data-tooltip="Set the primary board-certified specialty used for grouping and scheduling.">Primary Specialty</span><input name="specialty" list="doctor-specialties" required /></label>
       <datalist id="doctor-specialties">
-        ${[...new Set(DOCTOR_SPECIALTIES)].map((s) => `<option value="${s}"></option>`).join("")}
+        ${[...new Set(getDoctorSpecialties())].map((s) => `<option value="${s}"></option>`).join("")}
       </datalist>
       <label>Bio <textarea name="bio" placeholder="Short profile"></textarea></label>
       <label>Availability Rules (one per line)
@@ -4931,6 +4987,7 @@ async function showDoctorForm(editId = null) {
       <label>Profile Photo
         <input name="photoFile" type="file" accept="image/*" />
       </label>
+      ${buildAvatarPresetGridHtml("doctor")}
       <div id="doctor-photo-preview" class="feedback" style="display:none"></div>
       <div class="modal-form-actions">
         <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
@@ -4946,6 +5003,7 @@ async function showDoctorForm(editId = null) {
   });
 
   const form = document.getElementById("doctor-form");
+  wireAvatarPresetGrid(form, form?.querySelector('[name="photoFile"]'));
 
   addInlineTooltips(form);
   attachClearButtons(form);
@@ -5012,6 +5070,16 @@ async function showDoctorForm(editId = null) {
     const photoFile = form.photoFile?.files?.[0];
     if (photoFile) {
       doctor.photoFileData = await fileToDataUrl(photoFile);
+    }
+    const presetDoctorPhoto = String(
+      form.querySelector('[name="presetPhotoUrl"]')?.value || "",
+    ).trim();
+    if (
+      presetDoctorPhoto &&
+      isAllowedPresetImageUrl(presetDoctorPhoto) &&
+      !photoFile
+    ) {
+      doctor.photoUrl = presetDoctorPhoto;
     }
     const availability = (doctor.availabilityText || "")
       .split("\n")
@@ -5743,7 +5811,8 @@ async function renderUsers() {
   }
 }
 
-function showUserForm(editId = null) {
+async function showUserForm(editId = null) {
+  await ensureDoctorSpecialtiesLoaded();
   const modal = document.getElementById("user-form-modal");
   modal.style.display = "block";
   modal.innerHTML = `
@@ -5781,7 +5850,7 @@ function showUserForm(editId = null) {
       </label>
       <label id="user-specialty-wrap">Specialty <input name="specialty" list="doctor-specialties-user" placeholder="Used when role is doctor" /></label>
       <datalist id="doctor-specialties-user">
-        ${[...new Set(DOCTOR_SPECIALTIES)].map((s) => `<option value="${s}"></option>`).join("")}
+        ${[...new Set(getDoctorSpecialties())].map((s) => `<option value="${s}"></option>`).join("")}
       </datalist>
       <label>Phone
         <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />

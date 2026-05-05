@@ -495,6 +495,7 @@ export const postPatient = async (req, res) => {
           lastName: newPatient.lastName || '',
           email: newPatient.email || '',
           phone: newPatient.phone || '',
+          ...(newPatient.photoUrl ? { picture: newPatient.photoUrl } : {}),
         },
         { new: true },
       );
@@ -616,6 +617,9 @@ export const updatePatient = async (req, res) => {
           lastName: updatedPatient.lastName || '',
           email: updatedPatient.email || '',
           phone: updatedPatient.phone || '',
+          ...(updatedPatient.photoUrl
+            ? { picture: updatedPatient.photoUrl }
+            : {}),
         },
         { new: true },
       );

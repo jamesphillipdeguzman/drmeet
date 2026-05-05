@@ -98,6 +98,7 @@ body {
 .sidebar-avatar-circle {
   width: 30px;
   height: 30px;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -117,7 +118,7 @@ body {
 }
 
 .sidebar-avatar-btn:hover .sidebar-avatar-circle.has-photo {
-  transform: scale(1.25);
+  transform: none;
 }
 
 .sidebar-avatar-name {
@@ -1968,6 +1969,63 @@ body.theme-dark .clinical-dash-tabs {
   background: linear-gradient(180deg, #1f4a99 0%, #183a7a 100%);
   color: #fff;
   border-color: #183a7a;
+}
+.clinical-dashboard .clinical-tab:hover,
+.clinical-dashboard .clinical-tab-active:hover {
+  color: #0a0a0a;
+}
+.clinical-dashboard .btn:hover {
+  color: #0a0a0a;
+}
+.clinical-billing-patient-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.clinical-billing-patient-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.avatar-preset-wrap {
+  margin: 0.45rem 0 0.35rem;
+}
+.avatar-preset-label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: #4a5f85;
+}
+body.theme-dark .avatar-preset-label {
+  color: #b8c8e6;
+}
+.avatar-preset-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.avatar-preset-btn {
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+}
+.avatar-preset-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.avatar-preset-btn.is-selected {
+  border-color: #3d6fb8;
+  box-shadow: 0 0 0 1px rgba(61, 111, 184, 0.35);
 }
 .clinical-tab-panel {
   min-height: 160px;
