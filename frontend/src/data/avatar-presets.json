@@ -1,0 +1,26 @@
+{
+  "patient": [
+    "images/patient-babyboy.webp",
+    "images/patient-babygirl.webp",
+    "images/patient-boy.webp",
+    "images/patient-girl.webp",
+    "images/patient-man.webp",
+    "images/patient-woman.webp",
+    "images/patient-grandma.webp",
+    "images/patient-grandpa.webp"
+  ],
+  "doctor": [
+    "images/male-doc1.webp",
+    "images/male-doc2.webp",
+    "images/male-doc3.webp",
+    "images/male-doc4.webp",
+    "images/male-doctor-avatar.webp",
+    "images/female-doc1.webp",
+    "images/female-doc2.webp",
+    "images/female-doc3.webp",
+    "images/female-doc4.webp",
+    "images/female-doc5.webp",
+    "images/female-doc6.webp",
+    "images/female-doctor-avatar.webp"
+  ]
+}
