@@ -5,7 +5,7 @@ import http from 'http';
 import jwt from 'jsonwebtoken';
 import { Server as SocketIOServer } from 'socket.io';
 
-import connectDB from './src/db/mongoose.js';
+import connectDB, { isDatabaseConnected } from './src/db/mongoose.js';
 import { app } from './app.js';
 import './src/models/billing.model.js';
 import './src/models/payment.model.js';
@@ -24,7 +24,17 @@ const PORT = process.env.PORT || 3001;
 
 const startServer = async () => {
   try {
-    await connectDB();
+    const dbResult = await connectDB();
+    if (!dbResult.ok) {
+      console.warn(
+        '[DrMeet] MongoDB is not reachable — HTTP server will still start in degraded mode. API routes that use the database will fail until MONGO_URI is correct and Atlas accepts connections.',
+      );
+      if (dbResult.error?.message) {
+        console.warn('[DrMeet] Last connection error:', dbResult.error.message);
+      }
+    } else {
+      console.log('[DrMeet] MongoDB connection ready.');
+    }
 
     const httpServer = http.createServer(app);
     const clientOrigin = process.env.CLIENT_ORIGIN || '*';
@@ -160,10 +170,15 @@ const startServer = async () => {
 
     httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+      if (!isDatabaseConnected()) {
+        console.warn(
+          `[DrMeet] Health tip: fix MONGO_URI (Atlas mongodb+srv://…), whitelist 0.0.0.0/0 in Network Access, and confirm the cluster is not paused.`,
+        );
+      }
     });
   } catch (error) {
-    console.error('Error connecting to the database', error);
-    process.exit(1); // Exit with error
+    console.error('[DrMeet] Fatal startup error:', error);
+    process.exit(1);
   }
 };
 

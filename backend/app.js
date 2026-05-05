@@ -28,13 +28,21 @@ const defaultClientOrigin = 'https://mydrmeet.netlify.app';
 const envClientOrigin = process.env.CLIENT_ORIGIN || defaultClientOrigin;
 const allowedOrigins = [defaultClientOrigin, envClientOrigin].filter(Boolean);
 const mongoUri = process.env.MONGO_URI;
-
+const mongoSrv =
+  typeof mongoUri === 'string' && mongoUri.trim().startsWith('mongodb+srv://');
 console.log('ENV:', {
   CLIENT_ORIGIN: process.env.CLIENT_ORIGIN,
   SESSION_SECRET: !!process.env.SESSION_SECRET,
   RESEND_API_KEY: !!process.env.RESEND_API_KEY,
   NODE_ENV: process.env.NODE_ENV,
+  MONGO_URI_SET: Boolean(mongoUri && String(mongoUri).trim()),
+  MONGO_URI_USES_SRV: mongoSrv,
 });
+if (!mongoUri || !String(mongoUri).trim()) {
+  console.warn(
+    '[DrMeet] MONGO_URI is not set — set it in Render → Environment or backend/.env (mongodb+srv:// for Atlas).',
+  );
+}
 
 // ========================
 // CORS

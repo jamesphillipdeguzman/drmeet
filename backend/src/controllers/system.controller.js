@@ -1,5 +1,4 @@
-import mongoose from 'mongoose';
-
+import { getMongoConnectionState, isDatabaseConnected } from '../db/mongoose.js';
 import { isCloudinaryConfigured } from '../config/cloudinary.js';
 
 export const getDiagnostics = async (req, res) => {
@@ -18,11 +17,10 @@ export const getDiagnostics = async (req, res) => {
       {
         key: 'mongodb_connected',
         label: 'MongoDB Connection',
-        status: mongoose.connection.readyState === 1 ? 'ok' : 'error',
-        details:
-          mongoose.connection.readyState === 1
-            ? 'Connected'
-            : `readyState=${mongoose.connection.readyState}`,
+        status: isDatabaseConnected() ? 'ok' : 'error',
+        details: isDatabaseConnected()
+          ? 'Connected'
+          : getMongoConnectionState().label,
       },
       {
         key: 'cloudinary_configured',

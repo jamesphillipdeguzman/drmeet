@@ -6,6 +6,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const backendEnvPath = path.resolve(__dirname, '../../.env');
 
 /**
+ * dotenv loads `backend/.env` for local development (MONGO_URI, JWT_SECRET, etc.).
+ * On Render, set `MONGO_URI` in the service → Environment tab (Atlas: full `mongodb+srv://…` string).
+ *
  * On Render, environment variables come from the dashboard — do not load any .env file.
  * A repo or build artifact .env with empty CLOUDINARY_* lines would otherwise sit in process.env
  * and block host-provided values (dotenv does not override by default, but an empty file can

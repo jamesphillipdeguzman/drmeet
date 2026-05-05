@@ -769,6 +769,15 @@ function cacheCurrentUserProfile() {
   if (!token) return;
   const payload = decodeJwtPayload(token);
   if (!payload) return;
+  let prev = {};
+  try {
+    prev = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
+  } catch (e) {
+    prev = {};
+  }
+  const jwtPhoto = String(payload?.photoUrl || payload?.picture || "").trim();
+  const prevPhoto = String(prev?.photoUrl || prev?.picture || "").trim();
+  const photoUrl = jwtPhoto || prevPhoto;
   localStorage.setItem(
     USER_CACHE_KEY,
     JSON.stringify({
@@ -778,8 +787,9 @@ function cacheCurrentUserProfile() {
       role: payload?.role || "",
       linkedDoctorId: payload?.linkedDoctorId || "",
       receptionistType: payload?.receptionistType || "",
-      photoUrl: payload?.photoUrl || payload?.picture || "",
-      cachedAt: Date.now(),
+      photoUrl,
+      picture: jwtPhoto ? payload?.picture || "" : prev?.picture || "",
+      cachedAt: prev.cachedAt || Date.now(),
     }),
   );
 }
@@ -802,6 +812,52 @@ function getCurrentUserPhotoUrl() {
   }
 }
 
+/**
+ * Raw profile image URL with a stable cache-bust query (updates when `cachedAt` changes).
+ * Avoids `Date.now()` here because `updateSidebarAccountInfo` runs on an interval.
+ */
+function getSidebarProfileImageSrc() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
+    const raw = String(cached?.photoUrl || cached?.picture || "").trim();
+    if (!raw) return "";
+    if (raw.startsWith("data:")) return raw;
+    const v = Number(cached?.cachedAt) || 0;
+    const sep = raw.includes("?") ? "&" : "?";
+    return `${raw}${sep}v=${v}`;
+  } catch (error) {
+    return "";
+  }
+}
+
+/** Merge a user object from API (e.g. PUT /users/:id) into local storage so UI updates before a follow-up GET. */
+function applyUserRecordToLocalCache(user) {
+  if (!user || typeof user !== "object") return;
+  try {
+    const prev = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
+    const id = user._id || prev._id;
+    if (!id) return;
+    const photo =
+      String(user.picture || user.photoUrl || prev.photoUrl || prev.picture || "").trim() ||
+      "";
+    const merged = {
+      ...prev,
+      _id: id,
+      firstName: user.firstName ?? prev.firstName ?? "",
+      lastName: user.lastName ?? prev.lastName ?? "",
+      role: user.role ?? prev.role ?? "",
+      linkedDoctorId: user.linkedDoctorId ?? prev.linkedDoctorId ?? "",
+      receptionistType: user.receptionistType ?? prev.receptionistType ?? "",
+      photoUrl: photo || prev.photoUrl || "",
+      picture: user.picture ?? prev.picture ?? "",
+      cachedAt: Date.now(),
+    };
+    localStorage.setItem(USER_CACHE_KEY, JSON.stringify(merged));
+  } catch (error) {
+    /* ignore */
+  }
+}
+
 async function refreshCurrentUserCacheFromApi() {
   const id = getCurrentUserId();
   if (!id) return;
@@ -809,6 +865,7 @@ async function refreshCurrentUserCacheFromApi() {
     const res = await apiRequest(`${API_BASE}/users/${id}`);
     if (!res.ok) return;
     const user = await res.json();
+    const photo = String(user?.picture || user?.photoUrl || "").trim();
     localStorage.setItem(
       USER_CACHE_KEY,
       JSON.stringify({
@@ -818,12 +875,13 @@ async function refreshCurrentUserCacheFromApi() {
         role: user?.role || "",
         linkedDoctorId: user?.linkedDoctorId || "",
         receptionistType: user?.receptionistType || "",
-        photoUrl: user?.picture || user?.photoUrl || "",
+        photoUrl: photo,
+        picture: user?.picture || "",
         cachedAt: Date.now(),
       }),
     );
   } catch (error) {
-    // non-blocking
+    // non-blocking — sidebar still correct if applyUserRecordToLocalCache ran after PUT
   }
 }
 
@@ -888,14 +946,17 @@ function updateSidebarAccountInfo() {
   const timeText = now.toLocaleTimeString("en-PH");
   const roleLabel = getSidebarRoleLabel(role);
   const initial = (fullName || role || "U").charAt(0).toUpperCase();
-  if (sidebarAvatarCircle) {
-    const photoUrl = getCurrentUserPhotoUrl();
-    if (signedIn && photoUrl) {
-      sidebarAvatarCircle.innerHTML = `<img src="${escapeHtml(photoUrl)}" alt="${escapeHtml(fullName || "User")} profile photo" />`;
-      sidebarAvatarCircle.classList.add("has-photo");
+  const avatarEl =
+    sidebarAvatarCircle ||
+    document.querySelector(".sidebar-avatar-circle");
+  if (avatarEl) {
+    const imgSrc = getSidebarProfileImageSrc();
+    if (signedIn && imgSrc) {
+      avatarEl.innerHTML = `<img src="${escapeHtml(imgSrc)}" alt="${escapeHtml(fullName || "User")} profile photo" />`;
+      avatarEl.classList.add("has-photo");
     } else {
-      sidebarAvatarCircle.textContent = signedIn ? initial : "U";
-      sidebarAvatarCircle.classList.remove("has-photo");
+      avatarEl.textContent = signedIn ? initial : "U";
+      avatarEl.classList.remove("has-photo");
     }
   }
   if (sidebarAvatarName)
@@ -2549,6 +2610,8 @@ async function renderSettings() {
         });
         if (!res.ok)
           throw new Error(await getApiErrorMessage(res, "Unable to save photo."));
+        const savedUser = await res.json();
+        applyUserRecordToLocalCache(savedUser);
         await refreshCurrentUserCacheFromApi();
         updateSidebarAccountInfo();
         if (fb) {
