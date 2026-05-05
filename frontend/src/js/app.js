@@ -1170,6 +1170,13 @@ function formatPatientDisplayName(p) {
   return `${t ? `${t} ` : ""}${name}`.trim();
 }
 
+/** First + last (or embedded `name`) only — for calendar and lists where titles are omitted. */
+function formatPatientFullNameOnly(p) {
+  if (!p) return "";
+  const fromParts = `${p.firstName || ""} ${p.lastName || ""}`.trim();
+  return fromParts || String(p.name || "").trim();
+}
+
 function formatPatientAddress(addr) {
   if (!addr) return "—";
   if (typeof addr === "string") return addr.trim() || "—";
@@ -1524,7 +1531,17 @@ async function getDoctorOverviewForUi() {
 async function showClinicalTab(tab) {
   const panel = document.getElementById("clinical-tab-panel");
   if (!panel) return;
-  panel.innerHTML = `<p class="feedback clinical-loading">Loading…</p>`;
+  const reuseClinicalPatientSearch =
+    tab === "patients" ? document.getElementById("clinical-patient-search") : null;
+  const isClinicalPatientListRefresh =
+    Boolean(reuseClinicalPatientSearch && panel.contains(reuseClinicalPatientSearch));
+
+  if (isClinicalPatientListRefresh) {
+    const ul = panel.querySelector(".clinical-patient-list");
+    if (ul) ul.innerHTML = `<li class="feedback clinical-loading">Searching…</li>`;
+  } else {
+    panel.innerHTML = `<p class="feedback clinical-loading">Loading…</p>`;
+  }
 
   try {
     if (tab === "overview") {
@@ -1573,16 +1590,10 @@ async function showClinicalTab(tab) {
         );
       const payload = await res.json();
       const rows = Array.isArray(payload.patients) ? payload.patients : [];
-      panel.innerHTML = `
-        <label class="clinical-search-label">Search patients
-          <input type="search" id="clinical-patient-search" class="clinical-search-input" placeholder="Name or email" value="${escapeHtml(q)}" />
-        </label>
-        <ul class="clinical-patient-list">
-          ${
-            rows.length
-              ? rows
-                  .map(
-                    (p) => `
+      const listItemsHtml = rows.length
+        ? rows
+            .map(
+              (p) => `
             <li class="clinical-patient-row card">
               <div>
                 <strong>${escapeHtml(formatPatientDisplayName(p) || "Patient")}</strong>
@@ -1590,22 +1601,40 @@ async function showClinicalTab(tab) {
               </div>
               <button type="button" class="btn btn-secondary btn-sm clinical-patient-quick" data-patient-quick="${escapeHtml(String(p._id))}">Quick view</button>
             </li>`,
-                  )
-                  .join("")
-              : `<li class="feedback">No patients match your assignment yet.</li>`
-          }
+            )
+            .join("")
+        : `<li class="feedback">No patients match your assignment yet.</li>`;
+
+      if (isClinicalPatientListRefresh) {
+        const ul = panel.querySelector(".clinical-patient-list");
+        if (ul) ul.innerHTML = listItemsHtml;
+      } else {
+        panel.innerHTML = `
+        <label class="clinical-search-label">Search patients
+          <input type="search" id="clinical-patient-search" class="clinical-search-input" placeholder="Name or email" value="${escapeHtml(q)}" />
+        </label>
+        <ul class="clinical-patient-list">
+          ${listItemsHtml}
         </ul>
       `;
-      const search = document.getElementById("clinical-patient-search");
-      search?.addEventListener("change", () => {
-        void showClinicalTab("patients");
-      });
-      search?.addEventListener("keydown", (ev) => {
-        if (ev.key === "Enter") {
-          ev.preventDefault();
+        const search = document.getElementById("clinical-patient-search");
+        let clinicalPatientSearchTimer = null;
+        const runClinicalPatientSearch = () => {
           void showClinicalTab("patients");
-        }
-      });
+        };
+        search?.addEventListener("input", () => {
+          if (clinicalPatientSearchTimer) clearTimeout(clinicalPatientSearchTimer);
+          clinicalPatientSearchTimer = setTimeout(runClinicalPatientSearch, 320);
+        });
+        search?.addEventListener("change", runClinicalPatientSearch);
+        search?.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter") {
+            ev.preventDefault();
+            if (clinicalPatientSearchTimer) clearTimeout(clinicalPatientSearchTimer);
+            runClinicalPatientSearch();
+          }
+        });
+      }
       panel.querySelectorAll("[data-patient-quick]").forEach((btn) => {
         btn.addEventListener("click", () => {
           const id = btn.getAttribute("data-patient-quick");
@@ -1660,6 +1689,9 @@ async function showClinicalTab(tab) {
       };
 
       panel.innerHTML = `
+        <div class="clinical-appt-toolbar">
+          <button type="button" class="btn btn-secondary btn-sm" id="clinical-appt-refresh">Refresh appointments</button>
+        </div>
         <section class="card clinical-appt-section">
           <h4>Upcoming</h4>
           <div class="clinical-table-wrap">
@@ -1680,6 +1712,10 @@ async function showClinicalTab(tab) {
         </section>
       `;
 
+      document.getElementById("clinical-appt-refresh")?.addEventListener("click", () => {
+        sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
+        void showClinicalTab("appointments");
+      });
       panel.querySelectorAll(".clinical-appt-status").forEach((sel) => {
         sel.addEventListener("change", async () => {
           const tr = sel.closest("tr");
@@ -5228,8 +5264,11 @@ async function renderAppointments() {
     );
     mainContent.innerHTML = `
       <h2 class="page-title page-title-appointments">Appointments</h2>
-      <button class="cta-primary" onclick="window.showAppointmentForm()">Add Appointment</button>
-      ${getCurrentUserRole() === "admin" ? '<button class="cta-primary btn-secondary" id="export-appointments-csv">Export CSV</button>' : ""}
+      <div class="appointments-toolbar">
+        <button type="button" class="btn btn-secondary" id="appointments-refresh-btn">Refresh</button>
+        <button class="cta-primary" onclick="window.showAppointmentForm()">Add Appointment</button>
+        ${getCurrentUserRole() === "admin" ? '<button class="cta-primary btn-secondary" id="export-appointments-csv">Export CSV</button>' : ""}
+      </div>
       <hr class="section-divider" />
       <div class="list-filters">
         ${getCurrentUserRole() === "receptionist" ? "" : '<input type="search" id="appt-filter-doctor" placeholder="Filter by doctor" />'}
@@ -5328,6 +5367,9 @@ async function renderAppointments() {
         ?.addEventListener("input", applyAppointmentFilters);
     });
     renderRows(appointments);
+    document.getElementById("appointments-refresh-btn")?.addEventListener("click", () => {
+      void renderAppointments();
+    });
     document
       .getElementById("export-appointments-csv")
       ?.addEventListener("click", () => {
@@ -5584,9 +5626,14 @@ async function renderCalendar() {
                   .map((appointment) => {
                     const patientName =
                       (typeof appointment.patientId === "object"
-                        ? formatPatientDisplayName(appointment.patientId) ||
+                        ? formatPatientFullNameOnly(appointment.patientId) ||
                           appointment.patientId?.name
                         : "") ||
+                      formatPatientFullNameOnly(
+                        patientById.get(
+                          String(appointment.patient?._id || appointment.patient),
+                        ) || {},
+                      ) ||
                       patientLookup.get(
                         String(appointment.patient?._id || appointment.patient),
                       ) ||
@@ -5672,11 +5719,11 @@ async function renderCalendar() {
       const doctorName = resolveAppointmentDoctorName(appointment, doctorLookup);
       const patientName =
         (typeof appointment.patientId === "object"
-          ? formatPatientDisplayName(appointment.patientId) ||
+          ? formatPatientFullNameOnly(appointment.patientId) ||
             appointment.patientId?.name
           : "") ||
+        formatPatientFullNameOnly(patient) ||
         patientLookup.get(String(appointment.patient?._id || appointment.patient)) ||
-        formatPatientDisplayName(patient) ||
         "Unknown Patient";
       const overlay = document.createElement("div");
       overlay.className = "modal-overlay";
@@ -5700,10 +5747,14 @@ async function renderCalendar() {
           <p><strong>Address:</strong> ${escapeHtml(formatPatientAddress(patient.address))}</p>
           <p><strong>HMO:</strong> ${escapeHtml(String(patient.hmoProvider || "—"))}</p>
           <p><strong>Notes:</strong> ${escapeHtml(String(patient.notes || "—"))}</p>
+          <div class="calendar-detail-modal-actions">
+            <button type="button" class="btn btn-secondary" data-calendar-detail-close>Close</button>
+          </div>
         </div>
       `;
       const close = () => overlay.remove();
       overlay.querySelector(".modal-close-x")?.addEventListener("click", close);
+      overlay.querySelector("[data-calendar-detail-close]")?.addEventListener("click", close);
       overlay.addEventListener("click", (event) => {
         if (event.target === overlay) close();
       });

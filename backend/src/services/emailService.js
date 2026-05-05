@@ -153,6 +153,42 @@ export async function sendPatientWelcomeEmail({
   });
 }
 
+function escapeHtmlEntity(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+export async function sendDoctorPatientDocumentEmail({
+  to,
+  doctorFirstName,
+  patientLabel,
+  documentName,
+  documentUrl,
+}) {
+  const safePatient = String(patientLabel || 'A patient').trim() || 'A patient';
+  const safeDoc = String(documentName || 'Document').trim() || 'Document';
+  const link = String(documentUrl || '').trim() || CLIENT_ORIGIN;
+  const html = getBaseTemplate({
+    title: 'New document from your patient',
+    subtitle: `${safePatient} uploaded a file in DrMeet.`,
+    bodyHtml: `
+      <p>Hi ${escapeHtmlEntity(String(doctorFirstName || 'Doctor').trim() || 'Doctor')},</p>
+      <p><strong>${escapeHtmlEntity(safePatient)}</strong> shared: <strong>${escapeHtmlEntity(safeDoc)}</strong>.</p>
+      <p>The same file was sent to your DrMeet chat with this patient. You can also open it with the button below.</p>
+    `,
+    ctaLabel: 'View attachment',
+    ctaHref: link,
+  });
+  return sendEmailSafe({
+    to,
+    subject: `DrMeet: document from ${safePatient}`,
+    html,
+  });
+}
+
 export async function sendReceptionistInviteEmail({
   email,
   doctorName,

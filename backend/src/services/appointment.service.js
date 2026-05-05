@@ -8,14 +8,6 @@ const apptSort = { date: -1, time: 1 };
 // Get all appointments
 export const findAllAppointments = async () => Appointment.find().sort(apptSort);
 
-function toTitleCase(value = "") {
-  return String(value)
-    .split(" ")
-    .filter(Boolean)
-    .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1).toLowerCase())
-    .join(" ");
-}
-
 async function withPatientMeta(appointments = []) {
   if (!Array.isArray(appointments) || !appointments.length) return [];
   const patientIds = [
@@ -28,7 +20,7 @@ async function withPatientMeta(appointments = []) {
   if (!patientIds.length) return appointments;
 
   const patientDocs = await Patient.find({ _id: { $in: patientIds } })
-    .select("firstName lastName photoUrl")
+    .select("title firstName lastName photoUrl")
     .lean();
   const patientLookup = new Map(
     patientDocs.map((p) => {
@@ -39,7 +31,7 @@ async function withPatientMeta(appointments = []) {
           name: fullName || "Unknown Patient",
           firstName: p.firstName || "",
           lastName: p.lastName || "",
-          title: fullName ? toTitleCase(p.firstName || "") : "",
+          title: String(p.title || "").trim(),
           photoUrl: String(p.photoUrl || "").trim(),
         },
       ];

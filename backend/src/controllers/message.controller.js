@@ -28,7 +28,7 @@ function assertValidObjectId(id) {
   }
 }
 
-async function ensurePatientDoctorConversation({ patientId, doctorId }) {
+export async function ensurePatientDoctorConversation({ patientId, doctorId }) {
   assertValidObjectId(patientId);
   assertValidObjectId(doctorId);
 

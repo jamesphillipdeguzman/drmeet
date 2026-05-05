@@ -4,6 +4,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import Patient from '../models/patient.model.js';
+import Message from '../models/message.model.js';
+import Conversation from '../models/conversation.model.js';
+import Appointment from '../models/appointment.model.js';
 import {
   findAllPatients,
   findPatientById,
@@ -41,6 +44,8 @@ import {
   findAppointmentsByPatient,
   appointmentExistsForDoctorPatient,
 } from '../services/appointment.service.js';
+import { ensurePatientDoctorConversation } from './message.controller.js';
+import { sendDoctorPatientDocumentEmail } from '../services/emailService.js';
 
 function authUserId(req) {
   const id = req.user?._id || req.user?.id;
@@ -135,6 +140,75 @@ async function primaryCareDoctorUserIdForPatient(patientLike) {
   if (!ids.length) return null;
   const d = await findDoctorById(ids[0]);
   return d?.userId ? String(d.userId) : null;
+}
+
+async function doctorUserIdForPatientMessaging(patientLike) {
+  const fromCare = await primaryCareDoctorUserIdForPatient(patientLike);
+  if (fromCare) return fromCare;
+  const plain = patientLike?.toObject ? patientLike.toObject() : patientLike;
+  const pid = plain?._id ? String(plain._id) : '';
+  if (!pid || !mongoose.Types.ObjectId.isValid(pid)) return null;
+  const latest = await Appointment.findOne({ patient: pid })
+    .sort({ date: -1, createdAt: -1 })
+    .select('doctor')
+    .lean();
+  if (!latest?.doctor) return null;
+  const d = await findDoctorById(String(latest.doctor));
+  return d?.userId ? String(d.userId) : null;
+}
+
+async function notifyDoctorOfPatientDocumentUpload({
+  patientUserId,
+  patientLabel,
+  docEntry,
+  patientDocLike,
+}) {
+  try {
+    if (!patientUserId || !docEntry) return;
+    const url = String(docEntry.fileUrl || docEntry.url || '').trim();
+    if (!url) return;
+    const plainPatient = patientDocLike?.toObject
+      ? patientDocLike.toObject()
+      : patientDocLike;
+    if (!plainPatient) return;
+    const doctorUserId = await doctorUserIdForPatientMessaging(plainPatient);
+    if (!doctorUserId) return;
+
+    const doctorUser = await User.findById(doctorUserId)
+      .select('email firstName lastName')
+      .lean();
+    if (doctorUser?.email) {
+      void sendDoctorPatientDocumentEmail({
+        to: doctorUser.email,
+        doctorFirstName: doctorUser.firstName || '',
+        patientLabel,
+        documentName: docEntry.name || 'Attachment',
+        documentUrl: url,
+      });
+    }
+
+    const conversation = await ensurePatientDoctorConversation({
+      patientId: String(patientUserId),
+      doctorId: String(doctorUserId),
+    });
+    const label = String(docEntry.name || 'attachment').trim() || 'attachment';
+    const text = `Shared a document from their profile: ${label}.`;
+    await Message.create({
+      conversationId: conversation._id,
+      senderId: patientUserId,
+      message: text,
+      attachmentUrl: url,
+      attachmentName: String(docEntry.name || ''),
+      attachmentType: '',
+      readBy: [patientUserId],
+    });
+    await Conversation.findByIdAndUpdate(conversation._id, {
+      lastMessage: docEntry.name ? `📎 ${docEntry.name}` : '📎 Attachment',
+      lastMessageAt: new Date(),
+    });
+  } catch (e) {
+    console.error('[PATIENT][documents] notify doctor failed', e?.message || e);
+  }
 }
 
 async function getScopedPatients(req) {
@@ -503,6 +577,23 @@ export const postPatient = async (req, res) => {
 
     console.log('[PATIENT]✅ POST /api/patients created', String(newPatient._id));
 
+    if (documentFileData && authRole(req) === 'patient' && authUserId(req)) {
+      const docs = Array.isArray(newPatient.documents) ? newPatient.documents : [];
+      const lastDoc = docs.length ? docs[docs.length - 1] : null;
+      if (lastDoc) {
+        const uid = authUserId(req);
+        const label =
+          `${newPatient.firstName || ''} ${newPatient.lastName || ''}`.trim() ||
+          'Patient';
+        void notifyDoctorOfPatientDocumentUpload({
+          patientUserId: uid,
+          patientLabel: label,
+          docEntry: lastDoc,
+          patientDocLike: newPatient,
+        });
+      }
+    }
+
     return res.status(201).json(mapPatientForClient(newPatient, req));
   } catch (error) {
     console.error('CREATE PATIENT ERROR:', error);
@@ -548,6 +639,7 @@ export const updatePatient = async (req, res) => {
     return res.status(400).json({ error: 'Invalid patient ID format.' });
   }
 
+  let uploadedDocForNotify = null;
   try {
     const existing = await findPatientById(id);
     if (!existing) {
@@ -572,13 +664,14 @@ export const updatePatient = async (req, res) => {
         docEntry.uploaderId = new mongoose.Types.ObjectId(uid);
       }
       if (role === 'patient' && uid) {
-        const recv = await primaryCareDoctorUserIdForPatient(existing);
+        const recv = await doctorUserIdForPatientMessaging(existing);
         if (recv && mongoose.Types.ObjectId.isValid(recv)) {
           docEntry.receiverId = new mongoose.Types.ObjectId(recv);
         }
       } else if (['doctor', 'receptionist', 'admin'].includes(role) && existing.userId) {
         docEntry.receiverId = existing.userId;
       }
+      uploadedDocForNotify = docEntry;
       updates.documents = [...docs, docEntry];
       console.log('[PATIENT][documents] PUT append', {
         patientId: id,
@@ -625,6 +718,19 @@ export const updatePatient = async (req, res) => {
       );
     }
     console.log(`[PATIENT]✅ PUT /api/patients/${id} was called`);
+
+    if (uploadedDocForNotify && authRole(req) === 'patient' && authUserId(req)) {
+      const uid = authUserId(req);
+      const label =
+        `${updatedPatient.firstName || ''} ${updatedPatient.lastName || ''}`.trim() ||
+        'Patient';
+      void notifyDoctorOfPatientDocumentUpload({
+        patientUserId: uid,
+        patientLabel: label,
+        docEntry: uploadedDocForNotify,
+        patientDocLike: updatedPatient,
+      });
+    }
 
     return res.status(200).json(mapPatientForClient(updatedPatient, req));
   } catch (error) {

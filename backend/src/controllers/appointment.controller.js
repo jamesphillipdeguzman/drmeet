@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 import Patient from '../models/patient.model.js';
+import User from '../models/user.model.js';
 import { patientActiveQuery } from '../services/patient.service.js';
 
 import {
@@ -32,7 +33,11 @@ async function getScopedAppointments(req) {
     }
 
     if (role === 'receptionist') {
-        const linkedDoctorId = req.user?.linkedDoctorId;
+        let linkedDoctorId = req.user?.linkedDoctorId;
+        if (!linkedDoctorId && uid) {
+            const ru = await User.findById(uid).select('linkedDoctorId').lean();
+            linkedDoctorId = ru?.linkedDoctorId || null;
+        }
         if (!linkedDoctorId) return [];
         return findAppointmentsByDoctorForRoleScope(String(linkedDoctorId));
     }
@@ -60,7 +65,11 @@ async function appointmentVisibleToRequester(req, appt) {
     if (role === 'admin') return true;
 
     if (role === 'receptionist') {
-        const linkedDoctorId = req.user?.linkedDoctorId;
+        let linkedDoctorId = req.user?.linkedDoctorId;
+        if (!linkedDoctorId && uid) {
+            const ru = await User.findById(uid).select('linkedDoctorId').lean();
+            linkedDoctorId = ru?.linkedDoctorId || null;
+        }
         return Boolean(linkedDoctorId) && String(appt.doctor) === String(linkedDoctorId);
     }
 

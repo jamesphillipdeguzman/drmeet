@@ -56,10 +56,12 @@ export async function listPatientsForDoctorSearch(doctorId, { q = "", limit = 40
   };
 
   if (needle) {
+    const rx = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
     query.$or = [
-      { firstName: new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") },
-      { lastName: new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") },
-      { email: new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i") },
+      { firstName: rx },
+      { lastName: rx },
+      { email: rx },
+      { phone: rx },
     ];
   }
 

@@ -310,7 +310,27 @@ body.theme-dark .modal-close-x:hover {
 }
 
 .modal-card-with-close {
+  position: relative;
   padding-top: 2rem;
+}
+
+.appointments-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.5rem 0 1rem;
+}
+
+.clinical-appt-toolbar {
+  margin-bottom: 0.75rem;
+}
+
+.calendar-detail-modal-actions {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }
 
 .signup-actions {
