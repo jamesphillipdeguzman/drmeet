@@ -87,6 +87,10 @@ const patientSchema = new mongoose.Schema(
           type: mongoose.Schema.Types.ObjectId,
           ref: "User",
         },
+        uploaderRole: {
+          type: String,
+          default: "",
+        },
         receiverId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "User",

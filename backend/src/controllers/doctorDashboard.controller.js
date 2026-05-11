@@ -334,6 +334,7 @@ export const getDoctorDashboardDocuments = async (req, res) => {
         url: d.url || d.fileUrl || "",
         uploadedAt: d.uploadedAt || doctorPlain.updatedAt,
         uploaderId: d.uploaderId || null,
+        uploaderRole: d.uploaderRole || "",
         receiverId: d.receiverId || null,
       }),
     );
@@ -407,6 +408,7 @@ export const postDoctorDashboardDocument = async (req, res) => {
         url: secureUrl,
         fileUrl: secureUrl,
         uploadedAt: new Date(),
+        uploaderRole: String(req.user?.role || "").toLowerCase(),
       };
       if (uid && mongoose.Types.ObjectId.isValid(uid)) {
         docEntry.uploaderId = new mongoose.Types.ObjectId(uid);
@@ -435,6 +437,7 @@ export const postDoctorDashboardDocument = async (req, res) => {
       fileUrl: secureUrl,
       docType: String(body.docType || "clinic").trim() || "clinic",
       uploadedAt: new Date(),
+      uploaderRole: String(req.user?.role || "").toLowerCase(),
     };
     if (uid && mongoose.Types.ObjectId.isValid(uid)) {
       docEntry.uploaderId = new mongoose.Types.ObjectId(uid);
