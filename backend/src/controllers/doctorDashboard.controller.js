@@ -137,13 +137,31 @@ function mergeAppointmentBilling(prev, body = {}) {
   return out;
 }
 
+function appointmentBelongsToDoctor(apptDoctorRef, doctorMongoId) {
+  const left = apptDoctorRef?.toString?.() ?? String(apptDoctorRef ?? "");
+  const right = doctorMongoId?.toString?.() ?? String(doctorMongoId ?? "");
+  if (
+    left &&
+    right &&
+    mongoose.Types.ObjectId.isValid(left) &&
+    mongoose.Types.ObjectId.isValid(right)
+  ) {
+    try {
+      return new mongoose.Types.ObjectId(left).equals(new mongoose.Types.ObjectId(right));
+    } catch {
+      /* fall through */
+    }
+  }
+  return left.trim() === right.trim();
+}
+
 async function loadAppointmentForDoctor(ctx, apptId) {
   if (!mongoose.Types.ObjectId.isValid(apptId)) {
     return { error: { status: 400, body: { error: "Invalid appointment id." } } };
   }
   const appt = await findAppointmentById(apptId);
   if (!appt) return { error: { status: 404, body: { error: "Appointment not found." } } };
-  if (String(appt.doctor) !== String(ctx.doctor._id)) {
+  if (!appointmentBelongsToDoctor(appt.doctor, ctx.doctor._id)) {
     return { error: { status: 403, body: { error: "Forbidden." } } };
   }
   return { appt };
