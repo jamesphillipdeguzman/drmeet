@@ -2351,7 +2351,7 @@ async function showClinicalTab(tab) {
             const reader = new FileReader();
             reader.onload = async () => {
               try {
-                const documentFileData = String(reader.result || "");
+                const documentFileData = reader.result?.split(",")[1];
                 if (!documentFileData) throw new Error("Unable to read file.");
                 const resUp = await apiRequest(
                   `${API_BASE}/doctors/me/appointments/${appt._id}/billing/documents`,
