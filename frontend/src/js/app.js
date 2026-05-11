@@ -2229,7 +2229,7 @@ async function showClinicalTab(tab) {
               <h4>Edit billing</h4>
               <button type="button" class="btn btn-secondary btn-sm" data-billing-close>&times;</button>
             </div>
-            <form id="clinical-billing-form" class="clinical-billing-form">
+            <form id="clinical-billing-form" class="clinical-billing-form" novalidate>
               <input type="hidden" name="appointmentId" value="${escapeHtml(String(appt._id))}" />
               <label>Consultation fee (PHP)<input name="consultationFee" type="number" step="0.01" min="0" value="${escapeHtml(String(b.consultationFee ?? 0))}" /></label>
               <fieldset class="clinical-service-lines">
@@ -2391,11 +2391,18 @@ async function showClinicalTab(tab) {
             const formEl = ev.currentTarget;
             const submitBtn = formEl.querySelector('button[type="submit"]');
             if (submitBtn?.dataset.saving === "1") return;
+            const fd = new FormData(formEl);
+            const apptIdForSave = String(
+              fd.get("appointmentId") || appt._id || "",
+            ).trim();
+            if (!apptIdForSave) {
+              showToast("Missing appointment id.", "error");
+              return;
+            }
             if (submitBtn) {
               submitBtn.dataset.saving = "1";
               submitBtn.disabled = true;
             }
-            const fd = new FormData(formEl);
             const serviceLines = [];
             for (let i = 0; i < 4; i++) {
               const d = String(fd.get(`svc_desc_${i}`) || "").trim();
@@ -2428,7 +2435,7 @@ async function showClinicalTab(tab) {
             }
             try {
               const resP = await apiRequest(
-                `${API_BASE}/doctors/me/appointments/${appt._id}/billing`,
+                `${API_BASE}/doctors/me/appointments/${encodeURIComponent(apptIdForSave)}/billing`,
                 {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
@@ -6074,7 +6081,7 @@ async function renderCalendar() {
                     </button>`;
                   })
                   .join("")
-              : '<p class="calendar-day-empty-text">No appointments</p>'}
+              : '<p class="calendar-day-empty-text calendar-day-free">Free</p>'}
           </div>
         </article>`);
     }
@@ -6085,6 +6092,7 @@ async function renderCalendar() {
           <div class="calendar-toolbar">
             <h2 class="page-title page-title-appointments">Calendar - ${monthStart.toLocaleString(undefined, { month: "long", year: "numeric" })}</h2>
             <div class="calendar-toolbar-controls">
+              <button type="button" class="btn btn-secondary btn-sm" id="calendar-refresh" title="Reload calendar">Refresh</button>
               <button type="button" class="btn btn-secondary btn-sm" id="calendar-prev-month">Prev</button>
               <select id="calendar-month-select">${Array.from({ length: 12 }).map((_, idx) => `<option value="${idx}" ${idx === window.__calendarViewMonth ? "selected" : ""}>${new Date(2026, idx, 1).toLocaleString(undefined, { month: "long" })}</option>`).join("")}</select>
               <select id="calendar-year-select">${Array.from({ length: maxYear - minYear + 5 }).map((_, idx) => {
@@ -6115,6 +6123,9 @@ async function renderCalendar() {
         </aside>
       </section>
     `;
+    document.getElementById("calendar-refresh")?.addEventListener("click", () => {
+      void renderCalendar();
+    });
     document.getElementById("calendar-prev-month")?.addEventListener("click", () => {
       const viewDate = new Date(window.__calendarViewYear, window.__calendarViewMonth - 1, 1);
       window.__calendarViewYear = viewDate.getFullYear();

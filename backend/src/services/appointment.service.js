@@ -100,9 +100,20 @@ export const findAppointmentById = async (id) => Appointment.findById(id);
 // Create a new appointment
 export const createAppointment = async (data) => new Appointment(data).save();
 
-// Update an existing appointment by ID
-export const updateAppointmentById = async (id, updates) =>
-  Appointment.findByIdAndUpdate(id, updates, { new: true });
+// Update an existing appointment by ID (use $set so nested billing persists reliably)
+export const updateAppointmentById = async (id, updates) => {
+  if (!updates || typeof updates !== "object") return null;
+  const $set = Object.fromEntries(
+    Object.entries(updates).filter(
+      ([key, value]) =>
+        value !== undefined && key !== "_id" && key !== "__v",
+    ),
+  );
+  if (!Object.keys($set).length) {
+    return Appointment.findById(id);
+  }
+  return Appointment.findByIdAndUpdate(id, { $set }, { new: true });
+};
 
 // Delete an appointment by ID
 export const deleteAppointmentById = async (id) =>
