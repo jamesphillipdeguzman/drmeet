@@ -435,6 +435,48 @@ function buildDoctorAvailabilityLabel(doctor) {
     .join(" | ");
 }
 
+function normalizeTimeText(value) {
+  const match = String(value || "")
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return "";
+  const hh = Number(match[1]);
+  const mm = Number(match[2]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return "";
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return "";
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+}
+
+function buildBookingTimeGridHtml({
+  suggestedAvailableTimes = [],
+  conflictingTimes = [],
+  selectedTime = "",
+}) {
+  const selected = normalizeTimeText(selectedTime);
+  const taken = new Set(
+    (Array.isArray(conflictingTimes) ? conflictingTimes : [])
+      .map((t) => normalizeTimeText(t))
+      .filter(Boolean),
+  );
+  const available = new Set(
+    (Array.isArray(suggestedAvailableTimes) ? suggestedAvailableTimes : [])
+      .map((t) => normalizeTimeText(t))
+      .filter(Boolean),
+  );
+  const merged = new Set([...available, ...taken]);
+  if (!merged.size) return "";
+  const times = [...merged].sort((a, b) => a.localeCompare(b));
+  return `<div class="booking-time-grid">
+    ${times
+      .map((timeVal) => {
+        const isTaken = taken.has(timeVal);
+        const isSelected = !isTaken && selected === timeVal;
+        return `<button type="button" class="btn btn-sm booking-time-chip ${isTaken ? "is-taken" : "is-available"} ${isSelected ? "is-selected" : ""}" data-smart-time="${escapeHtml(timeVal)}" ${isTaken ? "disabled" : ""}>${escapeHtml(timeVal)}${isTaken ? " (Taken)" : ""}</button>`;
+      })
+      .join("")}
+  </div>`;
+}
+
 function setActiveNav(hash) {
   navLinks.forEach((link) => {
     if (link.getAttribute("href") === hash) {
@@ -1729,10 +1771,13 @@ async function showClinicalTab(tab) {
               String(a.patientId?.name || "")
             : "";
         const dt = a.date ? new Date(a.date).toLocaleString() : "";
+        const statusValue = String(a.status || "pending").toLowerCase();
         const statusOpts = ["pending", "confirmed", "completed", "cancelled"]
           .map(
-            (st) =>
-              `<option value="${st}" ${String(a.status) === st ? "selected" : ""}>${st}</option>`,
+            (st) => {
+              const label = st === "completed" ? "complete" : st;
+              return `<option value="${st}" ${statusValue === st ? "selected" : ""}>${label}</option>`;
+            },
           )
           .join("");
         return `
@@ -2326,8 +2371,9 @@ async function showClinicalTab(tab) {
                   );
                 showToast("Document uploaded.");
                 if (input) input.value = "";
-                dlg.close();
-                await showClinicalTab("billing");
+                const next = await resUp.json();
+                appt.billing = next?.appointment?.billing || appt.billing || {};
+                await openBillingEditor(appt);
               } catch (err) {
                 showToast(err?.message || "Upload failed.", "error");
               }
@@ -2657,7 +2703,6 @@ async function renderSettings() {
   if (isStaffBookingPolicyRole) {
     const dailyInput = document.getElementById("settings-max-bookings-day");
     const feedback = document.getElementById("settings-booking-limit-feedback");
-    let policyDoctorId = "";
     try {
       const linkedDoctorId = getCurrentLinkedDoctorId();
       const docRes = await apiRequest(`${API_BASE}/doctors`);
@@ -2669,7 +2714,6 @@ async function renderSettings() {
           const mine = rows.find(
             (d) => String(d.userId || "") === String(uid || ""),
           );
-          policyDoctorId = String(mine?._id || rows[0]?._id || "");
           if (dailyInput && mine?.bookingPolicy?.maxPatientsPerDay) {
             dailyInput.value = String(
               Number(mine.bookingPolicy.maxPatientsPerDay) || 10,
@@ -2679,7 +2723,6 @@ async function renderSettings() {
           const linked = rows.find(
             (d) => String(d._id) === String(linkedDoctorId || ""),
           );
-          policyDoctorId = String(linked?._id || linkedDoctorId || "");
           if (dailyInput && linked?.bookingPolicy?.maxPatientsPerDay) {
             dailyInput.value = String(
               Number(linked.bookingPolicy.maxPatientsPerDay) || 10,
@@ -2703,7 +2746,6 @@ async function renderSettings() {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              doctorId: policyDoctorId || undefined,
               maxPatientsPerDay,
             }),
           });
@@ -3892,6 +3934,8 @@ async function renderPatientBooking() {
             <input type="hidden" name="doctorId" id="patient-booking-doctor-id" value="" />
             <label>Preferred date <input name="date" type="date" required /></label>
             <label>Preferred time <input name="time" type="time" required /></label>
+            <div id="patient-booking-smart-hint" class="feedback booking-hint" style="display:none"></div>
+            <div id="patient-booking-smart-times" class="booking-time-grid-wrap"></div>
             <label>Reason or notes (optional) <textarea name="notes" rows="3" placeholder="Briefly describe what you need"></textarea></label>
             <div class="patient-booking-actions">
               <button type="submit" class="btn btn-primary">Request appointment</button>
@@ -3921,6 +3965,8 @@ async function renderPatientBooking() {
   const drawer = document.getElementById("patient-booking-drawer");
   const feedbackEl = document.getElementById("patient-booking-feedback");
   const bookingForm = document.getElementById("patient-booking-form");
+  const smartHintEl = document.getElementById("patient-booking-smart-hint");
+  const smartTimesEl = document.getElementById("patient-booking-smart-times");
 
   grid.innerHTML = '<div class="feedback">Loading doctors…</div>';
   let doctors = [];
@@ -4027,6 +4073,7 @@ async function renderPatientBooking() {
     bookingForm.reset();
     document.getElementById("patient-booking-doctor-id").value = doctorId;
     drawer.classList.remove("hidden");
+    void renderPatientBookingHint();
   }
 
   function closeDrawer() {
@@ -4041,6 +4088,72 @@ async function renderPatientBooking() {
 
   document.getElementById("patient-booking-close").onclick = closeDrawer;
   document.getElementById("patient-booking-cancel").onclick = closeDrawer;
+
+  const renderPatientBookingHint = async () => {
+    const doctorId = String(
+      document.getElementById("patient-booking-doctor-id")?.value || "",
+    ).trim();
+    const date = String(bookingForm?.date?.value || "").trim();
+    if (!doctorId || !date) {
+      if (smartHintEl) smartHintEl.style.display = "none";
+      if (smartTimesEl) smartTimesEl.innerHTML = "";
+      return;
+    }
+    try {
+      const url = new URL(
+        `${API_BASE}/appointments/booking-hints`,
+        window.location.origin,
+      );
+      url.searchParams.set("doctorId", doctorId);
+      url.searchParams.set("date", date);
+      const res = await apiRequest(url.toString());
+      if (!res.ok) {
+        if (smartHintEl) {
+          smartHintEl.style.display = "block";
+          smartHintEl.className = "feedback error booking-hint";
+          smartHintEl.textContent = await getApiErrorMessage(
+            res,
+            "Unable to load booking hints.",
+          );
+        }
+        if (smartTimesEl) smartTimesEl.innerHTML = "";
+        return;
+      }
+      const info = await res.json();
+      if (smartHintEl) {
+        smartHintEl.style.display = "block";
+        smartHintEl.className =
+          Number(info.remainingSlots) > 0
+            ? "feedback booking-hint"
+            : "feedback error booking-hint";
+        smartHintEl.textContent = String(info.hint || "");
+      }
+      if (smartTimesEl) {
+        smartTimesEl.innerHTML = buildBookingTimeGridHtml({
+          suggestedAvailableTimes: info.suggestedAvailableTimes,
+          conflictingTimes: info.conflictingTimes,
+          selectedTime: bookingForm?.time?.value || "",
+        });
+      }
+      smartTimesEl?.querySelectorAll("[data-smart-time]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const next = normalizeTimeText(btn.getAttribute("data-smart-time"));
+          if (!next || !bookingForm.time) return;
+          bookingForm.time.value = next;
+          void renderPatientBookingHint();
+        });
+      });
+    } catch (error) {
+      if (smartHintEl) {
+        smartHintEl.style.display = "block";
+        smartHintEl.className = "feedback error booking-hint";
+        smartHintEl.textContent = "Unable to load booking hints.";
+      }
+      if (smartTimesEl) smartTimesEl.innerHTML = "";
+    }
+  };
+  bookingForm.date?.addEventListener("change", renderPatientBookingHint);
+  bookingForm.time?.addEventListener("change", renderPatientBookingHint);
 
   bookingForm.onsubmit = async (e) => {
     e.preventDefault();
@@ -4203,6 +4316,7 @@ async function renderPatients() {
         <input type="search" id="patient-filter-email" placeholder="Filter by email" />
         <input type="search" id="patient-filter-phone" placeholder="Filter by phone" />
         <input type="search" id="patient-filter-dob" placeholder="Filter by DOB (YYYY-MM-DD)" />
+        <input type="search" id="patient-filter-records" placeholder="Filter by records" />
       </div>
       <table>
         <thead><tr><th>Name</th><th>Profile Type</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Added</th><th>Records</th><th>Actions</th></tr></thead>
@@ -4211,6 +4325,28 @@ async function renderPatients() {
       <div id="patient-form-modal" class="patient-form-modal-host" style="display:none"></div>
     `;
     const bodyEl = document.getElementById("patients-table-body");
+    let userRoleById = new Map();
+    try {
+      const userRes = await apiRequest(`${API_BASE}/users`);
+      if (userRes.ok) {
+        const userRows = await userRes.json();
+        userRoleById = new Map(
+          (Array.isArray(userRows) ? userRows : []).map((u) => [
+            String(u._id || ""),
+            String(u.role || "").toLowerCase(),
+          ]),
+        );
+      }
+    } catch (error) {
+      userRoleById = new Map();
+    }
+    const resolveDocumentSenderLabel = (doc) => {
+      const fromRole = String(doc?.uploaderRole || "").toLowerCase();
+      if (fromRole) return fromRole;
+      const uploaderId = String(doc?.uploaderId || "").trim();
+      if (!uploaderId) return "unknown";
+      return userRoleById.get(uploaderId) || "unknown";
+    };
     const renderRows = (list) => {
       bodyEl.innerHTML = list
         .map((p) => {
@@ -4220,7 +4356,8 @@ async function renderPatients() {
               const u = String(d.fileUrl || d.url || "").trim();
               if (!u) return "";
               const nm = escapeHtml(String(d.name || "Open file"));
-              return `<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">${nm}</a>`;
+              const sender = escapeHtml(resolveDocumentSenderLabel(d));
+              return `<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">${nm}</a><br/><small class="patient-doc-sender">Sent by: ${sender}</small>`;
             })
             .filter(Boolean)
             .join("<br/>");
@@ -4268,6 +4405,11 @@ async function renderPatients() {
       )
         .toLowerCase()
         .trim();
+      const recordsQ = String(
+        document.getElementById("patient-filter-records")?.value || "",
+      )
+        .toLowerCase()
+        .trim();
       const order =
         document.getElementById("patient-sort-order")?.value || "newest";
       const sorted = sortPatientsByCreated(patients, order);
@@ -4276,11 +4418,21 @@ async function renderPatients() {
         const email = String(p.email || "").toLowerCase();
         const phone = String(p.phone || "").toLowerCase();
         const dob = formatDateForInput(p.birthdate).toLowerCase();
+        const docs = Array.isArray(p.documents) ? p.documents : [];
+        const recordsText = docs
+          .map((d) => {
+            const name = String(d?.name || d?.fileUrl || d?.url || "");
+            const sender = resolveDocumentSenderLabel(d);
+            return `${name} ${sender}`;
+          })
+          .join(" ")
+          .toLowerCase();
         return (
           (!nameQ || name.includes(nameQ)) &&
           (!emailQ || email.includes(emailQ)) &&
           (!phoneQ || phone.includes(phoneQ)) &&
-          (!dobQ || dob.includes(dobQ))
+          (!dobQ || dob.includes(dobQ)) &&
+          (!recordsQ || recordsText.includes(recordsQ))
         );
       });
       renderRows(filtered);
@@ -4290,6 +4442,7 @@ async function renderPatients() {
       "patient-filter-email",
       "patient-filter-phone",
       "patient-filter-dob",
+      "patient-filter-records",
     ].forEach((id) => {
       document
         .getElementById(id)
@@ -5715,27 +5868,24 @@ async function showAppointmentForm(editId = null) {
       if (hintEl) {
         hintEl.style.display = "block";
         hintEl.className =
-          Number(info.remainingSlots) > 0 ? "feedback" : "feedback error";
+          Number(info.remainingSlots) > 0
+            ? "feedback booking-hint"
+            : "feedback error booking-hint";
         hintEl.textContent = String(info.hint || "");
       }
-      const suggest = Array.isArray(info.suggestedAvailableTimes)
-        ? info.suggestedAvailableTimes
-        : [];
       if (timesEl) {
-        timesEl.innerHTML = suggest.length
-          ? suggest
-              .map(
-                (timeVal) =>
-                  `<button type="button" class="btn btn-secondary btn-sm" data-smart-time="${escapeHtml(String(timeVal))}">${escapeHtml(String(timeVal))}</button>`,
-              )
-              .join("")
-          : "";
+        timesEl.innerHTML = buildBookingTimeGridHtml({
+          suggestedAvailableTimes: info.suggestedAvailableTimes,
+          conflictingTimes: info.conflictingTimes,
+          selectedTime: form.time?.value || "",
+        });
       }
       timesEl?.querySelectorAll("[data-smart-time]").forEach((btn) => {
         btn.addEventListener("click", () => {
-          const next = btn.getAttribute("data-smart-time");
+          const next = normalizeTimeText(btn.getAttribute("data-smart-time"));
           if (!next || !form.time) return;
           form.time.value = next;
+          void renderSmartBookingHint();
         });
       });
     } catch (error) {

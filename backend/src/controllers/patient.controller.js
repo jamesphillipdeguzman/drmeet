@@ -540,6 +540,7 @@ export const postPatient = async (req, res) => {
         url: secureUrl,
         fileUrl: secureUrl,
         uploadedAt: new Date(),
+        uploaderRole: role || '',
       };
       if (uid && mongoose.Types.ObjectId.isValid(uid)) {
         docEntry.uploaderId = new mongoose.Types.ObjectId(uid);
@@ -659,6 +660,7 @@ export const updatePatient = async (req, res) => {
         url: secureUrl,
         fileUrl: secureUrl,
         uploadedAt: new Date(),
+        uploaderRole: role || '',
       };
       if (uid && mongoose.Types.ObjectId.isValid(uid)) {
         docEntry.uploaderId = new mongoose.Types.ObjectId(uid);

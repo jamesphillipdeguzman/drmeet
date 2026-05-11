@@ -132,6 +132,7 @@ export async function aggregatePatientDocumentsForDoctor(doctorId) {
         url: d.url || d.fileUrl || "",
         uploadedAt: d.uploadedAt || plain.updatedAt,
         uploaderId: d.uploaderId || null,
+        uploaderRole: d.uploaderRole || "",
         receiverId: d.receiverId || null,
         docType: "patient",
       });

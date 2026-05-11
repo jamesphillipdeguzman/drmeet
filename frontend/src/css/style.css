@@ -328,9 +328,39 @@ body.theme-dark .modal-close-x:hover {
 
 .calendar-detail-modal-actions {
   margin-top: 1.25rem;
-  display: flex;
-  justify-content: flex-end;
+  display: block;
   gap: 0.5rem;
+}
+
+.booking-time-grid-wrap {
+  margin-top: 0.25rem;
+}
+
+.booking-time-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.5rem;
+}
+
+.booking-time-chip {
+  width: 100%;
+  justify-content: center;
+}
+
+.booking-time-chip.is-available {
+  border-color: #3fa769;
+  background: #e8f8ef;
+  color: #11613a;
+}
+
+.booking-time-chip.is-taken {
+  border-color: #d1d7e6;
+  background: #f2f4f9;
+  color: #5e6577;
+}
+
+.booking-time-chip.is-selected {
+  box-shadow: 0 0 0 2px rgba(53, 129, 82, 0.25);
 }
 
 .signup-actions {
@@ -355,6 +385,10 @@ body.theme-dark .modal-close-x:hover {
 .patient-docs-cell {
   font-size: 0.88rem;
   max-width: 12rem;
+}
+
+.patient-doc-sender {
+  color: #4c5f85;
 }
 
 .toast-host {
@@ -1753,6 +1787,20 @@ body.theme-dark .patient-search-label,
 body.theme-dark .patient-book-count,
 body.theme-dark .patient-booking-page .patient-booking-lead {
   color: #eef4ff;
+}
+
+body.theme-dark .booking-hint {
+  color: #0f0f0f;
+}
+
+body.theme-dark .booking-time-chip.is-available {
+  background: #d7f4e2;
+  color: #0f0f0f;
+}
+
+body.theme-dark .booking-time-chip.is-taken {
+  background: #e8ebf3;
+  color: #48506a;
 }
 body.theme-dark .patient-booking-page .doctor-pick-card {
   background: #e8edfb;
