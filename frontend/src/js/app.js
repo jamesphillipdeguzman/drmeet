@@ -531,19 +531,20 @@ function setupCommandPalette() {
   document
     .getElementById("command-close-btn")
     ?.addEventListener("click", closeCommandPalette);
-  document.addEventListener("keydown", (event) => {
-    const pressedK = event.key.toLowerCase() === "k";
-    if ((event.ctrlKey || event.metaKey) && pressedK) {
-      event.preventDefault();
-      openCommandPalette();
-    }
-    if (
-      event.key === "Escape" &&
-      !commandPalette.classList.contains("hidden")
-    ) {
-      closeCommandPalette();
-    }
-  });
+    document.addEventListener("keydown", (event) => {
+      if (!event || typeof event.key !== "string") return;
+    
+      const key = event.key.toLowerCase();
+    
+      if ((event.ctrlKey || event.metaKey) && key === "k") {
+        event.preventDefault();
+        openCommandPalette();
+      }
+    
+      if (event.key === "Escape" && !commandPalette.classList.contains("hidden")) {
+        closeCommandPalette();
+      }
+    });
   commandInput.addEventListener("input", renderCommandResults);
   commandPalette.addEventListener("click", () => {});
 }
