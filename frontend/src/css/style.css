@@ -2913,6 +2913,92 @@ body.theme-dark .messenger-thread-fab {
     0 -6px 16px rgba(12, 24, 58, 0.05);
 }
 
+.messenger-attachment-queue {
+  margin: 0 0.65rem;
+  padding: 0.35rem 0;
+}
+
+.messenger-attachment-queue.hidden {
+  display: none;
+}
+
+.messenger-attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid rgba(195, 154, 72, 0.35);
+  background: rgba(195, 154, 72, 0.08);
+}
+
+.messenger-attachment-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.messenger-attachment-icon {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: rgba(12, 24, 58, 0.06);
+}
+
+.messenger-attachment-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.messenger-attachment-name {
+  font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.messenger-attachment-status {
+  font-size: 0.78rem;
+  color: var(--text-muted, #667085);
+}
+
+.messenger-attachment-remove {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(12, 24, 58, 0.08);
+  color: inherit;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.messenger-attachment-remove:hover {
+  background: rgba(12, 24, 58, 0.14);
+}
+
+body.theme-dark .messenger-attachment-chip {
+  background: rgba(195, 154, 72, 0.12);
+  border-color: rgba(195, 154, 72, 0.4);
+}
+
+body.theme-dark .messenger-attachment-icon,
+body.theme-dark .messenger-attachment-remove {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .messenger-compose-footer.thread-drawer-reply {
   margin-top: 0;
   padding-top: 0.45rem;

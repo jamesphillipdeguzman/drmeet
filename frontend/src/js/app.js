@@ -1237,6 +1237,78 @@ async function sendDocumentMessage({
   });
 }
 
+const messengerAttachmentPreviewUrls = new WeakMap();
+
+function formatFileSize(bytes) {
+  const size = Number(bytes) || 0;
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function clearMessengerAttachmentPreview(rootEl) {
+  if (!rootEl) return;
+  const preview = rootEl.querySelector("[data-messenger-attachment-preview]");
+  const fileInput = rootEl.querySelector("[data-messenger-file-input]");
+  const prevUrl = messengerAttachmentPreviewUrls.get(rootEl);
+  if (prevUrl) {
+    URL.revokeObjectURL(prevUrl);
+    messengerAttachmentPreviewUrls.delete(rootEl);
+  }
+  if (fileInput) fileInput.value = "";
+  if (preview) {
+    preview.classList.add("hidden");
+    preview.innerHTML = "";
+  }
+}
+
+function syncMessengerAttachmentPreview(rootEl) {
+  if (!rootEl) return;
+  const preview = rootEl.querySelector("[data-messenger-attachment-preview]");
+  const fileInput = rootEl.querySelector("[data-messenger-file-input]");
+  if (!preview) return;
+
+  const prevUrl = messengerAttachmentPreviewUrls.get(rootEl);
+  if (prevUrl) {
+    URL.revokeObjectURL(prevUrl);
+    messengerAttachmentPreviewUrls.delete(rootEl);
+  }
+
+  const file = fileInput?.files?.[0];
+  if (!file) {
+    preview.classList.add("hidden");
+    preview.innerHTML = "";
+    return;
+  }
+
+  const isImage = String(file.type || "")
+    .toLowerCase()
+    .startsWith("image/");
+  let thumbMarkup = `<span class="messenger-attachment-icon" aria-hidden="true">📎</span>`;
+  if (isImage) {
+    const objectUrl = URL.createObjectURL(file);
+    messengerAttachmentPreviewUrls.set(rootEl, objectUrl);
+    thumbMarkup = `<img src="${escapeHtml(objectUrl)}" alt="" class="messenger-attachment-thumb" />`;
+  }
+
+  preview.innerHTML = `
+    <div class="messenger-attachment-chip">
+      ${thumbMarkup}
+      <div class="messenger-attachment-meta">
+        <strong class="messenger-attachment-name">${escapeHtml(file.name || "Attachment")}</strong>
+        <span class="messenger-attachment-status">${escapeHtml(formatFileSize(file.size))} · Queued — press Send</span>
+      </div>
+      <button type="button" class="messenger-attachment-remove" data-messenger-attachment-remove aria-label="Remove attachment">&times;</button>
+    </div>`;
+  preview.classList.remove("hidden");
+
+  preview
+    .querySelector("[data-messenger-attachment-remove]")
+    ?.addEventListener("click", () => {
+      clearMessengerAttachmentPreview(rootEl);
+    });
+}
+
 function doctorMatchesPatientSearch(doctor, q) {
   const needle = String(q || "")
     .trim()
@@ -1943,6 +2015,7 @@ async function showClinicalTab(tab) {
         ?.addEventListener("submit", async (ev) => {
           ev.preventDefault();
           const form = ev.target;
+          const submitBtn = form.querySelector('button[type="submit"]');
           const fd = new FormData(form);
           const file = fd.get("file");
           if (!(file instanceof File) || !file.size) {
@@ -1955,37 +2028,41 @@ async function showClinicalTab(tab) {
             showToast("Select a patient for chart uploads.", "error");
             return;
           }
-          const reader = new FileReader();
-          reader.onload = async () => {
-            try {
-              const base64 = reader.result?.split?.(",")?.[1];
-              if (!base64) throw new Error("Unable to read file.");
-              const body = {
-                scope,
-                patientId: scope === "patient" ? patientId : "",
-                documentName: fd.get("documentName"),
-                documentFileData: base64,
-              };
-              const resUp = await apiRequest(
-                `${API_BASE}/doctors/me/documents`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(body),
-                },
+          if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Uploading…";
+          }
+          try {
+            const documentFileData = await fileToDataUrl(file);
+            const body = {
+              scope,
+              patientId: scope === "patient" ? patientId : "",
+              documentName: fd.get("documentName"),
+              documentFileData,
+            };
+            const resUp = await apiRequest(
+              `${API_BASE}/doctors/me/documents`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+              },
+            );
+            if (!resUp.ok)
+              throw new Error(
+                await getApiErrorMessage(resUp, "Upload failed."),
               );
-              if (!resUp.ok)
-                throw new Error(
-                  await getApiErrorMessage(resUp, "Upload failed."),
-                );
-              showToast("Document uploaded.");
-              sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
-              await showClinicalTab("documents");
-            } catch (err) {
-              showToast(err?.message || "Upload failed.", "error");
+            showToast("Document uploaded.");
+            sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
+            await showClinicalTab("documents");
+          } catch (err) {
+            showToast(err?.message || "Upload failed.", "error");
+          } finally {
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = "Upload";
             }
-          };
-          reader.readAsDataURL(file);
+          }
         });
       doctorDashUI.loaded.documents = true;
       return;
@@ -2338,49 +2415,56 @@ async function showClinicalTab(tab) {
 
         const uploadBillingAttachment = async () => {
           const input = dlg.querySelector("#clinical-billing-doc-input");
+          const uploadBtn = dlg.querySelector("#clinical-billing-upload-btn");
           const file = input?.files?.[0];
-            if (!file) return;
-            const kind = String(
-              dlg.querySelector("#clinical-billing-doc-kind-sel")?.value ||
-                "claim",
-            ).toLowerCase();
-            if (!["soa", "invoice", "claim"].includes(kind)) {
-              showToast("Invalid document type.", "error");
-              if (input) input.value = "";
-              return;
+          if (!file) {
+            showToast("Choose a file to upload.", "error");
+            return;
+          }
+          const kind = String(
+            dlg.querySelector("#clinical-billing-doc-kind-sel")?.value || "claim",
+          ).toLowerCase();
+          if (!["soa", "invoice", "claim"].includes(kind)) {
+            showToast("Invalid document type.", "error");
+            if (input) input.value = "";
+            return;
+          }
+          if (uploadBtn) {
+            uploadBtn.disabled = true;
+            uploadBtn.textContent = "Uploading…";
+          }
+          try {
+            const documentFileData = await fileToDataUrl(file);
+            const resUp = await apiRequest(
+              `${API_BASE}/doctors/me/appointments/${appt._id}/billing/documents`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  kind,
+                  documentName: file.name,
+                  documentFileData,
+                }),
+              },
+            );
+            if (!resUp.ok)
+              throw new Error(
+                await getApiErrorMessage(resUp, "Upload failed."),
+              );
+            showToast("Document uploaded.");
+            if (input) input.value = "";
+            const next = await resUp.json();
+            appt.billing = next?.appointment?.billing || appt.billing || {};
+            await openBillingEditor(appt);
+          } catch (err) {
+            showToast(err?.message || "Upload failed.", "error");
+          } finally {
+            if (uploadBtn) {
+              uploadBtn.disabled = false;
+              uploadBtn.textContent = "Upload attachment";
             }
-            const reader = new FileReader();
-            reader.onload = async () => {
-              try {
-                const documentFileData = reader.result?.split(",")[1];
-                if (!documentFileData) throw new Error("Unable to read file.");
-                const resUp = await apiRequest(
-                  `${API_BASE}/doctors/me/appointments/${appt._id}/billing/documents`,
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      kind,
-                      documentName: file.name,
-                      documentFileData,
-                    }),
-                  },
-                );
-                if (!resUp.ok)
-                  throw new Error(
-                    await getApiErrorMessage(resUp, "Upload failed."),
-                  );
-                showToast("Document uploaded.");
-                if (input) input.value = "";
-                const next = await resUp.json();
-                appt.billing = next?.appointment?.billing || appt.billing || {};
-                await openBillingEditor(appt);
-              } catch (err) {
-                showToast(err?.message || "Upload failed.", "error");
-              }
-            };
-            reader.readAsDataURL(file);
-          };
+          }
+        };
         dlg
           .querySelector("#clinical-billing-upload-btn")
           ?.addEventListener("click", uploadBillingAttachment);
@@ -3139,6 +3223,12 @@ function wireMessengerShell(rootEl) {
   rootEl
     .querySelector("[data-messenger-clear]")
     ?.addEventListener("click", clearThread);
+
+  rootEl
+    .querySelector("[data-messenger-file-input]")
+    ?.addEventListener("change", () => {
+      syncMessengerAttachmentPreview(rootEl);
+    });
 }
 
 function buildThreadMessagesHtml(messages, currentUserId) {
@@ -3326,6 +3416,10 @@ function renderMessengerThread(rootEl) {
   }
 
   const conversationIdRef = String(conversationId);
+  if (rootEl.dataset.messengerConversationId !== conversationIdRef) {
+    rootEl.dataset.messengerConversationId = conversationIdRef;
+    clearMessengerAttachmentPreview(rootEl);
+  }
   let typingStopTimer = null;
   const emitTypingStart = () => {
     if (!socket || !conversationIdRef) return;
@@ -3375,7 +3469,7 @@ function renderMessengerThread(rootEl) {
         await sendMessage(content);
       }
       if (textarea) textarea.value = "";
-      if (fileInput) fileInput.value = "";
+      clearMessengerAttachmentPreview(rootEl);
       if (typingStopTimer) clearTimeout(typingStopTimer);
       emitTypingStop();
       // Keep the latest message visible.
@@ -3389,6 +3483,7 @@ function renderMessengerThread(rootEl) {
   };
 
   if (sendBtn) sendBtn.onclick = sendAction;
+  syncMessengerAttachmentPreview(rootEl);
 }
 
 function mountFloatingChatWidget() {

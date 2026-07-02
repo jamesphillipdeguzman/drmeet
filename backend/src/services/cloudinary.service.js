@@ -33,10 +33,19 @@ function normalizeUploadResult(result) {
   };
 }
 
+/** Cloudinary expects a data URI or remote URL; raw base64 alone often fails. */
+function normalizeUploadFileData(fileData) {
+  const value = String(fileData || '').trim();
+  if (!value) return value;
+  if (/^data:/i.test(value) || /^https?:\/\//i.test(value)) return value;
+  return `data:application/octet-stream;base64,${value}`;
+}
+
 export async function uploadToCloudinary(fileData, options = {}) {
   if (!fileData) {
     throw new Error('fileData is required');
   }
+  const normalizedFileData = normalizeUploadFileData(fileData);
   syncCloudinaryFromEnv();
   if (!isCloudinaryConfigured()) {
     throw new Error(
@@ -48,7 +57,7 @@ export async function uploadToCloudinary(fileData, options = {}) {
     resource_type: 'auto',
     ...options,
   });
-  const result = await cloudinary.uploader.upload(fileData, uploadParams);
+  const result = await cloudinary.uploader.upload(normalizedFileData, uploadParams);
   return normalizeUploadResult(result);
 }
 
