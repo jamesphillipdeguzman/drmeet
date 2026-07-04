@@ -3183,6 +3183,7 @@ function wireMessengerShell(rootEl) {
 
     if (emojiItem) {
       ev.preventDefault();
+      ev.stopPropagation();
       const emoji = emojiItem.getAttribute("data-emoji") || "";
       const textarea = rootEl.querySelector("[data-messenger-reply-text]");
       if (textarea && emoji) {
@@ -3583,9 +3584,6 @@ function hideFloatingChatWidget() {
   const root = document.getElementById("floating-chat-widget");
   const panel = document.getElementById("floating-chat-panel");
   const toggleBtn = document.getElementById("floating-chat-toggle");
-  document
-    .getElementById("floating-messenger-root")
-    ?.removeAttribute("data-messenger-shell-wired");
   if (window.__drmeetMessagePoll) {
     clearInterval(window.__drmeetMessagePoll);
     window.__drmeetMessagePoll = null;
