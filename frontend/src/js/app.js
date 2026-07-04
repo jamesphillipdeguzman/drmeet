@@ -3412,7 +3412,7 @@ function renderMessengerThread(rootEl) {
     if (isNearBottom(ui.scroll)) {
       ui.scroll.scrollTop = ui.scroll.scrollHeight;
     } else {
-      showNewMessageBadge();
+      // showNewMessageBadge(); // TODO: Implement if needed
     }
   }
 
@@ -3484,7 +3484,7 @@ function renderMessengerThread(rootEl) {
   };
 
   if (sendBtn) sendBtn.onclick = sendAction;
-  syncMessengerAttachmentPreview(rootEl);
+  // syncMessengerAttachmentPreview is handled by the input change event. Re-running here on poll causes image doubling.
 }
 
 function mountFloatingChatWidget() {

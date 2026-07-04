@@ -2856,8 +2856,8 @@ body.theme-dark .messenger-thread-close-x:hover {
   overflow-y: auto;
   overflow-x: hidden;
   /* Extra bottom room so last bubble clears the composer + FAB */
-  padding: 0.85rem 1rem 7.25rem;
-  scroll-padding-bottom: 100px;
+  padding: 0.85rem 1rem 2.5rem;
+  scroll-padding-bottom: 40px;
   min-height: 0;
   min-width: 0;
   max-width: 100%;
@@ -2916,6 +2916,9 @@ body.theme-dark .messenger-thread-fab {
 .messenger-attachment-queue {
   margin: 0 0.65rem;
   padding: 0.35rem 0;
+  position: relative;
+  z-index: 10;
+  flex-shrink: 0;
 }
 
 .messenger-attachment-queue.hidden {
