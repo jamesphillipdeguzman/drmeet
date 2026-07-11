@@ -107,7 +107,7 @@ export function addInlineTooltips(scope = document) {
     trigger.setAttribute("title", content);
     trigger.setAttribute("aria-label", `Info: ${content}`);
     trigger.innerHTML = `
-      <img src="images/info-i.svg" alt="" class="info-tooltip-icon" role="presentation" />
+      <img src="/images/info-i.svg" alt="" class="info-tooltip-icon" role="presentation" />
       <span class="info-tooltip-bubble" role="tooltip">${escapeHtml(content)}</span>
     `;
     node.appendChild(trigger);

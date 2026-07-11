@@ -61,7 +61,7 @@ export let doctorSpecialtiesPromise = null;
 
 export async function ensureDoctorSpecialtiesLoaded() {
   if (!doctorSpecialtiesPromise) {
-    doctorSpecialtiesPromise = fetch("data/doctor-specialties.json")
+    doctorSpecialtiesPromise = fetch("/data/doctor-specialties.json")
       .then((r) => (r.ok ? r.json() : []))
       .then((arr) => {
         window.__DRMEET_DOCTOR_SPECIALTIES__ = Array.isArray(arr) ? arr : [];

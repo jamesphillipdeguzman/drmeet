@@ -221,7 +221,7 @@ export function createNavigation({
       })
       .join(" / ");
     container.innerHTML = `
-      <button type="button" class="btn btn-secondary btn-sm icon-btn" id="topbar-back-btn" aria-label="Back"><img src="images/arrow-left-s-line.svg" alt="" /> Back</button>
+      <button type="button" class="btn btn-secondary btn-sm icon-btn" id="topbar-back-btn" aria-label="Back"><img src="/images/arrow-left-s-line.svg" alt="" /> Back</button>
       <nav class="breadcrumbs">${crumbs}</nav>
       <button type="button" class="btn btn-secondary btn-sm icon-btn" id="theme-toggle-btn" aria-label="Toggle theme"></button>
     `;
@@ -231,7 +231,7 @@ export function createNavigation({
     const themeBtn = container.querySelector("#theme-toggle-btn");
     const isDark = document.body.classList.contains("theme-dark");
     if (themeBtn) {
-      themeBtn.innerHTML = `<img src="images/${isDark ? "contrast-2-fill.svg" : "contrast-2-line.svg"}" alt="" /> ${isDark ? "Dark" : "Light"}`;
+      themeBtn.innerHTML = `<img src="/images/${isDark ? "contrast-2-fill.svg" : "contrast-2-line.svg"}" alt="" /> ${isDark ? "Dark" : "Light"}`;
       themeBtn.addEventListener("click", () => {
         applyTheme(isDark ? "light" : "dark");
         renderTopbarBreadcrumbs();

@@ -277,7 +277,7 @@ let sidebarClockIntervalId = null;
 let avatarPresetsPromise = null;
 async function ensureAvatarPresetsLoaded() {
   if (!avatarPresetsPromise) {
-    avatarPresetsPromise = fetch("data/avatar-presets.json")
+    avatarPresetsPromise = fetch("/data/avatar-presets.json")
       .then((r) => (r.ok ? r.json() : {}))
       .then((data) => {
         window.__DRMEET_AVATAR_PRESETS__ =
@@ -1875,7 +1875,7 @@ function renderHome() {
         <p>DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates.</p>
         <p>Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.</p>
       </div>
-      <img class="why-drmeet-media" src="images/drmeet-pic1.webp" alt="DrMeet technology in action" />
+      <img class="why-drmeet-media" src="/images/drmeet-pic1.webp" alt="DrMeet technology in action" />
     </section>
     <section class="role-select card role-select-highlight">
       <h3 class="home-cta-title">Please select your profile type below</h3>
@@ -1884,7 +1884,7 @@ function renderHome() {
           <span class="role-card-label">I am a Provider</span>
           <span class="role-card-hint">Register as a Doctor to manage your practice.
             <span class="info-tooltip-trigger" tabindex="0">
-              <img src="images/info-i.svg" alt="Info" class="info-tooltip-icon" />
+              <img src="/images/info-i.svg" alt="Info" class="info-tooltip-icon" />
               <span class="info-tooltip-bubble">Register as a Doctor to manage your practice.</span>
             </span>
           </span>
@@ -1893,7 +1893,7 @@ function renderHome() {
           <span class="role-card-label">I am a Patient</span>
           <span class="role-card-hint">Create an account to find care and book appointments.
             <span class="info-tooltip-trigger" tabindex="0">
-              <img src="images/info-i.svg" alt="Info" class="info-tooltip-icon" />
+              <img src="/images/info-i.svg" alt="Info" class="info-tooltip-icon" />
               <span class="info-tooltip-bubble">Create an account to find care and book appointments.</span>
             </span>
           </span>

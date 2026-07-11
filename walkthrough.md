@@ -49,6 +49,14 @@ Orchestrates global theme bootstrapping and layout interaction handlers like sid
 
 ---
 
+## 🔗 Absolute Asset Path Resolution
+To ensure reliable resource resolution under varying page hashes, deep nesting, and preview architectures (such as Netlify previews), relative asset paths were corrected to root-relative absolute paths:
+* Centralized static variables (`DEFAULT_AVATAR_URL`, `CHAT_UPLOAD_ICON_SRC`, `CHAT_SEND_ICON_SRC`) in `src/js/config/api.js` use absolute root URLs.
+* Icon triggers and breadcrumb arrow SVGs in `src/js/core/ui.js` and `src/js/core/navigation.js` resolved from `/images/`.
+* External data references (`doctor-specialties.json` in `src/js/modules/doctors.js` and `avatar-presets.json` in `app.js`) resolved from `/data/`.
+
+---
+
 ## 🛠️ Verification & Maintenance Checkpoints
 * Run a local terminal check via `git status` to ensure all structural additions map to the tracking rules.
 * When executing future features (e.g., Appointments modifications), target the module lifecycle hook models implemented above instead of letting features bloat `app.js`.
