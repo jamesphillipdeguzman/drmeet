@@ -15,7 +15,7 @@ import {
   CHAT_SEND_ICON_SRC,
 } from "./config/api.js";
 
-import { authState } from "./state/auth-state.js";
+export { authState } from "./state/auth-state.js";
 import {
   addInlineTooltips,
   attachClearButtons,
@@ -345,14 +345,14 @@ function normalizeFetchErrorMessage(err, fallbackMessage) {
   return String(err?.message || "") || fallbackMessage;
 }
 
-function buildHeaders(baseHeaders = {}) {
+export function buildHeaders(baseHeaders = {}) {
   const token = localStorage.getItem("token");
   return token
     ? { ...baseHeaders, Authorization: `Bearer ${token}` }
     : { ...baseHeaders };
 }
 
-async function apiRequest(url, options = {}) {
+export async function apiRequest(url, options = {}) {
   const urlStr = typeof url === "string" ? url : "";
   const skipAuthBlock =
     /\/auth\/(login|signup|status)/.test(urlStr) ||
@@ -385,7 +385,7 @@ async function apiRequest(url, options = {}) {
   return res;
 }
 
-async function getApiErrorMessage(res, fallbackMessage) {
+export async function getApiErrorMessage(res, fallbackMessage) {
   if (window.DrMeetUtils?.getApiErrorMessage) {
     return window.DrMeetUtils.getApiErrorMessage(res, fallbackMessage);
   }
@@ -530,20 +530,20 @@ function bootstrapTheme() {
   applyTheme(stored);
 }
 
-function participantAvatarUrl(participant) {
+export function participantAvatarUrl(participant) {
   const raw = String(
     participant?.avatarUrl || participant?.picture || "",
   ).trim();
   return raw || DEFAULT_AVATAR_URL;
 }
 
-function participantDisplayName(participant) {
+export function participantDisplayName(participant) {
   return participant
     ? `${participant.firstName || ""} ${participant.lastName || ""}`.trim()
     : "Conversation";
 }
 
-function conversationTypingLabel(conversationId, currentUserId) {
+export function conversationTypingLabel(conversationId, currentUserId) {
   const typingSet =
     dashboardState.typingByConversation?.[String(conversationId)];
   if (!typingSet || !(typingSet instanceof Set) || !typingSet.size) return "";
@@ -553,7 +553,7 @@ function conversationTypingLabel(conversationId, currentUserId) {
   return othersTyping ? "Typing..." : "";
 }
 
-async function resolveDoctorIdForPatientMessaging() {
+export async function resolveDoctorIdForPatientMessaging() {
   const docRes = await apiRequest(`${API_BASE}/doctors`);
   if (!docRes.ok) return null;
   const doctors = await docRes.json();
@@ -605,7 +605,7 @@ function formatFileSize(bytes) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function clearMessengerAttachmentPreview(rootEl) {
+export function clearMessengerAttachmentPreview(rootEl) {
   if (!rootEl) return;
   const preview = rootEl.querySelector("[data-messenger-attachment-preview]");
   const fileInput = rootEl.querySelector("[data-messenger-file-input]");
@@ -1972,7 +1972,7 @@ function renderHome() {
     });
 }
 
-function createSkeletonRows(total = 3) {
+export function createSkeletonRows(total = 3) {
   return Array.from({ length: total })
     .map(
       () => `
@@ -1985,7 +1985,7 @@ function createSkeletonRows(total = 3) {
     .join("");
 }
 
-function showComposeMessageModal(onSubmit) {
+export function showComposeMessageModal(onSubmit) {
   const modal = document.createElement("div");
   modal.className = "modal-overlay";
   modal.innerHTML = `
@@ -2022,7 +2022,7 @@ function showComposeMessageModal(onSubmit) {
     });
 }
 
-function messengerUi(rootEl) {
+export function messengerUi(rootEl) {
   if (!rootEl) return {};
   return {
     layout: rootEl.querySelector("[data-messenger-layout]"),
@@ -2036,7 +2036,7 @@ function messengerUi(rootEl) {
   };
 }
 
-function wireMessengerShell(rootEl) {
+export function wireMessengerShell(rootEl) {
   if (!rootEl || rootEl.dataset.messengerShellWired) return;
   rootEl.dataset.messengerShellWired = "1";
   rootEl
@@ -2199,7 +2199,7 @@ function wireMessengerShell(rootEl) {
     });
 }
 
-function buildThreadMessagesHtml(messages, currentUserId) {
+export function buildThreadMessagesHtml(messages, currentUserId) {
   const threadMessages = Array.isArray(messages) ? messages : [];
   if (dashboardState.socketReconnecting && !dashboardState.websocketActive) {
     return `<div class="feedback">Connecting… messages reload when live sync returns.</div>`;
@@ -2260,9 +2260,6 @@ function buildThreadMessagesHtml(messages, currentUserId) {
 }
 
 // --- Authentication ---
-function isLoggedIn() {
-  return !!localStorage.getItem("token");
-}
 
 function updateAuthNav() {
   const loginLink = document.getElementById("login-link");
