@@ -31,8 +31,9 @@ import {
     buildThreadMessagesHtml,
     clearMessengerAttachmentPreview,
     showComposeMessageModal,
-    authState,
 } from "../app.js";
+
+import { authState } from "../state/auth-state.js";
 
 export const dashboardSubscribers = [];
 export const dashboardState = {

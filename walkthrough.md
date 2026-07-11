@@ -55,6 +55,9 @@ To ensure reliable resource resolution under varying page hashes, deep nesting, 
 * Icon triggers and breadcrumb arrow SVGs in `src/js/core/ui.js` and `src/js/core/navigation.js` resolved from `/images/`.
 * External data references (`doctor-specialties.json` in `src/js/modules/doctors.js` and `avatar-presets.json` in `app.js`) resolved from `/data/`.
 
+## 🔒 Session State Stability
+* Corrected direct imports of `authState` inside the modular files (e.g., in `messaging.js`) to import directly from `../state/auth-state.js` instead of importing via the `app.js` main thread. This completely resolves the load-time circular dependency reference errors that prevented the SPA execution from loading in the Netlify preview.
+
 ---
 
 ## 🛠️ Verification & Maintenance Checkpoints
