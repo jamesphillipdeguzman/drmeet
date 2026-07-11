@@ -91,186 +91,56 @@ import {
   getDoctorSpecialties,
 } from "./modules/doctors.js";
 
+import {
+  initAppointmentsModule,
+  renderAppointments,
+  renderCalendar,
+} from "./modules/appointments.js";
+
+import {
+  initUsersModule,
+  renderUsers,
+} from "./modules/users.js";
+
+import {
+  initShell,
+  applyTheme,
+  bootstrapTheme,
+  setupShellInteractions,
+} from "./core/shell.js";
+
 export { formatDoctorDisplayName, ensureDoctorSpecialtiesLoaded, getDoctorSpecialties };
 
 
-// SPA navigation and dynamic content rendering
-const mainContent = document.getElementById("main-content");
-const navLinks = document.querySelectorAll(".nav-link");
-const sidebar = document.getElementById("app-sidebar");
-const sidebarToggle = document.getElementById("sidebar-toggle");
-const sidebarUserTrigger = document.getElementById("sidebar-user-trigger");
-const sidebarUserPopover = document.getElementById("sidebar-user-popover");
-const sidebarLogoutBtn = document.getElementById("sidebar-logout-btn");
-const sidebarUserMenu = document.querySelector(".sidebar-user-menu");
-const sidebarAvatarCircle = document.querySelector(".sidebar-avatar-circle");
-const sidebarAvatarName = document.querySelector(".sidebar-avatar-name");
-const sidebarAccountMeta = document.getElementById("sidebar-account-meta");
-const commandPalette = document.getElementById("command-palette");
-const commandInput = document.getElementById("command-input");
-const commandResults = document.getElementById("command-results");
-const commandPaletteTrigger = document.getElementById(
-  "command-palette-trigger",
-);
+// SPA navigation and dynamic content rendering variables
+let mainContent = null;
+let navLinks = null;
+let sidebar = null;
+let sidebarToggle = null;
+let sidebarUserTrigger = null;
+let sidebarUserPopover = null;
+let sidebarLogoutBtn = null;
+let sidebarUserMenu = null;
+let sidebarAvatarCircle = null;
+let sidebarAvatarName = null;
+let sidebarAccountMeta = null;
+let commandPalette = null;
+let commandInput = null;
+let commandResults = null;
+let commandPaletteTrigger = null;
 
-const navigation = createNavigation({
-  navLinks,
-  commandPalette,
-  commandInput,
-  commandResults,
-  commandPaletteTrigger,
-  isLoggedIn,
-  getCurrentUserRole,
-  applyTheme,
-  renderers: {
-    renderDoctorDashboard,
-    renderSettings,
-    renderPrivacy,
-    renderPatients,
-    renderDoctors,
-    renderAppointments,
-    renderCalendar,
-    renderUsers,
-    renderLogin,
-    renderSignup,
-    renderPatientBooking,
-    renderHome,
-  },
-});
+let navigation = null;
 
-const {
-  getSignupRoleFromHash,
-  parseDoctorDashboardTab,
-  renderPage,
-  renderTopbarBreadcrumbs,
-  setDoctorDashboardHashTab,
-  setupCommandPalette,
-} = navigation;
+// Destructured navigation functions
+let getSignupRoleFromHash = null;
+let parseDoctorDashboardTab = null;
+let renderPage = null;
+let renderTopbarBreadcrumbs = null;
+let setDoctorDashboardHashTab = null;
+let setupCommandPalette = null;
 
-initAuthModule({
-  apiRequest,
-  resetMessagingSocket,
-  updateAuthNav,
-  renderHome,
-  getSignupRoleFromHash,
-});
-
-initPatientsModule({
-  apiRequest,
-  getApiErrorMessage,
-  getCurrentUserRole,
-  getCurrentUserId,
-  getCurrentLinkedDoctorId,
-  getCurrentReceptionistType,
-  formatRelativeTime,
-  formatDateDisplay,
-  formatDateForInput,
-  sendDocumentMessage,
-  resolvePatientMessageRecipient,
-  downloadCsv,
-  loadFacilities,
-  renderFacilityDatalist,
-  attachFacilityInputBehavior,
-  loadHmoProviders,
-  isAllowedPresetImageUrl,
-  buildAvatarPresetGridHtml,
-  wireAvatarPresetGrid,
-  showDangerConfirm,
-  ensureAvatarPresetsLoaded,
-});
-
-initDoctorsModule({
-  apiRequest,
-  getApiErrorMessage,
-  getCurrentUserRole,
-  getCurrentUserId,
-  getCurrentReceptionistType,
-  isAllowedPresetImageUrl,
-  buildAvatarPresetGridHtml,
-  wireAvatarPresetGrid,
-  ensureAvatarPresetsLoaded,
-  setupTaggedFacilityMultiSelect,
-  renderFacilityDatalist,
-  parseAffiliatedClinics,
-  loadFacilities,
-  buildDoctorAvailabilityLabel,
-  formatDateForInput,
-  renderPatientBooking,
-});
-
-/** Mirrors backend `payments.json` so Clinical billing dropdowns work offline or if the API fails. */
-const PAYMENT_METHOD_CATEGORIES_FALLBACK = [
-  {
-    category: "cash",
-    methods: ["Cash (Philippine Peso)", "Cash Deposit (Bank Counter)"],
-  },
-  {
-    category: "card",
-    methods: [
-      "Credit Card - Visa",
-      "Credit Card - Mastercard",
-      "Credit Card - JCB",
-      "Credit Card - American Express",
-      "Debit Card - Visa",
-      "Debit Card - Mastercard",
-      "Contactless Card (Tap to Pay / NFC)",
-    ],
-  },
-  {
-    category: "ewallet",
-    methods: ["GCash", "Maya (PayMaya)", "GrabPay", "ShopeePay", "GoTyme Pay"],
-  },
-  {
-    category: "qr",
-    methods: ["QR Ph (National Standard)", "Bank QR", "GCash QR", "Maya QR"],
-  },
-  {
-    category: "bank_transfer",
-    methods: [
-      "InstaPay",
-      "PESONet",
-      "Bank Transfer",
-      "BPI Transfer",
-      "BDO Transfer",
-      "Metrobank Transfer",
-      "UnionBank Transfer",
-      "Security Bank Transfer",
-      "RCBC Transfer",
-      "LandBank Transfer",
-    ],
-  },
-  {
-    category: "payment_gateway",
-    methods: [
-      "PayMongo",
-      "Xendit",
-      "DragonPay",
-      "HitPay",
-      "Payment Link (Email/SMS Invoice)",
-    ],
-  },
-  {
-    category: "insurance",
-    methods: [
-      "HMO Coverage",
-      "PhilHealth",
-      "Private Health Insurance",
-      "Guarantee Letter (GL)",
-      "HMO Co-pay",
-    ],
-  },
-  {
-    category: "financing",
-    methods: ["Home Credit", "BillEase", "SPayLater", "LazPayLater"],
-  },
-  {
-    category: "government_assistance",
-    methods: ["PCSO Assistance", "LGU Medical Assistance"],
-  },
-];
-
-/** When billing payment method is one of these, show the HMO / insurance fields. */
-const CLINICAL_HMO_PAYMENT_METHODS = new Set(["HMO Coverage", "HMO Co-pay"]);
+// PAYMENT_METHOD_CATEGORIES_FALLBACK and CLINICAL_HMO_PAYMENT_METHODS
+// are now canonical exports from ./modules/appointments.js
 
 let sidebarClockIntervalId = null;
 
@@ -461,8 +331,142 @@ function buildBookingTimeGridHtml({
   </div>`;
 }
 
-navigation.registerNavigationEvents();
 window.addEventListener("DOMContentLoaded", () => {
+  // DOM element selections
+  mainContent = document.getElementById("main-content");
+  navLinks = document.querySelectorAll(".nav-link");
+  sidebar = document.getElementById("app-sidebar");
+  sidebarToggle = document.getElementById("sidebar-toggle");
+  sidebarUserTrigger = document.getElementById("sidebar-user-trigger");
+  sidebarUserPopover = document.getElementById("sidebar-user-popover");
+  sidebarLogoutBtn = document.getElementById("sidebar-logout-btn");
+  sidebarUserMenu = document.querySelector(".sidebar-user-menu");
+  sidebarAvatarCircle = document.querySelector(".sidebar-avatar-circle");
+  sidebarAvatarName = document.querySelector(".sidebar-avatar-name");
+  sidebarAccountMeta = document.getElementById("sidebar-account-meta");
+  commandPalette = document.getElementById("command-palette");
+  commandInput = document.getElementById("command-input");
+  commandResults = document.getElementById("command-results");
+  commandPaletteTrigger = document.getElementById("command-palette-trigger");
+
+  // Create navigation
+  navigation = createNavigation({
+    navLinks,
+    commandPalette,
+    commandInput,
+    commandResults,
+    commandPaletteTrigger,
+    isLoggedIn,
+    getCurrentUserRole,
+    applyTheme,
+    renderers: {
+      renderDoctorDashboard,
+      renderSettings,
+      renderPrivacy,
+      renderPatients,
+      renderDoctors,
+      renderAppointments,
+      renderCalendar,
+      renderUsers,
+      renderLogin,
+      renderSignup,
+      renderPatientBooking,
+      renderHome,
+    },
+  });
+
+  // Assign destructured properties
+  getSignupRoleFromHash = navigation.getSignupRoleFromHash;
+  parseDoctorDashboardTab = navigation.parseDoctorDashboardTab;
+  renderPage = navigation.renderPage;
+  renderTopbarBreadcrumbs = navigation.renderTopbarBreadcrumbs;
+  setDoctorDashboardHashTab = navigation.setDoctorDashboardHashTab;
+  setupCommandPalette = navigation.setupCommandPalette;
+
+  // Initialize Modules
+  initAuthModule({
+    apiRequest,
+    resetMessagingSocket,
+    updateAuthNav,
+    renderHome,
+    getSignupRoleFromHash,
+  });
+
+  initPatientsModule({
+    apiRequest,
+    getApiErrorMessage,
+    getCurrentUserRole,
+    getCurrentUserId,
+    getCurrentLinkedDoctorId,
+    getCurrentReceptionistType,
+    formatRelativeTime,
+    formatDateDisplay,
+    formatDateForInput,
+    sendDocumentMessage,
+    resolvePatientMessageRecipient,
+    downloadCsv,
+    loadFacilities,
+    renderFacilityDatalist,
+    attachFacilityInputBehavior,
+    loadHmoProviders,
+    isAllowedPresetImageUrl,
+    buildAvatarPresetGridHtml,
+    wireAvatarPresetGrid,
+    showDangerConfirm,
+    ensureAvatarPresetsLoaded,
+  });
+
+  initDoctorsModule({
+    apiRequest,
+    getApiErrorMessage,
+    getCurrentUserRole,
+    getCurrentUserId,
+    getCurrentReceptionistType,
+    isAllowedPresetImageUrl,
+    buildAvatarPresetGridHtml,
+    wireAvatarPresetGrid,
+    ensureAvatarPresetsLoaded,
+    setupTaggedFacilityMultiSelect,
+    renderFacilityDatalist,
+    parseAffiliatedClinics,
+    loadFacilities,
+    buildDoctorAvailabilityLabel,
+    formatDateForInput,
+    renderPatientBooking,
+  });
+
+  initShell({ updateAuthNav, renderLogin });
+
+  initAppointmentsModule({
+    apiRequest,
+    getApiErrorMessage,
+    getCurrentUserRole,
+    getCurrentUserId,
+    getCurrentLinkedDoctorId,
+    formatPatientDisplayName,
+    formatPatientFullNameOnly,
+    formatPatientAddress,
+    formatDateDisplay,
+    formatDateForInput,
+    normalizeTimeText,
+    buildBookingTimeGridHtml,
+    showDangerConfirm,
+    showToast,
+    escapeHtml,
+    setPageTone,
+    API_BASE,
+  });
+
+  initUsersModule({
+    apiRequest,
+    getCurrentUserRole,
+    showToast,
+    showDangerConfirm,
+    mainContent,
+    setPageTone,
+  });
+
+  // Start the App
   bootstrapTheme();
   loadDashboardState();
   setupShellInteractions();
@@ -471,33 +475,14 @@ window.addEventListener("DOMContentLoaded", () => {
   void ensureDoctorSpecialtiesLoaded();
   updateAuthNav();
   renderPage();
+
+  navigation.registerNavigationEvents();
+
   window.addEventListener("message", handleGoogleAuthMessage);
 });
 
-function setupShellInteractions() {
-  if (!sidebarToggle || !sidebar) return;
-  sidebarToggle.addEventListener("click", () => {
-    sidebar.classList.toggle("collapsed");
-  });
-  sidebarUserTrigger?.addEventListener("click", (e) => {
-    e.preventDefault();
-    sidebarUserPopover?.classList.toggle("hidden");
-  });
-  sidebarLogoutBtn?.addEventListener("click", () => {
-    if (window.__drmeetMessagePoll) {
-      clearInterval(window.__drmeetMessagePoll);
-      window.__drmeetMessagePoll = null;
-    }
-    localStorage.removeItem("token");
-    localStorage.removeItem(USER_CACHE_KEY);
-    clearSessionExpiredState();
-    resetMessagingSocket();
-    updateAuthNav();
-    if (sidebarUserPopover) sidebarUserPopover.classList.add("hidden");
-    window.location.hash = "#login";
-    renderLogin();
-  });
-}
+// setupShellInteractions, applyTheme, bootstrapTheme
+// are now imported from ./core/shell.js
 
 function parseIsoDate(value) {
   const date = new Date(value);
@@ -517,17 +502,6 @@ function sortMessagesByRecent(messages) {
     const right = parseIsoDate(b.createdAt)?.getTime() || 0;
     return right - left;
   });
-}
-
-function applyTheme(theme) {
-  const resolved = theme === "dark" ? "dark" : "light";
-  document.body.classList.toggle("theme-dark", resolved === "dark");
-  localStorage.setItem(THEME_KEY, resolved);
-}
-
-function bootstrapTheme() {
-  const stored = localStorage.getItem(THEME_KEY) || "light";
-  applyTheme(stored);
 }
 
 export function participantAvatarUrl(participant) {
@@ -3013,384 +2987,22 @@ function attachFacilityInputBehavior(selector) {
       input.value = val;
     });
   });
-  mainContent.innerHTML = `<h2>Doctors</h2><div class="feedback error">${err.message}</div>`;
 }
 
 
-// --- Doctors ---
 
-// --- Appointments ---
-async function renderAppointments() {
-  setPageTone("appointments");
-  mainContent.innerHTML =
-    '<h2 class="page-title page-title-appointments">Appointments</h2><div class="feedback">Loading...</div>';
-  try {
-    const [res, doctorRes, patientRes] = await Promise.all([
-      apiRequest(`${API_BASE}/appointments`),
-      apiRequest(`${API_BASE}/doctors`),
-      apiRequest(`${API_BASE}/patients`),
-    ]);
-    if (!res.ok) throw new Error("Failed to fetch appointments");
-    const appointments = await res.json();
-    const doctors = doctorRes.ok ? await doctorRes.json() : [];
-    const patients = patientRes.ok ? await patientRes.json() : [];
-    const doctorLookup = new Map(
-      doctors.map((doctor) => [
-        String(doctor._id),
-        `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim(),
-      ]),
-    );
-    const patientLookup = new Map(
-      patients.map((patient) => [
-        String(patient._id),
-        formatPatientDisplayName(patient),
-      ]),
-    );
-    const patientById = new Map(
-      patients.map((patient) => [String(patient._id), patient]),
-    );
-    mainContent.innerHTML = `
-      <h2 class="page-title page-title-appointments">Appointments</h2>
-      <div class="appointments-toolbar">
-        <button type="button" class="btn btn-secondary" id="appointments-refresh-btn">Refresh</button>
-        <button class="cta-primary" onclick="window.showAppointmentForm()">Add Appointment</button>
-        ${getCurrentUserRole() === "admin" ? '<button class="cta-primary btn-secondary" id="export-appointments-csv">Export CSV</button>' : ""}
-      </div>
-      <hr class="section-divider" />
-      <div class="list-filters">
-        ${getCurrentUserRole() === "receptionist" ? "" : '<input type="search" id="appt-filter-doctor" placeholder="Filter by doctor" />'}
-        <input type="search" id="appt-filter-patient" placeholder="Filter by patient" />
-        <input type="search" id="appt-filter-date" placeholder="Filter by date (YYYY-MM-DD)" />
-        <input type="search" id="appt-filter-time" placeholder="Filter by time" />
-        <input type="search" id="appt-filter-status" placeholder="Filter by status" />
-      </div>
-      <table>
-        <thead><tr><th>Doctor</th><th>Patient</th><th>Date</th><th>Time</th><th>Status</th><th>Actions</th></tr></thead>
-        <tbody id="appointments-table-body"></tbody>
-      </table>
-      <div id="appointment-form-modal" style="display:none"></div>
-    `;
-    const bodyEl = document.getElementById("appointments-table-body");
-    const renderRows = (list) => {
-      bodyEl.innerHTML = list
-        .map(
-          (a) => `
-            <tr class="${String(a.status || "").toLowerCase() === "cancelled" ? "row-cancelled" : ""}">
-              <td>${escapeHtml(resolveAppointmentDoctorName(a, doctorLookup))}</td>
-              <td>${(typeof a.patientId === "object" ? (formatPatientDisplayName(a.patientId) || a.patientId?.name || "") : "") || patientLookup.get(String(a.patient?._id || a.patient)) || "Unknown Patient"}</td>
-              <td>${formatDateDisplay(a.date) || ""}</td>
-              <td>${a.time || ""}</td>
-              <td><span class="status-pill status-${String(a.status || "pending").toLowerCase()}">${a.status || ""}</span></td>
-              <td>
-                <button class="btn btn-secondary btn-action-edit" onclick="window.editAppointment('${a._id
-            }')">Edit</button>
-                <button class="btn btn-action-delete" onclick="window.deleteAppointment('${a._id
-            }')">Delete</button>
-              </td>
-            </tr>
-          `,
-        )
-        .join("");
-    };
-    const applyAppointmentFilters = () => {
-      const doctorQ = String(
-        document.getElementById("appt-filter-doctor")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const patientQ = String(
-        document.getElementById("appt-filter-patient")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const dateQ = String(
-        document.getElementById("appt-filter-date")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const timeQ = String(
-        document.getElementById("appt-filter-time")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const statusQ = String(
-        document.getElementById("appt-filter-status")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const filtered = appointments.filter((a) => {
-        const doctor = String(
-          resolveAppointmentDoctorName(a, doctorLookup) || "",
-        ).toLowerCase();
-        const patient = String(
-          patientLookup.get(String(a.patient?._id || a.patient)) ||
-          a.patient ||
-          "",
-        ).toLowerCase();
-        const date = formatDateForInput(a.date).toLowerCase();
-        const time = String(a.time || "").toLowerCase();
-        const status = String(a.status || "").toLowerCase();
-        return (
-          (!doctorQ || doctor.includes(doctorQ)) &&
-          (!patientQ || patient.includes(patientQ)) &&
-          (!dateQ || date.includes(dateQ)) &&
-          (!timeQ || time.includes(timeQ)) &&
-          (!statusQ || status.includes(statusQ))
-        );
-      });
-      renderRows(filtered);
-    };
-    [
-      "appt-filter-doctor",
-      "appt-filter-patient",
-      "appt-filter-date",
-      "appt-filter-time",
-      "appt-filter-status",
-    ].forEach((id) => {
-      document
-        .getElementById(id)
-        ?.addEventListener("input", applyAppointmentFilters);
-    });
-    renderRows(appointments);
-    document.getElementById("appointments-refresh-btn")?.addEventListener("click", () => {
-      void renderAppointments();
-    });
-    document
-      .getElementById("export-appointments-csv")
-      ?.addEventListener("click", () => {
-        downloadCsv(
-          `appointments-${Date.now()}.csv`,
-          appointments.map((a) => ({
-            doctor: resolveAppointmentDoctorName(a, doctorLookup),
-            patient:
-              (typeof a.patientId === "object"
-                ? formatPatientDisplayName(a.patientId) || a.patientId?.name
-                : "") ||
-              patientLookup.get(String(a.patient?._id || a.patient)) ||
-              "Unknown Patient",
-            date: formatDateForInput(a.date),
-            time: a.time || "",
-            status: a.status || "",
-          })),
-        );
-      });
-    window.showAppointmentForm = showAppointmentForm;
-    window.editAppointment = editAppointment;
-    window.deleteAppointment = deleteAppointment;
-  } catch (err) {
-    mainContent.innerHTML = `<h2>Appointments</h2><div class="feedback error">${err.message}</div>`;
-  }
+// --- renderAppointments, renderCalendar: now in ./modules/appointments.js ---
+// --- renderUsers, showUserForm, editUser, deleteUser: now in ./modules/users.js ---
+// --- window.closePatientForm: now in ./modules/patients.js ---
+// --- window.closeDoctorForm: now in ./modules/doctors.js ---
+
+
+
+
+
 }
 
-async function showAppointmentForm(editId = null) {
-  const modal = document.getElementById("appointment-form-modal");
-  modal.style.display = "block";
-  modal.innerHTML = `<div class="feedback">Loading form...</div>`;
-  let doctors = [];
-  let patients = [];
-  try {
-    const [doctorRes, patientRes] = await Promise.all([
-      apiRequest(`${API_BASE}/doctors`),
-      apiRequest(`${API_BASE}/patients`),
-    ]);
-    doctors = doctorRes.ok ? await doctorRes.json() : [];
-    patients = patientRes.ok ? await patientRes.json() : [];
-  } catch (error) {
-    window.closeAppointmentForm = () => {
-      modal.style.display = "none";
-    };
-    modal.innerHTML = `
-      <div class="modal-sheet card">
-        <button type="button" class="modal-close-x" aria-label="Close" onclick="window.closeAppointmentForm()">&times;</button>
-        <div class="feedback error">Failed to load doctors and patients.</div>
-      </div>`;
-    return;
-  }
 
-  const doctorOptions = doctors
-    .map((doctor) => {
-      const fullName =
-        `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim();
-      const specialty = doctor.specialty || "No specialty";
-      const availability = buildDoctorAvailabilityLabel(doctor);
-      return `<option value="${doctor._id}">${fullName} - ${specialty} (${availability})</option>`;
-    })
-    .join("");
-
-  const patientOptions = patients
-    .map((patient) => {
-      const fullName = formatPatientDisplayName(patient);
-      return `<option value="${patient._id}">${fullName} (${patient.email || "No email"})</option>`;
-    })
-    .join("");
-
-  modal.innerHTML = `
-    <div class="modal-sheet card">
-    <button type="button" class="modal-close-x" aria-label="Close" onclick="window.closeAppointmentForm()">&times;</button>
-    <form id="appointment-form">
-      <h3>${editId ? "Edit" : "Add"} Appointment</h3>
-      <label>Doctor
-        <select name="doctor" required>
-          <option value="">Select doctor</option>
-          ${doctorOptions}
-        </select>
-      </label>
-      <label>Patient
-        <select name="patient" required>
-          <option value="">Select patient</option>
-          ${patientOptions}
-        </select>
-      </label>
-      <label>Date <input name="date" type="date" required /></label>
-      <label>Time <input name="time" type="time" required /></label>
-      <div id="appointment-smart-hint" class="feedback" style="display:none"></div>
-      <div id="appointment-smart-times" class="calendar-detail-modal-actions"></div>
-      <label>Status
-        <select name="status">
-          <option value="pending">Pending</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="cancelled">Cancelled</option>
-          <option value="completed">Completed</option>
-        </select>
-      </label>
-      <label>Notes <textarea name="notes"></textarea></label>
-      <div class="modal-form-actions">
-        <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
-        <button type="button" class="btn btn-action-delete" onclick="window.closeAppointmentForm()">Cancel</button>
-      </div>
-    </form>
-    </div>
-  `;
-  window.closeAppointmentForm = () => {
-    modal.style.display = "none";
-  };
-  const form = document.getElementById("appointment-form");
-  attachClearButtons(form);
-  if (getCurrentUserRole() === "patient" && form.patient) {
-    form.patient.disabled = true;
-    form.patient.setAttribute("aria-disabled", "true");
-  }
-  const hintEl = document.getElementById("appointment-smart-hint");
-  const timesEl = document.getElementById("appointment-smart-times");
-  const renderSmartBookingHint = async () => {
-    const doctorId = String(form.doctor?.value || "").trim();
-    const date = String(form.date?.value || "").trim();
-    if (!doctorId || !date) {
-      if (hintEl) hintEl.style.display = "none";
-      if (timesEl) timesEl.innerHTML = "";
-      return;
-    }
-    try {
-      const url = new URL(`${API_BASE}/appointments/booking-hints`, window.location.origin);
-      url.searchParams.set("doctorId", doctorId);
-      url.searchParams.set("date", date);
-      if (editId) url.searchParams.set("excludeAppointmentId", String(editId));
-      const res = await apiRequest(url.toString());
-      if (!res.ok) {
-        if (hintEl) {
-          hintEl.style.display = "block";
-          hintEl.className = "feedback error";
-          hintEl.textContent = await getApiErrorMessage(
-            res,
-            "Unable to load booking hints.",
-          );
-        }
-        if (timesEl) timesEl.innerHTML = "";
-        return;
-      }
-      const info = await res.json();
-      if (hintEl) {
-        hintEl.style.display = "block";
-        hintEl.className =
-          Number(info.remainingSlots) > 0
-            ? "feedback booking-hint"
-            : "feedback error booking-hint";
-        hintEl.textContent = String(info.hint || "");
-      }
-      if (timesEl) {
-        timesEl.innerHTML = buildBookingTimeGridHtml({
-          suggestedAvailableTimes: info.suggestedAvailableTimes,
-          conflictingTimes: info.conflictingTimes,
-          selectedTime: form.time?.value || "",
-        });
-      }
-      timesEl?.querySelectorAll("[data-smart-time]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const next = normalizeTimeText(btn.getAttribute("data-smart-time"));
-          if (!next || !form.time) return;
-          form.time.value = next;
-          void renderSmartBookingHint();
-        });
-      });
-    } catch (error) {
-      if (hintEl) {
-        hintEl.style.display = "block";
-        hintEl.className = "feedback error";
-        hintEl.textContent = "Unable to load booking hints.";
-      }
-      if (timesEl) timesEl.innerHTML = "";
-    }
-  };
-  form.doctor?.addEventListener("change", renderSmartBookingHint);
-  form.date?.addEventListener("change", renderSmartBookingHint);
-  form.time?.addEventListener("change", renderSmartBookingHint);
-  if (editId) {
-    try {
-      const res = await apiRequest(`${API_BASE}/appointments/${editId}`);
-      const data = await res.json();
-      form.doctor.value = data.doctor?._id || data.doctor || "";
-      form.patient.value = data.patient?._id || data.patient || "";
-      form.date.value = formatDateForInput(data.date);
-      form.time.value = data.time || "";
-      form.status.value = data.status || "pending";
-      form.notes.value = data.notes || data.reason || "";
-      await renderSmartBookingHint();
-    } catch (error) {
-      console.error(error);
-    }
-  }
-  if (!editId) {
-    await renderSmartBookingHint();
-  }
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const appointment = Object.fromEntries(new FormData(form));
-    try {
-      const res = await apiRequest(
-        `${API_BASE}/appointments${editId ? "/" + editId : ""}`,
-        {
-          method: editId ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(appointment),
-        },
-      );
-      if (!res.ok)
-        throw new Error(
-          await getApiErrorMessage(res, "Failed to save appointment"),
-        );
-      modal.style.display = "none";
-      renderAppointments();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  };
-}
-
-function editAppointment(id) {
-  showAppointmentForm(id);
-}
-async function deleteAppointment(id) {
-  if (!(await showDangerConfirm("Delete this appointment?"))) return;
-  try {
-    const res = await apiRequest(`${API_BASE}/appointments/${id}`, {
-      method: "DELETE",
-    });
-    if (!res.ok) throw new Error("Failed to delete appointment");
-    renderAppointments();
-  } catch (err) {
-    showToast(err.message, "error");
-  }
-}
 
 async function renderCalendar() {
   setPageTone("appointments");
@@ -3890,20 +3502,5 @@ async function deleteUser(id) {
   } catch (err) {
     showToast(err.message, "error");
   }
-}
-
-window.closePatientForm = function () {
-  const modal = document.getElementById("patient-form-modal");
-  if (modal) {
-    modal.style.display = "none";
-    modal.innerHTML = "";
-  }
-};
-
-window.closeDoctorForm = function () {
-  const modal = document.getElementById("doctor-form-modal");
-  if (modal) {
-    modal.style.display = "none";
-    modal.innerHTML = "";
   }
 };
