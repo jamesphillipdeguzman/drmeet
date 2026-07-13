@@ -2204,10 +2204,10 @@ function renderPricing() {
   mainContent.innerHTML = `
     <div class="pricing-container max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
       <div class="text-center mb-16">
-        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-slate-50 tracking-tight sm:text-4xl">
+        <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight sm:text-4xl">
           Flexible Plans for Medical Providers
         </h2>
-        <p class="mt-4 max-w-2xl mx-auto text-base text-slate-600 dark:text-slate-400">
+        <p class="mt-4 max-w-2xl mx-auto text-base text-slate-600 dark:text-slate-300">
           Scale your digital practice workflows, secure team communication, and automate patient outreach with DrMeet's specialized clinical plans.
         </p>
       </div>
@@ -2926,11 +2926,14 @@ export function buildThreadMessagesHtml(messages, currentUserId) {
       const bubbleClass = isYou
         ? "thread-bubble--outgoing"
         : "thread-bubble--incoming";
+      const behalfLabel = msg.onBehalfOf
+        ? ` <span class="text-xs text-indigo-600 dark:text-indigo-400 italic ml-1">(on behalf of Doctor)</span>`
+        : "";
       return `
       <div class="thread-row thread-row--${rowSide}">
         <article class="thread-bubble ${bubbleClass}" data-sender-role="${escapeHtml(roleClass)}">
           <div class="thread-bubble-meta">
-            <strong>${escapeHtml(displayName)}</strong>
+            <strong>${escapeHtml(displayName)}${behalfLabel}</strong>
             <small>${msg.createdAt ? escapeHtml(formatRelativeTime(msg.createdAt)) : ""}</small>
           </div>
           <p class="thread-message-body">${escapeHtml(msg.message || "")}</p>
