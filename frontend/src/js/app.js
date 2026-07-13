@@ -1237,6 +1237,7 @@ async function showClinicalTab(tab) {
                   <th>HMO</th>
                   <th>Coverage</th>
                   <th>Claim</th>
+                  <th>Documents</th>
                   <th></th>
                 </tr>
               </thead>
@@ -1251,6 +1252,33 @@ async function showClinicalTab(tab) {
               const pimg = escapeHtml(
                 patientPhoto(a) || DEFAULT_AVATAR_URL,
               );
+              const docLinks = [];
+              if (b.claimUrl) {
+                docLinks.push(`<a href="${escapeHtml(b.claimUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 2px 8px; font-size: 0.7rem; border-radius: 12px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-weight: 600; text-decoration: none; border: 1px solid rgba(59, 130, 246, 0.3);">HMO Card</a>`);
+              }
+              if (b.soaUrl) {
+                docLinks.push(`<a href="${escapeHtml(b.soaUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 2px 8px; font-size: 0.7rem; border-radius: 12px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-weight: 600; text-decoration: none; border: 1px solid rgba(59, 130, 246, 0.3);">SOA</a>`);
+              }
+              if (b.invoiceUrl) {
+                docLinks.push(`<a href="${escapeHtml(b.invoiceUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 2px 8px; font-size: 0.7rem; border-radius: 12px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-weight: 600; text-decoration: none; border: 1px solid rgba(59, 130, 246, 0.3);">Receipt</a>`);
+              }
+
+              const documentsCellContent = docLinks.length
+                ? `<div class="billing-doc-links-row" style="display: flex; gap: 4px; flex-wrap: wrap;">${docLinks.join(" ")}</div>`
+                : `
+                <div class="inline-billing-upload-wrap" style="display: flex; gap: 4px; align-items: center;">
+                  <select class="inline-billing-doc-kind-sel" data-appt-id="${escapeHtml(String(a._id))}" aria-label="Upload document type" style="padding: 2px 4px; font-size: 0.75rem;">
+                    <option value="claim">HMO Card</option>
+                    <option value="soa">SOA</option>
+                    <option value="invoice">Receipt</option>
+                  </select>
+                  <label class="btn btn-secondary btn-sm inline-upload-btn" style="padding: 2px 6px; font-size: 0.75rem; cursor: pointer; margin: 0; user-select: none;">
+                    Upload
+                    <input type="file" class="inline-billing-doc-input" data-appt-id="${escapeHtml(String(a._id))}" accept=".pdf,.png,.jpg,.jpeg,.webp,image/*" style="display: none;" />
+                  </label>
+                </div>
+                `;
+
               return `<tr>
                     <td>${dt}</td>
                     <td class="clinical-billing-patient-cell"><span class="clinical-billing-patient-identity"><img class="clinical-billing-patient-avatar" src="${pimg}" alt="" width="32" height="32" />${escapeHtml(pname(a))}</span></td>
@@ -1260,6 +1288,7 @@ async function showClinicalTab(tab) {
                     <td>${escapeHtml(String(b.hmoProvider || "—"))}</td>
                     <td>${escapeHtml(String(b.hmoCoverageStatus || "—"))}</td>
                     <td>${escapeHtml(String(b.hmoClaimStatus || "—"))}</td>
+                    <td>${documentsCellContent}</td>
                     <td><button type="button" class="btn btn-secondary btn-sm clinical-billing-edit" data-appt-id="${escapeHtml(String(a._id))}">Edit</button></td>
                   </tr>`;
             })
@@ -1623,6 +1652,58 @@ async function showClinicalTab(tab) {
           const appt = rows.find((r) => String(r._id) === String(id));
           if (!appt) return;
           void openBillingEditor(appt);
+        });
+      });
+
+      panel.querySelectorAll(".inline-billing-doc-input").forEach((input) => {
+        input.addEventListener("change", async () => {
+          const file = input.files?.[0];
+          if (!file) return;
+          const id = input.getAttribute("data-appt-id");
+          const appt = rows.find((r) => String(r._id) === String(id));
+          if (!appt) return;
+
+          const wrap = input.closest(".inline-billing-upload-wrap");
+          const sel = wrap?.querySelector(".inline-billing-doc-kind-sel");
+          const kind = String(sel?.value || "claim").toLowerCase();
+
+          const labelBtn = input.closest("label");
+          let originalText = "Upload";
+          if (labelBtn) {
+            originalText = labelBtn.childNodes[0]?.textContent?.trim() || "Upload";
+            labelBtn.style.pointerEvents = "none";
+            labelBtn.innerHTML = `Uploading…<input type="file" class="inline-billing-doc-input" data-appt-id="${escapeHtml(String(id))}" accept=".pdf,.png,.jpg,.jpeg,.webp,image/*" style="display: none;" />`;
+          }
+
+          try {
+            const documentFileData = await fileToDataUrl(file);
+            const resUp = await apiRequest(
+              `${API_BASE}/doctors/me/appointments/${id}/billing/documents`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  kind,
+                  documentName: file.name,
+                  documentFileData,
+                }),
+              },
+            );
+            if (!resUp.ok)
+              throw new Error(
+                await getApiErrorMessage(resUp, "Upload failed."),
+              );
+            showToast("Document uploaded.");
+            const next = await resUp.json();
+            appt.billing = next?.appointment?.billing || appt.billing || {};
+            await showClinicalTab("billing");
+          } catch (err) {
+            showToast(err?.message || "Upload failed.", "error");
+            if (labelBtn) {
+              labelBtn.style.pointerEvents = "auto";
+              labelBtn.innerHTML = `${escapeHtml(originalText)}<input type="file" class="inline-billing-doc-input" data-appt-id="${escapeHtml(String(id))}" accept=".pdf,.png,.jpg,.jpeg,.webp,image/*" style="display: none;" />`;
+            }
+          }
         });
       });
 
