@@ -483,6 +483,7 @@ export async function renderPatients() {
             file,
           });
           showToast("Document sent to patient.");
+          await renderPatients();
         } catch (error) {
           showToast(error?.message || "Unable to send document.", "error");
         }
