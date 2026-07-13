@@ -2029,22 +2029,46 @@ function renderHome() {
       <h3 class="home-cta-title">Please select your profile type below</h3>
       <div class="role-select-grid">
         <button type="button" class="role-card role-card-doctor" id="role-select-doctor">
-          <span class="role-card-label">I am a Provider</span>
-          <span class="role-card-hint">Register as a Doctor to manage your practice.
-            <span class="info-tooltip-trigger" tabindex="0">
-              <img src="/images/info-i.svg" alt="Info" class="info-tooltip-icon" />
-              <span class="info-tooltip-bubble">Register as a Doctor to manage your practice.</span>
-            </span>
-          </span>
+          <div class="role-card-illustration-wrapper">
+            <div class="role-card-circle">
+              <img src="/images/doctor-profile.webp" alt="Provider" class="role-card-illustration" />
+            </div>
+          </div>
+          <div class="role-card-content">
+            <h4 class="role-card-title">
+              I am a Provider
+              <span class="info-tooltip-trigger" tabindex="0">
+                <img src="/images/info-i.svg" alt="Info" class="info-tooltip-icon" />
+                <span class="info-tooltip-bubble">Register as a Doctor to manage your practice.</span>
+              </span>
+            </h4>
+            <p class="role-card-description">Register as a Doctor to manage your practice.</p>
+          </div>
+          <div class="role-card-cta">
+            <span class="role-card-cta-text">Get Started</span>
+            <span class="role-card-cta-icon">&rarr;</span>
+          </div>
         </button>
         <button type="button" class="role-card role-card-patient" id="role-select-patient">
-          <span class="role-card-label">I am a Patient</span>
-          <span class="role-card-hint">Create an account to find care and book appointments.
-            <span class="info-tooltip-trigger" tabindex="0">
-              <img src="/images/info-i.svg" alt="Info" class="info-tooltip-icon" />
-              <span class="info-tooltip-bubble">Create an account to find care and book appointments.</span>
-            </span>
-          </span>
+          <div class="role-card-illustration-wrapper">
+            <div class="role-card-circle">
+              <img src="/images/patient-profile.webp" alt="Patient" class="role-card-illustration" />
+            </div>
+          </div>
+          <div class="role-card-content">
+            <h4 class="role-card-title">
+              I am a Patient
+              <span class="info-tooltip-trigger" tabindex="0">
+                <img src="/images/info-i.svg" alt="Info" class="info-tooltip-icon" />
+                <span class="info-tooltip-bubble">Create an account to find care and book appointments.</span>
+              </span>
+            </h4>
+            <p class="role-card-description">Create an account to find care and book appointments.</p>
+          </div>
+          <div class="role-card-cta">
+            <span class="role-card-cta-text">Get Started</span>
+            <span class="role-card-cta-icon">&rarr;</span>
+          </div>
         </button>
       </div>
     </section>
