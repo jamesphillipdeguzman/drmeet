@@ -565,7 +565,7 @@
                             "properties": {
                               "value": {
                                 "type": "string",
-                                "example": "jamesphillipdeguzman@gmail.com"
+                                "example": "DrMeet Dev Team <dev@mydrmeet.com>"
                               }
                             }
                           }
