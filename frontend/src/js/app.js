@@ -486,6 +486,67 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 
+function updateAuthNav() {
+  const loginLink = document.getElementById("login-link");
+  const signedIn = isLoggedIn();
+  const role = getCurrentUserRole();
+  const doctorDashLi = document.querySelector(".nav-li-doctor-dash");
+  if (doctorDashLi) {
+    doctorDashLi.style.display = signedIn && role === "doctor" ? "" : "none";
+  }
+  const staffNavLis = document.querySelectorAll(".nav-li-staff-only");
+  const staffNavRoles = new Set(["doctor", "receptionist", "admin"]);
+  staffNavLis.forEach((li) => {
+    li.style.display = signedIn && staffNavRoles.has(String(role || "")) ? "" : "none";
+  });
+  if (signedIn) {
+    mountFloatingChatWidget();
+  } else {
+    hideFloatingChatWidget();
+  }
+  if (!loginLink) return;
+  navLinks.forEach((link) => {
+    const href = link.getAttribute("href");
+    const isHome = href === "#home";
+    const isLogin = href === "#login";
+    if (!signedIn) {
+      link.style.display = isHome || isLogin ? "" : "none";
+      return;
+    }
+    if (isLogin) {
+      link.style.display = "none";
+      return;
+    }
+    link.style.display = "";
+  });
+  if (sidebarUserMenu) {
+    sidebarUserMenu.style.display = signedIn ? "" : "none";
+  }
+  if (sidebarUserPopover) {
+    sidebarUserPopover.classList.add("hidden");
+  }
+  if (sidebarUserTrigger) {
+    sidebarUserTrigger.style.display = signedIn ? "" : "none";
+  }
+  updateSidebarAccountInfo();
+  if (sidebarClockIntervalId) {
+    clearInterval(sidebarClockIntervalId);
+    sidebarClockIntervalId = null;
+  }
+  if (signedIn) {
+    cacheCurrentUserProfile();
+    refreshCurrentUserCacheFromApi();
+    sidebarClockIntervalId = setInterval(updateSidebarAccountInfo, 1000);
+  }
+  if (signedIn) {
+    loginLink.textContent = "Login";
+    loginLink.onclick = null;
+  } else {
+    loginLink.textContent = "Login";
+    loginLink.onclick = null;
+  }
+}
+
 function parseIsoDate(value) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
