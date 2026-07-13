@@ -467,11 +467,14 @@ export function renderMessengerConversationList(rootEl) {
         });
     });
 }
-function scrollToRecentMessage(scrollContainer) {
+function scrollToRecentMessage(scrollContainer, force = false) {
     if (!scrollContainer) return;
-    requestAnimationFrame(() => {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-    });
+    const distanceFromBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight;
+    if (force || distanceFromBottom < 150) {
+        requestAnimationFrame(() => {
+            scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        });
+    }
 }
 
 export function renderMessengerThread(rootEl) {
@@ -513,12 +516,13 @@ export function renderMessengerThread(rootEl) {
     if (ui.typing) ui.typing.textContent = typingLabel || "";
 
     if (ui.scroll) {
+        const isNewThread = rootEl.dataset.messengerConversationId !== String(conversationId);
         ui.scroll.innerHTML = buildThreadMessagesHtml(
             dashboardState.messages,
             currentUserId
         );
 
-        scrollToRecentMessage(ui.scroll);
+        scrollToRecentMessage(ui.scroll, isNewThread);
     }
 
     const conversationIdRef = String(conversationId);
@@ -578,7 +582,7 @@ export function renderMessengerThread(rootEl) {
             clearMessengerAttachmentPreview(rootEl);
             if (typingStopTimer) clearTimeout(typingStopTimer);
             emitTypingStop();
-            if (ui.scroll) ui.scroll.scrollTop = ui.scroll.scrollHeight;
+            scrollToRecentMessage(ui.scroll, true);
         } catch (err) {
             showToast(err?.message || "Unable to send message", "error");
         } finally {
