@@ -658,6 +658,8 @@ export async function showDoctorForm(editId = null) {
       ...doctor,
       availability,
     };
+    if (doctorPayload.photoFile && Object.keys(doctorPayload.photoFile).length === 0) delete doctorPayload.photoFile;
+    if (doctorPayload.prcIdFile && Object.keys(doctorPayload.prcIdFile).length === 0) delete doctorPayload.prcIdFile;
     try {
       const res = await apiRequest(
         `${API_BASE}/doctors${editId ? "/" + editId : ""}`,
