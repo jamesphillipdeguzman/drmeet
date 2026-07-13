@@ -6,6 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DrMeet - Clinic Management</title>
     <link rel="icon" type="image/png" href="images/drmeet-logo.webp" />
+    <script>
+        tailwind = {
+            config: {
+                darkMode: ['selector', '.theme-dark']
+            }
+        }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="css/style.css" />
 </head>
@@ -39,6 +46,7 @@
                 <li><a href="#doctors" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 5h-3.17l-1.41-2.12A2 2 0 0 0 12.75 2h-1.5a2 2 0 0 0-1.67.88L8.17 5H5a2 2 0 0 0-2 2v10a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V7a2 2 0 0 0-2-2zm-7 12a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0-8.5c-1.93 0-3.5 1.57-3.5 3.5s1.57 3.5 3.5 3.5 3.5-1.57 3.5-3.5S13.93 8.5 12 8.5z"/></svg></span><span class="nav-label">Doctors</span></a></li>
                 <li><a href="#appointments" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M7 2h2v2h6V2h2v2h3v18H4V4h3zm11 8H6v10h12zm-6 2h2v5h-4v-2h2z"/></svg></span><span class="nav-label">Appointments</span></a></li>
                 <li><a href="https://medreftool.netlify.app" target="_blank" rel="noopener noreferrer" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M19 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h13c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h1v14H6V4zm13 16H9V4h10v16z"/><path d="M11 9h2v2h2v2h-2v2h-2v-2H9v-2h2V9z"/></svg></span><span class="nav-label">Medical Reference</span></a></li>
+                <li><a href="#pricing" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.39 12.19c-.31.11-.64.19-1 .24v1.07h-1.5v-1.03c-1.13-.1-2.06-.83-2.28-1.94h1.72c.12.44.53.75 1.06.78v-2.24c-1.18-.35-2.31-.83-2.31-2.29 0-1.13.88-1.97 2.03-2.09V5.5h1.5v1.02c1.02.09 1.77.72 1.96 1.63h-1.68c-.11-.34-.41-.61-.91-.65v2.1c1.26.39 2.45.82 2.45 2.33 0 1.25-.97 2.06-2.22 2.26v1.03z"/></svg></span><span class="nav-label">Pricing</span><span id="nav-pricing-badge" class="ml-auto hidden text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"></span></a></li>
                 <li class="nav-li-staff-only" style="display:none"><a href="#calendar" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v13a3 3 0 0 0 3 3h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H6a1 1 0 0 1-1-1V10h14zm0-12H5V6h14z"/></svg></span><span class="nav-label">Calendar</span></a></li>
                 <li class="nav-li-staff-only" style="display:none"><a href="#users" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 9a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm7 3-2-.4a6.8 6.8 0 0 0-1-1.8l1.2-1.7-1.4-1.4-1.7 1.2a6.8 6.8 0 0 0-1.8-1L12 4 11.7 2h-1.4L10 4a6.8 6.8 0 0 0-1.8 1L6.5 3.8 5.1 5.2l1.2 1.7a6.8 6.8 0 0 0-1 1.8L3 12l2 .3a6.8 6.8 0 0 0 1 1.8L4.8 16l1.4 1.4 1.7-1.2a6.8 6.8 0 0 0 1.8 1l.3 2h1.4l.3-2a6.8 6.8 0 0 0 1.8-1l1.7 1.2 1.4-1.4-1.2-1.7a6.8 6.8 0 0 0 1-1.8z"/></svg></span><span class="nav-label">Users</span></a></li>
                 <li><a href="#settings" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.488.488 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 0 0-.49-.43h-3.84c-.24 0-.43.19-.47.42l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.09.63-.09.94s.02.63.06.93l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.42l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></span><span class="nav-label">Settings</span></a></li>
