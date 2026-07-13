@@ -99,6 +99,8 @@ import {
   initAppointmentsModule,
   renderAppointments,
   renderCalendar,
+  CLINICAL_HMO_PAYMENT_METHODS,
+  PAYMENT_METHOD_CATEGORIES_FALLBACK,
 } from "./modules/appointments.js";
 
 import {
