@@ -3580,3 +3580,113 @@ body.theme-dark .floating-chat-panel {
   border: none !important;
   background: #ffffff !important;
 }
+
+/* --- Responsive Calendar Grid Updates --- */
+
+/* Active Day Card Styling */
+.calendar-day.active-day {
+  border-color: #2563eb !important;
+  background: #eff6ff !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4) !important;
+}
+
+body.theme-dark .calendar-day.active-day {
+  border-color: #3b82f6 !important;
+  background: #1e293b !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.4) !important;
+}
+
+/* Calendar Details List styling */
+.calendar-details-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.calendar-detail-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.65rem;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+body.theme-dark .calendar-detail-item {
+  border-color: #2e3a5f;
+  background: #1d284b;
+  color: #dbe7ff;
+}
+
+.calendar-detail-item-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.calendar-detail-time {
+  font-size: 0.9rem;
+  color: #1e3a8a;
+}
+
+body.theme-dark .calendar-detail-time {
+  color: #60a5fa;
+}
+
+.calendar-detail-item-names p {
+  margin: 0.15rem 0;
+  font-size: 0.84rem;
+  color: #475569;
+}
+
+body.theme-dark .calendar-detail-item-names p {
+  color: #94a3b8;
+}
+
+.calendar-detail-empty-msg {
+  color: #64748b;
+  font-size: 0.88rem;
+  font-style: italic;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  /* 1. Hide the patient name string in grid cells completely on mobile */
+  .calendar-appt-patient {
+    display: none !important;
+  }
+
+  /* 2. Format the appt button inside day card as a small status indicator pill */
+  .calendar-appt-item {
+    padding: 2px 4px !important;
+    text-align: center !important;
+    border-radius: 6px !important;
+    border-width: 1px !important;
+    margin: 1px 0 !important;
+    display: inline-flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: auto !important;
+  }
+  
+  .calendar-appt-item strong {
+    font-size: 0.68rem !important;
+    line-height: 1 !important;
+    display: block !important;
+  }
+
+  /* 3. Make calendar day cards more compact vertically on mobile */
+  .calendar-day {
+    min-height: 72px !important;
+    padding: 0.25rem !important;
+  }
+
+  .calendar-day-items {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 2px !important;
+    justify-content: center !important;
+  }
+}
+

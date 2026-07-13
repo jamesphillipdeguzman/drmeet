@@ -610,7 +610,7 @@ export async function renderCalendar() {
       const dateKey = `${monthKey}-${String(day).padStart(2, "0")}`;
       const dayAppointments = dayLookup[dateKey] || [];
       calendarCells.push(`
-        <article class="calendar-day">
+        <article class="calendar-day" data-calendar-day-date="${dateKey}" style="cursor: pointer;">
           <header class="calendar-day-header">${day}</header>
           <div class="calendar-day-items">
             ${dayAppointments.length
@@ -634,7 +634,7 @@ export async function renderCalendar() {
                 resolveAppointmentDoctorName(appointment, doctorLookup);
               return `<button type="button" data-calendar-appt-id="${escapeHtml(String(appointment._id))}" class="calendar-appt-item status-${escapeHtml(String(appointment.status || "pending").toLowerCase())}" title="${escapeHtml(doctorName)}">
                       <strong>${escapeHtml(String(appointment.time || "Time n/a"))}</strong>
-                      <span>${escapeHtml(patientName)}</span>
+                      <span class="calendar-appt-patient">${escapeHtml(patientName)}</span>
                     </button>`;
             })
             .join("")
@@ -676,6 +676,11 @@ export async function renderCalendar() {
             <p><span class="status-pill status-cancelled">Cancelled</span> <strong>${statusCounts.cancelled}</strong></p>
             <p><span class="status-pill status-completed">Completed</span> <strong>${statusCounts.completed}</strong></p>
             <p><span class="status-pill status-pending">Pending</span> <strong>${statusCounts.pending}</strong></p>
+          </div>
+          <div class="calendar-day-details-section" id="calendar-day-details-panel" style="margin-top: 1.5rem; display: none;">
+            <hr class="section-divider" style="margin: 1rem 0; border-color: #dbe2f3;" />
+            <h3 id="calendar-details-date-title" style="margin-bottom: 0.6rem;">Appointments</h3>
+            <div id="calendar-details-list" class="calendar-details-list"></div>
           </div>
         </aside>
       </section>
@@ -757,9 +762,76 @@ export async function renderCalendar() {
       document.body.appendChild(overlay);
     };
     document.querySelector(".calendar-grid")?.addEventListener("click", (event) => {
-      const btn = event.target.closest("[data-calendar-appt-id]");
+      const apptBtn = event.target.closest("[data-calendar-appt-id]");
+      if (apptBtn) {
+        openCalendarAppointmentDetails(apptBtn.getAttribute("data-calendar-appt-id"));
+        event.stopPropagation();
+      }
+
+      const dayCard = event.target.closest(".calendar-day:not(.calendar-day-empty)");
+      if (!dayCard) return;
+
+      document.querySelectorAll(".calendar-grid .calendar-day").forEach((card) => {
+        card.classList.remove("active-day");
+      });
+      dayCard.classList.add("active-day");
+
+      const selectedDate = dayCard.getAttribute("data-calendar-day-date");
+      const dayNum = dayCard.querySelector(".calendar-day-header")?.textContent || "";
+      const dayAppts = dayLookup[selectedDate] || [];
+
+      const detailsPanel = document.getElementById("calendar-day-details-panel");
+      const detailsTitle = document.getElementById("calendar-details-date-title");
+      const detailsList = document.getElementById("calendar-details-list");
+
+      if (detailsPanel && detailsTitle && detailsList) {
+        if (dayAppts.length === 0) {
+          detailsTitle.textContent = `Day ${dayNum} - Free`;
+          detailsList.innerHTML = `<p class="calendar-detail-empty-msg">No appointments scheduled for this day.</p>`;
+        } else {
+          detailsTitle.textContent = `Day ${dayNum} - Appointments (${dayAppts.length})`;
+          detailsList.innerHTML = dayAppts.map((appt) => {
+            const patientName =
+              (typeof appt.patientId === "object"
+                ? formatPatientFullNameOnly(appt.patientId) ||
+                appt.patientId?.name
+                : "") ||
+              formatPatientFullNameOnly(
+                patientById.get(
+                  String(appt.patient?._id || appt.patient),
+                ) || {},
+              ) ||
+              patientLookup.get(
+                String(appt.patient?._id || appt.patient),
+              ) ||
+              "Unknown Patient";
+            const doctorName = resolveAppointmentDoctorName(appt, doctorLookup);
+            const statusClass = String(appt.status || "pending").toLowerCase();
+            const statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
+            
+            return `
+              <div class="calendar-detail-item card" style="margin-bottom: 0.55rem; padding: 0.65rem;">
+                <div class="calendar-detail-item-meta" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                  <span class="calendar-detail-time" style="font-weight: 700;">${escapeHtml(appt.time || "Time n/a")}</span>
+                  <span class="status-pill status-${statusClass}">${escapeHtml(statusLabel)}</span>
+                </div>
+                <div class="calendar-detail-item-names" style="margin-bottom: 0.35rem;">
+                  <p style="margin: 0.15rem 0; font-size: 0.84rem;"><strong>Patient:</strong> ${escapeHtml(patientName)}</p>
+                  <p style="margin: 0.15rem 0; font-size: 0.84rem;"><strong>Doctor:</strong> ${escapeHtml(doctorName)}</p>
+                </div>
+                <button type="button" class="btn btn-secondary btn-sm" data-open-appt-id="${escapeHtml(String(appt._id))}">View Full Details</button>
+              </div>
+            `;
+          }).join("");
+        }
+        detailsPanel.style.display = "block";
+      }
+    });
+
+    document.getElementById("calendar-day-details-panel")?.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-open-appt-id]");
       if (!btn) return;
-      openCalendarAppointmentDetails(btn.getAttribute("data-calendar-appt-id"));
+      openCalendarAppointmentDetails(btn.getAttribute("data-open-appt-id"));
     });
   } catch (error) {
     mainContent.innerHTML = `<h2>Calendar</h2><div class="feedback error">${error.message}</div>`;
