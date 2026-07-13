@@ -96,6 +96,11 @@ export function createNavigation({
           label: "Open Medical Reference",
           action: () => window.open("https://medreftool.netlify.app", "_blank", "noopener,noreferrer"),
         },
+        {
+          id: "pricing",
+          label: "View Pricing Tiers",
+          action: () => navigateTo("#pricing"),
+        },
       ];
     }
     const staffRoles = new Set(["doctor", "receptionist", "admin"]);
@@ -131,6 +136,36 @@ export function createNavigation({
         label: "Open Medical Reference",
         action: () => window.open("https://medreftool.netlify.app", "_blank", "noopener,noreferrer"),
       },
+      {
+        id: "pricing",
+        label: "View Pricing Tiers",
+        action: () => navigateTo("#pricing"),
+      },
+      ...(isLoggedIn() && (userRole === "doctor" || userRole === "receptionist")
+        ? [
+            (localStorage.getItem("subscription_plan") || "starter") === "starter"
+              ? {
+                  id: "upgrade-pro",
+                  label: "Upgrade to Clinic Pro",
+                  action: () => {
+                    navigateTo("#pricing");
+                    setTimeout(() => {
+                      document.getElementById("pricing-btn-pro")?.click();
+                    }, 100);
+                  },
+                }
+              : {
+                  id: "manage-sub",
+                  label: "Manage Subscription (Cancel Pro)",
+                  action: () => {
+                    navigateTo("#settings");
+                    setTimeout(() => {
+                      document.getElementById("settings-cancel-sub-btn")?.click();
+                    }, 100);
+                  },
+                },
+          ]
+        : []),
       ...(staffRoles.has(userRole)
         ? [
             {
@@ -214,6 +249,7 @@ export function createNavigation({
       { hash: "#patients", label: "Patients" },
       { hash: "#doctors", label: "Doctors" },
       { hash: "#appointments", label: "Appointments" },
+      { hash: "#pricing", label: "Pricing" },
       ...(staffRoles.has(userRole)
         ? [
             { hash: "#calendar", label: "Calendar" },
@@ -259,6 +295,9 @@ export function createNavigation({
         break;
       case "#settings":
         void renderers.renderSettings();
+        break;
+      case "#pricing":
+        renderers.renderPricing();
         break;
       case "#privacy":
         renderers.renderPrivacy();
