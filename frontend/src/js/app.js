@@ -991,6 +991,51 @@ async function showClinicalTab(tab) {
           return `<option value="${escapeHtml(String(p._id))}">${escapeHtml(label)}</option>`;
         }),
       ].join("");
+      const groupedDocs = docs.reduce((acc, d) => {
+        const groupKey = String(d.patientName || "").trim() || "Shared Clinic Library";
+        if (!acc[groupKey]) acc[groupKey] = [];
+        acc[groupKey].push(d);
+        return acc;
+      }, {});
+
+      const groupedHtml = Object.keys(groupedDocs).length
+        ? Object.entries(groupedDocs)
+            .map(
+              ([groupKey, groupItems]) => `
+              <div class="clinical-doc-group">
+                <h5 class="clinical-doc-group-heading">${escapeHtml(groupKey)}</h5>
+                <ul class="clinical-doc-list">
+                  ${groupItems
+                    .map(
+                      (d) => `
+                    <li class="card clinical-doc-row">
+                      <div>
+                        <strong>${escapeHtml(d.name || "Document")}</strong>
+                        <p class="clinical-muted">${escapeHtml(
+                          d.source === "patient"
+                            ? "Patient chart"
+                            : d.source === "clinic"
+                              ? "Clinic library"
+                              : d.source || "—",
+                        )}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
+                        <p class="clinical-muted">${
+                          d.uploadedAt
+                            ? escapeHtml(new Date(d.uploadedAt).toLocaleString())
+                            : ""
+                        }</p>
+                      </div>
+                      <a class="btn btn-secondary btn-sm" href="${escapeHtml(
+                        d.fileUrl || d.url || "#",
+                      )}" target="_blank" rel="noopener noreferrer">Open</a>
+                    </li>`,
+                    )
+                    .join("")}
+                </ul>
+              </div>`,
+            )
+            .join("")
+        : `<ul class="clinical-doc-list"><li class="feedback">No documents yet.</li></ul>`;
+
       panel.innerHTML = `
         <p class="clinical-muted clinical-doc-hint">Upload files to your shared clinic library or attach them to a specific patient’s chart.</p>
         <section class="card">
@@ -1016,24 +1061,9 @@ async function showClinicalTab(tab) {
           </form>
         </section>
         <h4 class="clinical-docs-list-title">Recent uploads</h4>
-        <ul class="clinical-doc-list">
-          ${docs.length
-          ? docs
-            .map(
-              (d) => `
-            <li class="card clinical-doc-row">
-              <div>
-                <strong>${escapeHtml(d.name || "Document")}</strong>
-                <p class="clinical-muted">${escapeHtml(d.source === "patient" ? "Patient chart" : d.source === "clinic" ? "Clinic library" : d.source || "—")}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
-                <p class="clinical-muted">${d.uploadedAt ? escapeHtml(new Date(d.uploadedAt).toLocaleString()) : ""}</p>
-              </div>
-              <a class="btn btn-secondary btn-sm" href="${escapeHtml(d.fileUrl || d.url || "#")}" target="_blank" rel="noopener noreferrer">Open</a>
-            </li>`,
-            )
-            .join("")
-          : `<li class="feedback">No documents yet.</li>`
-        }
-        </ul>
+        <div class="clinical-docs-grouped-container">
+          ${groupedHtml}
+        </div>
       `;
 
       const scopeSel = document.getElementById("clinical-doc-scope");
