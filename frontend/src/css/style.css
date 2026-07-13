@@ -3445,3 +3445,18 @@ body.theme-dark .floating-chat-panel {
 }
 
 /* (deprecated) messenger-compose-row wrapper no longer used */
+
+@media print, .screenshot-mode {
+  .document-page-wrapper,
+  .clinical-document,
+  .soa-document-container {
+    max-width: 800px !important;
+    width: 100% !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+  }
+}
