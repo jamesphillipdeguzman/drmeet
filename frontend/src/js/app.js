@@ -14,8 +14,8 @@ import {
   CHAT_UPLOAD_ICON_SRC,
   CHAT_SEND_ICON_SRC,
 } from "./config/api.js";
-
-export { authState } from "./state/auth-state.js";
+import { authState } from "./state/auth-state.js";
+export { authState };
 import {
   addInlineTooltips,
   attachClearButtons,
@@ -569,7 +569,7 @@ function sortMessagesByRecent(messages) {
 
 export function participantAvatarUrl(participant) {
   const raw = String(
-    participant?.avatarUrl || participant?.picture || "",
+    participant?.avatarUrl || participant?.photoUrl || participant?.picture || "",
   ).trim();
   return raw || DEFAULT_AVATAR_URL;
 }

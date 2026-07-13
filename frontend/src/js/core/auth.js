@@ -118,9 +118,12 @@ export function cacheCurrentUserProfile() {
   } catch (e) {
     prev = {};
   }
-  const jwtPhoto = String(payload?.photoUrl || payload?.picture || "").trim();
-  const prevPhoto = String(prev?.photoUrl || prev?.picture || "").trim();
+  const picture = payload?.picture || payload?.avatarUrl || payload?.photoUrl || prev?.picture || "";
+  const jwtPhoto = String(payload?.photoUrl || payload?.avatarUrl || picture || "").trim();
+  const prevPhoto = String(prev?.photoUrl || prev?.avatarUrl || "").trim();
   const photoUrl = jwtPhoto || prevPhoto;
+  const avatarUrl = photoUrl;
+
   localStorage.setItem(
     USER_CACHE_KEY,
     JSON.stringify({
@@ -131,7 +134,8 @@ export function cacheCurrentUserProfile() {
       linkedDoctorId: payload?.linkedDoctorId || "",
       receptionistType: payload?.receptionistType || "",
       photoUrl,
-      picture: jwtPhoto ? payload?.picture || "" : prev?.picture || "",
+      avatarUrl,
+      picture,
       cachedAt: prev.cachedAt || Date.now(),
     }),
   );
@@ -180,8 +184,9 @@ export function applyUserRecordToLocalCache(user) {
     const prev = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
     const id = user._id || prev._id;
     if (!id) return;
+    const picture = user.picture || user.avatarUrl || user.photoUrl || prev.picture || "";
     const photo =
-      String(user.picture || user.photoUrl || prev.photoUrl || prev.picture || "").trim() ||
+      String(user.photoUrl || user.avatarUrl || picture || prev.photoUrl || prev.avatarUrl || "").trim() ||
       "";
     const merged = {
       ...prev,
@@ -191,8 +196,9 @@ export function applyUserRecordToLocalCache(user) {
       role: user.role ?? prev.role ?? "",
       linkedDoctorId: user.linkedDoctorId ?? prev.linkedDoctorId ?? "",
       receptionistType: user.receptionistType ?? prev.receptionistType ?? "",
-      photoUrl: photo || prev.photoUrl || "",
-      picture: user.picture ?? prev.picture ?? "",
+      photoUrl: photo,
+      avatarUrl: photo,
+      picture,
       cachedAt: Date.now(),
     };
     localStorage.setItem(USER_CACHE_KEY, JSON.stringify(merged));
@@ -208,7 +214,8 @@ export async function refreshCurrentUserCacheFromApi() {
     const res = await apiRequest(`${API_BASE}/users/${id}`);
     if (!res.ok) return;
     const user = await res.json();
-    const photo = String(user?.picture || user?.photoUrl || "").trim();
+    const picture = user?.picture || user?.avatarUrl || user?.photoUrl || "";
+    const photo = String(user?.photoUrl || user?.avatarUrl || picture || "").trim();
     localStorage.setItem(
       USER_CACHE_KEY,
       JSON.stringify({
@@ -219,7 +226,8 @@ export async function refreshCurrentUserCacheFromApi() {
         linkedDoctorId: user?.linkedDoctorId || "",
         receptionistType: user?.receptionistType || "",
         photoUrl: photo,
-        picture: user?.picture || "",
+        avatarUrl: photo,
+        picture,
         cachedAt: Date.now(),
       }),
     );
