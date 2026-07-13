@@ -51,6 +51,8 @@ import {
   googleLogin,
   handleGoogleAuthMessage,
   isLoggedIn,
+  renderLogin,
+  renderSignup,
 } from "./core/auth.js";
 
 export { getCurrentUserId, getCurrentUserRole, isLoggedIn };

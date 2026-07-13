@@ -9,10 +9,12 @@ import {
   USER_CACHE_KEY,
   THEME_KEY,
   DEFAULT_AVATAR_URL,
+  CLEAR_SEND_DOC_DOCTOR_KEY,
 } from "../config/api.js";
 
 import { authState, googleAuthState } from "../state/auth-state.js";
-import { escapeHtml } from "./ui.js";
+import { escapeHtml, addInlineTooltips, enforcePhoneInputs } from "./ui.js";
+import { ensureDoctorSpecialtiesLoaded, getDoctorSpecialties } from "../modules/doctors.js";
 
 // Global environment handlers injected from app.js
 let apiRequestFn = null;
@@ -448,3 +450,300 @@ export function handleGoogleAuthMessage(event) {
     );
   }
 }
+
+function setPageTone(kind) {
+  const mainContent = document.getElementById("main-content");
+  if (!mainContent) return;
+  mainContent.classList.remove(
+    "page-tone-patients",
+    "page-tone-doctors",
+    "page-tone-appointments",
+    "page-tone-users",
+  );
+  if (kind) mainContent.classList.add(`page-tone-${kind}`);
+}
+
+function wirePasswordToggles(scope = document) {
+  scope.querySelectorAll("[data-password-target]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const targetId = btn.getAttribute("data-password-target");
+      const input = scope.querySelector(`#${targetId}`);
+      if (!input) return;
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.textContent = show ? "🙈" : "👁";
+      btn.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    });
+  });
+}
+
+function normalizeFetchErrorMessage(err, fallbackMessage) {
+  if (window.DrMeetUtils?.normalizeFetchErrorMessage) {
+    return window.DrMeetUtils.normalizeFetchErrorMessage(err, fallbackMessage);
+  }
+  return String(err?.message || "") || fallbackMessage;
+}
+
+async function getApiErrorMessage(res, fallbackMessage) {
+  if (window.DrMeetUtils?.getApiErrorMessage) {
+    return window.DrMeetUtils.getApiErrorMessage(res, fallbackMessage);
+  }
+  return fallbackMessage;
+}
+
+export function renderLogin() {
+  const mainContent = document.getElementById("main-content");
+  if (!mainContent) return;
+  setPageTone("");
+  if (isLoggedIn()) {
+    mainContent.innerHTML = `
+      <div class="feedback success">You are logged in.</div>
+      <button onclick="window.logoutUser()">Logout</button>
+    `;
+    window.logoutUser = () => {
+      localStorage.removeItem("token");
+      localStorage.removeItem(USER_CACHE_KEY);
+      resetMessagingSocket();
+      updateAuthNav();
+      window.location.hash = "#login";
+      renderLogin();
+    };
+    return;
+  }
+  mainContent.innerHTML = `
+    <h2>Login</h2>
+    <form id="login-form">
+      <label>Email <input name="email" type="email" required /></label>
+      <label><span class="label-text-row">Password</span>
+        <span class="password-input-wrap">
+          <input id="login-password" name="password" type="password" required autocomplete="current-password" />
+          <button type="button" class="password-toggle-btn" data-password-target="login-password" aria-label="Show password">👁</button>
+        </span>
+      </label>
+      <div class="signup-actions">
+        <button type="submit" class="btn btn-primary">Sign in</button>
+        <button type="reset" class="btn btn-secondary">Reset</button>
+      </div>
+    </form>
+    <button id="google-login-btn" type="button" class="btn btn-google" style="margin-top:1rem;">Continue with Google</button>
+    <div id="login-feedback"></div>
+  `;
+  const googleLoginBtn = document.getElementById("google-login-btn");
+  const form = document.getElementById("login-form");
+  const feedback = document.getElementById("login-feedback");
+  wirePasswordToggles(form);
+  if (form) {
+    form.addEventListener("reset", () => {
+      if (feedback) {
+        feedback.textContent = "";
+        feedback.className = "";
+      }
+    });
+  }
+  const oauthSuccessToken = consumeOauthSuccessTokenFromHash();
+  if (oauthSuccessToken) {
+    clearGoogleAuthLoading("Google sign-in successful.");
+    resetMessagingSocket();
+    localStorage.setItem("token", oauthSuccessToken);
+    clearSessionExpiredState();
+    updateAuthNav();
+    window.location.hash = "#home";
+    renderHome();
+    return;
+  }
+  const oauthError = consumeOauthErrorFromHash();
+  if (oauthError) {
+    clearGoogleAuthLoading(oauthError, true);
+    if (feedback) {
+      feedback.textContent = oauthError;
+      feedback.className = "feedback error";
+    }
+  }
+  if (googleLoginBtn) {
+    googleLoginBtn.onclick = () =>
+      googleLogin({ feedbackEl: feedback, buttonEl: googleLoginBtn });
+  }
+  if (form) {
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+      if (feedback) feedback.textContent = "Logging in...";
+      const creds = Object.fromEntries(new FormData(form));
+      try {
+        const res = await fetch(`${API_ORIGIN}/auth/login`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(creds),
+        });
+        if (!res.ok) throw new Error("Invalid credentials");
+        const data = await res.json();
+        if (data.token) {
+          resetMessagingSocket();
+          localStorage.setItem("token", data.token);
+          if (
+            String(data.user?.role || getCurrentUserRole() || "").toLowerCase() ===
+            "patient"
+          ) {
+            localStorage.setItem(CLEAR_SEND_DOC_DOCTOR_KEY, "1");
+          }
+          clearSessionExpiredState();
+          if (feedback) feedback.textContent = "Login successful!";
+          updateAuthNav();
+          setTimeout(() => {
+            window.location.hash = "#home";
+            renderHome();
+          }, 800);
+        } else {
+          throw new Error("No token received");
+        }
+      } catch (err) {
+        if (feedback) {
+          feedback.textContent = normalizeFetchErrorMessage(err, "Login failed.");
+          feedback.className = "feedback error";
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    };
+  }
+}
+
+export async function renderSignup() {
+  const mainContent = document.getElementById("main-content");
+  if (!mainContent) return;
+  await ensureDoctorSpecialtiesLoaded();
+  setPageTone("");
+  if (isLoggedIn()) {
+    mainContent.innerHTML = `<div class="feedback success">You are already logged in.</div>`;
+    return;
+  }
+  const selectedRole = getSignupRoleFromHash();
+  const signupTitle =
+    selectedRole === "doctor"
+      ? "Create your doctor account"
+      : "Create your patient account";
+  const signupLead =
+    selectedRole === "doctor"
+      ? "Doctor sign-up gives you access to schedule, patient communication, and care workflows."
+      : "New accounts are registered as patients so you can book visits and message your care team.";
+  const titleOptions =
+    selectedRole === "doctor"
+      ? `<option value="">(blank)</option><option value="Dr.">Dr.</option><option value="Dra.">Dra.</option>`
+      : `<option value="">(blank)</option><option value="Mr.">Mr.</option><option value="Ms.">Ms.</option><option value="Mrs.">Mrs.</option>`;
+  mainContent.innerHTML = `
+    <h2>${signupTitle}</h2>
+    <p class="signup-lead">${signupLead}</p>
+    <form id="signup-form">
+      <label>Title
+        <select name="title">${titleOptions}</select>
+      </label>
+      <label>First Name <input name="firstName" required /></label>
+      <label>Last Name <input name="lastName" required /></label>
+      <label>Email <input name="email" type="email" required /></label>
+      <label>Password
+        <span class="password-input-wrap">
+          <input id="signup-password" name="password" type="password" required />
+          <button type="button" class="password-toggle-btn" data-password-target="signup-password" aria-label="Show password">👁</button>
+        </span>
+      </label>
+      <label>Phone
+        <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
+        <small>Digits only, 10-11 numbers.</small>
+      </label>
+      <label>Address <input name="address" /></label>
+      ${selectedRole === "doctor"
+      ? `<label><span class="label-text-row" data-tooltip="Set the primary board-certified specialty used for profile matching.">Primary Specialty</span><input name="specialty" list="doctor-specialties-signup" required placeholder="e.g. Cardiology" /></label>
+             <datalist id="doctor-specialties-signup">
+               ${[...new Set(getDoctorSpecialties())].map((s) => `<option value="${s}"></option>`).join("")}
+             </datalist>`
+      : ""
+    }
+      <div class="signup-actions">
+        <button type="submit" class="btn btn-primary">Create Account</button>
+        <button type="button" class="btn btn-secondary" id="signup-start-over">Start Over</button>
+      </div>
+    </form>
+    <p class="signup-lead" style="margin-top:0.75rem;">Already registered? <a href="#login">Go to Login</a></p>
+    <div id="signup-feedback"></div>
+  `;
+  const form = document.getElementById("signup-form");
+  if (form) {
+    addInlineTooltips(form);
+    enforcePhoneInputs(form);
+    wirePasswordToggles(form);
+  }
+  const feedback = document.getElementById("signup-feedback");
+  const oauthSuccessToken = consumeOauthSuccessTokenFromHash();
+  if (oauthSuccessToken) {
+    clearGoogleAuthLoading("Google sign-in successful.");
+    resetMessagingSocket();
+    localStorage.setItem("token", oauthSuccessToken);
+    clearSessionExpiredState();
+    updateAuthNav();
+    window.location.hash = "#home";
+    renderHome();
+    return;
+  }
+  const oauthError = consumeOauthErrorFromHash();
+  if (oauthError) {
+    clearGoogleAuthLoading(oauthError, true);
+    if (feedback) {
+      feedback.textContent = oauthError;
+      feedback.className = "feedback error";
+    }
+  }
+  if (form) {
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+      if (feedback) feedback.textContent = "Signing up...";
+      const user = Object.fromEntries(new FormData(form));
+      if (selectedRole) user.role = selectedRole;
+      try {
+        const res = await fetch(`${API_ORIGIN}/auth/signup`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(user),
+        });
+        if (!res.ok) {
+          throw new Error(await getApiErrorMessage(res, "Signup failed."));
+        }
+        const data = await res.json();
+        if (data.token) {
+          resetMessagingSocket();
+          localStorage.setItem("token", data.token);
+          clearSessionExpiredState();
+          if (feedback) feedback.textContent = "Signup successful!";
+          updateAuthNav();
+          setTimeout(() => {
+            window.location.hash = "#home";
+            renderHome();
+          }, 800);
+        } else {
+          throw new Error("No token received");
+        }
+      } catch (err) {
+        if (feedback) {
+          feedback.textContent = normalizeFetchErrorMessage(err, "Signup failed.");
+          feedback.className = "feedback error";
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    };
+  }
+  document
+    .getElementById("signup-start-over")
+    ?.addEventListener("click", () => {
+      if (form) form.reset();
+      if (feedback) {
+        feedback.textContent = "";
+        feedback.className = "";
+      }
+    });
+}
+
