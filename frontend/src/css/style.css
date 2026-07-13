@@ -3446,7 +3446,8 @@ body.theme-dark .floating-chat-panel {
 
 /* (deprecated) messenger-compose-row wrapper no longer used */
 
-@media print, .screenshot-mode {
+/* 1. Print Mode Layout Fix */
+@media print {
   .document-page-wrapper,
   .clinical-document,
   .soa-document-container {
@@ -3459,4 +3460,18 @@ body.theme-dark .floating-chat-panel {
     border: none !important;
     background: #ffffff !important;
   }
+}
+
+/* 2. Screenshot Class Layout Fix */
+.screenshot-mode .document-page-wrapper,
+.screenshot-mode .clinical-document,
+.screenshot-mode .soa-document-container {
+  max-width: 800px !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+  background: #ffffff !important;
 }
