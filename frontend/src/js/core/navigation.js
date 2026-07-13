@@ -91,6 +91,11 @@ export function createNavigation({
           label: "Book a visit (patients)",
           action: () => navigateTo("#book"),
         },
+        {
+          id: "medical-reference",
+          label: "Open Medical Reference",
+          action: () => window.open("https://medreftool.netlify.app", "_blank", "noopener,noreferrer"),
+        },
       ];
     }
     const staffRoles = new Set(["doctor", "receptionist", "admin"]);
@@ -120,6 +125,11 @@ export function createNavigation({
         id: "appointments",
         label: "Go to Appointments",
         action: () => navigateTo("#appointments"),
+      },
+      {
+        id: "medical-reference",
+        label: "Open Medical Reference",
+        action: () => window.open("https://medreftool.netlify.app", "_blank", "noopener,noreferrer"),
       },
       ...(staffRoles.has(userRole)
         ? [

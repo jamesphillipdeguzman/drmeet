@@ -1,0 +1,55 @@
+/* MedicalReferenceNavItem.razor.css */
+
+.nav-item {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-link {
+    color: #d5defd;
+    text-decoration: none;
+    font-weight: 600;
+    border-radius: 12px;
+    padding: 0.55rem 0.65rem;
+    transition: all 0.2s ease-in-out;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: transparent;
+}
+
+.nav-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+}
+
+.nav-icon svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
+
+.nav-label {
+    font-size: 0.95rem;
+    white-space: nowrap;
+}
+
+/* Hover state matching the existing dark dashboard theme */
+.nav-link:hover {
+    background: rgba(151, 171, 255, 0.23);
+    color: #ffffff;
+}
+
+/* Support for collapsed sidebar states if applied globally */
+:deep(.collapsed) .nav-label {
+    display: none;
+}
+
+:deep(.collapsed) .nav-link {
+    justify-content: center;
+}
