@@ -467,6 +467,12 @@ export function renderMessengerConversationList(rootEl) {
         });
     });
 }
+function scrollToRecentMessage(scrollContainer) {
+    if (!scrollContainer) return;
+    requestAnimationFrame(() => {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    });
+}
 
 export function renderMessengerThread(rootEl) {
     if (!rootEl || !isLoggedIn()) return;
@@ -512,9 +518,7 @@ export function renderMessengerThread(rootEl) {
             currentUserId
         );
 
-        if (isNearBottom(ui.scroll)) {
-            ui.scroll.scrollTop = ui.scroll.scrollHeight;
-        }
+        scrollToRecentMessage(ui.scroll);
     }
 
     const conversationIdRef = String(conversationId);
