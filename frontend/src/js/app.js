@@ -1001,37 +1001,41 @@ async function showClinicalTab(tab) {
       const groupedHtml = Object.keys(groupedDocs).length
         ? Object.entries(groupedDocs)
             .map(
-              ([groupKey, groupItems]) => `
-              <div class="clinical-doc-group">
-                <h5 class="clinical-doc-group-heading">${escapeHtml(groupKey)}</h5>
-                <ul class="clinical-doc-list">
-                  ${groupItems
-                    .map(
-                      (d) => `
-                    <li class="card clinical-doc-row">
-                      <div>
-                        <strong>${escapeHtml(d.name || "Document")}</strong>
-                        <p class="clinical-muted">${escapeHtml(
-                          d.source === "patient"
-                            ? "Patient chart"
-                            : d.source === "clinic"
-                              ? "Clinic library"
-                              : d.source || "—",
-                        )}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
-                        <p class="clinical-muted">${
-                          d.uploadedAt
-                            ? escapeHtml(new Date(d.uploadedAt).toLocaleString())
-                            : ""
-                        }</p>
-                      </div>
-                      <a class="btn btn-secondary btn-sm" href="${escapeHtml(
-                        d.fileUrl || d.url || "#",
-                      )}" target="_blank" rel="noopener noreferrer">Open</a>
-                    </li>`,
-                    )
-                    .join("")}
-                </ul>
-              </div>`,
+              ([groupKey, groupItems], index) => {
+                const divider = index > 0 ? `<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0;" />` : "";
+                return `
+                ${divider}
+                <div class="clinical-doc-group">
+                  <h5 class="clinical-doc-group-heading" style="font-weight: 600; color: #1e3a8a; font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem;">${escapeHtml(groupKey)}</h5>
+                  <ul class="clinical-doc-list">
+                    ${groupItems
+                      .map(
+                        (d) => `
+                      <li class="card clinical-doc-row">
+                        <div>
+                          <span style="font-weight: normal;">${escapeHtml(d.name || "Document")}</span>
+                          <p class="clinical-muted">${escapeHtml(
+                            d.source === "patient"
+                              ? "Patient chart"
+                              : d.source === "clinic"
+                                ? "Clinic library"
+                                : d.source || "—",
+                          )}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
+                          <p class="clinical-muted">${
+                            d.uploadedAt
+                              ? escapeHtml(new Date(d.uploadedAt).toLocaleString())
+                              : ""
+                          }</p>
+                        </div>
+                        <a class="btn btn-secondary btn-sm" href="${escapeHtml(
+                          d.fileUrl || d.url || "#",
+                        )}" target="_blank" rel="noopener noreferrer">Open</a>
+                      </li>`,
+                      )
+                      .join("")}
+                  </ul>
+                </div>`;
+              }
             )
             .join("")
         : `<ul class="clinical-doc-list"><li class="feedback">No documents yet.</li></ul>`;
