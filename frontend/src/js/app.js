@@ -2229,6 +2229,483 @@ export function buildThreadMessagesHtml(messages, currentUserId) {
     .join("");
 }
 
+async function renderPatientBooking() {
+  if (!mainContent) return;
+  setPageTone("");
+  if (!isLoggedIn()) {
+    mainContent.innerHTML = `
+      <section class="patient-booking-page">
+        <div class="patient-booking-hero card">
+          <h1>Book a visit</h1>
+          <p class="patient-booking-lead">Sign in to search for a doctor and request an appointment.</p>
+          <div class="patient-booking-cta-row">
+            <a href="#login" class="btn btn-primary">Sign in</a>
+            <a href="#home" class="btn btn-secondary">Create an account from Home</a>
+          </div>
+        </div>
+      </section>`;
+    return;
+  }
+
+  if (getCurrentUserRole() !== "patient") {
+    mainContent.innerHTML = `
+      <section class="patient-booking-page">
+        <div class="patient-booking-hero card">
+          <h1>Book a visit</h1>
+          <p class="patient-booking-lead">This guided booking flow is for patient accounts.</p>
+          <p class="feedback">Staff can manage doctors and appointments from the sidebar.</p>
+          <a href="#appointments" class="btn btn-secondary">Go to Appointments</a>
+        </div>
+      </section>`;
+    return;
+  }
+
+  mainContent.innerHTML = `
+    <section class="patient-booking-page">
+      <header class="patient-booking-hero card">
+        <h1>Find your doctor</h1>
+        <p class="patient-booking-lead">Search by name, specialty, department, or clinic. When you are ready, pick a time and send a booking request.</p>
+        <div id="patient-profile-banner"></div>
+      </header>
+      <div class="patient-book-toolbar card">
+        <label class="patient-search-label" for="patient-doctor-search">Search doctors</label>
+        <input type="search" id="patient-doctor-search" class="patient-book-search" placeholder="Try cardiology, Dr. Lee, telemedicine, clinic name…" autocomplete="off" />
+        <p class="patient-book-count" id="patient-doctor-count" aria-live="polite"></p>
+      </div>
+      <div id="patient-doctor-grid" class="patient-doctor-grid"></div>
+      <div id="patient-booking-drawer" class="patient-booking-drawer hidden" role="dialog" aria-modal="true" aria-labelledby="patient-booking-doctor-title">
+        <div class="patient-booking-drawer-backdrop" id="patient-booking-backdrop"></div>
+        <div class="patient-booking-drawer-inner card">
+          <div class="patient-booking-drawer-head">
+            <h2 id="patient-booking-doctor-title">Book appointment</h2>
+            <button type="button" class="btn btn-secondary btn-sm" id="patient-booking-close">Close</button>
+          </div>
+          <form id="patient-booking-form">
+            <input type="hidden" name="doctorId" id="patient-booking-doctor-id" value="" />
+            <label>Preferred date <input name="date" type="date" required /></label>
+            <label>Preferred time <input name="time" type="time" required /></label>
+            <div id="patient-booking-smart-hint" class="feedback booking-hint" style="display:none"></div>
+            <div id="patient-booking-smart-times" class="booking-time-grid-wrap"></div>
+            <label>Reason or notes (optional) <textarea name="notes" rows="3" placeholder="Briefly describe what you need"></textarea></label>
+            <div class="patient-booking-actions">
+              <button type="submit" class="btn btn-primary">Request appointment</button>
+              <button type="button" class="btn btn-secondary" id="patient-booking-cancel">Cancel</button>
+            </div>
+          </form>
+          <div id="patient-booking-feedback" class="feedback" style="display:none;margin-top:1rem;"></div>
+        </div>
+      </div>
+    </section>`;
+
+  const profileBanner = document.getElementById("patient-profile-banner");
+  const myPatient = await fetchMyPatientRecord();
+  if (profileBanner) {
+    if (!myPatient) {
+      profileBanner.innerHTML = `
+        <div class="feedback patient-profile-missing">
+          Add your patient details once so we can book visits for you.
+          <a href="#patients" class="btn btn-primary btn-sm">Complete my profile</a>
+        </div>`;
+    } else {
+      profileBanner.innerHTML = `<p class="patient-profile-ok"><strong>Profile on file:</strong> ${escapeHtml(formatPatientDisplayName(myPatient))}</p>`;
+    }
+  }
+
+  const grid = document.getElementById("patient-doctor-grid");
+  const searchInput = document.getElementById("patient-doctor-search");
+  const countEl = document.getElementById("patient-doctor-count");
+  const drawer = document.getElementById("patient-booking-drawer");
+  const feedbackEl = document.getElementById("patient-booking-feedback");
+  const bookingForm = document.getElementById("patient-booking-form");
+  const smartHintEl = document.getElementById("patient-booking-smart-hint");
+  const smartTimesEl = document.getElementById("patient-booking-smart-times");
+
+  if (grid) grid.innerHTML = '<div class="feedback">Loading doctors…</div>';
+  let doctors = [];
+  try {
+    const res = await apiRequest(`${API_BASE}/doctors`);
+    if (!res.ok) throw new Error("Could not load doctors.");
+    doctors = await res.json();
+    if (!Array.isArray(doctors)) doctors = [];
+  } catch (e) {
+    if (grid) grid.innerHTML = `<div class="feedback error">${e.message || "Failed to load doctors."}</div>`;
+    return;
+  }
+
+  function renderDoctorCards(list) {
+    if (countEl) {
+      countEl.textContent = list.length
+        ? `${list.length} doctor${list.length === 1 ? "" : "s"} match your search`
+        : "No doctors match your search.";
+    }
+    if (!grid) return;
+    if (!list.length) {
+      grid.innerHTML =
+        '<div class="feedback">Try another name, specialty, or keyword—or clear the search to see everyone.</div>';
+      return;
+    }
+    const grouped = list.reduce((acc, doctor) => {
+      const specialtyKey =
+        String(doctor.specialty || "General").trim() || "General";
+      if (!acc[specialtyKey]) acc[specialtyKey] = [];
+      acc[specialtyKey].push(doctor);
+      return acc;
+    }, {});
+    grid.innerHTML = Object.entries(grouped)
+      .filter(([, items]) => Array.isArray(items) && items.length)
+      .map(
+        ([specialtyKey, items]) => `
+        <section class="doctor-specialty-group">
+          <h3 class="doctor-specialty-heading">${escapeHtml(specialtyKey)}</h3>
+          <div class="patient-doctor-grid">
+            ${items
+            .map((d) => {
+              const name = formatDoctorDisplayName(d);
+              const spec = d.specialty || "Specialty not listed";
+              const subSpec = String(
+                d.subSpecialization || d.subSpecialty || "",
+              ).trim();
+              const subSpecBadge = subSpec
+                ? `<span class="pill-tag" style="margin-left:0;">${escapeHtml(subSpec)}</span>`
+                : "";
+              const dept = d.department
+                ? `<p class="doctor-pick-meta">${d.department}</p>`
+                : "";
+              const clinic = d.affiliatedClinics
+                ? `<p class="doctor-pick-clinic">${d.affiliatedClinics}</p>`
+                : "";
+              const receptionistName = d.receptionistName
+                ? `<p class="doctor-pick-reception">Receptionist: ${d.receptionistName}</p>`
+                : "";
+              const receptionistPhone = d.receptionistPhone
+                ? `<p class="doctor-pick-reception">Contact: ${d.receptionistPhone}</p>`
+                : "";
+              const receptionistEmail = d.receptionistEmail
+                ? `<p class="doctor-pick-reception">Email: ${d.receptionistEmail}</p>`
+                : "";
+              const avail = buildDoctorAvailabilityLabel(d);
+              return `
+          <article class="doctor-pick-card">
+            <h3 class="doctor-pick-name">${name}</h3>
+            <p class="doctor-pick-specialty">${spec}</p>
+            ${subSpecBadge}
+            ${dept}
+            ${clinic}
+            ${receptionistName}
+            ${receptionistPhone}
+            ${receptionistEmail}
+            <p class="doctor-pick-avail">${avail}</p>
+            <button type="button" class="btn btn-primary btn-sm doctor-pick-book" data-book-doctor="${d._id}">Book with this doctor</button>
+          </article>`;
+            })
+            .join("")}
+          </div>
+        </section>`,
+      )
+      .join("");
+  }
+
+  function applyFilter() {
+    if (!searchInput) return;
+    const q = searchInput.value;
+    const filtered = doctors.filter((d) => doctorMatchesPatientSearch(d, q));
+    renderDoctorCards(filtered);
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener("input", applyFilter);
+  }
+  applyFilter();
+
+  function openDrawer(doctorId) {
+    if (!myPatient) {
+      window.location.hash = "#patients";
+      return;
+    }
+    const d = doctors.find((x) => String(x._id) === String(doctorId));
+    const displayName = formatDoctorDisplayName(d) || "your doctor";
+    const drawerTitle = document.getElementById("patient-booking-doctor-title");
+    if (drawerTitle) {
+      drawerTitle.textContent = `Book with ${displayName}`;
+    }
+    if (feedbackEl) {
+      feedbackEl.style.display = "none";
+      feedbackEl.textContent = "";
+    }
+    if (bookingForm) {
+      bookingForm.reset();
+      const docIdInput = document.getElementById("patient-booking-doctor-id");
+      if (docIdInput) docIdInput.value = doctorId;
+    }
+    if (drawer) drawer.classList.remove("hidden");
+    void renderPatientBookingHint();
+  }
+
+  function closeDrawer() {
+    if (drawer) drawer.classList.add("hidden");
+  }
+
+  if (grid) {
+    grid.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-book-doctor]");
+      if (!btn) return;
+      openDrawer(btn.getAttribute("data-book-doctor"));
+    });
+  }
+
+  const closeBtn = document.getElementById("patient-booking-close");
+  if (closeBtn) closeBtn.onclick = closeDrawer;
+  const cancelBtn = document.getElementById("patient-booking-cancel");
+  if (cancelBtn) cancelBtn.onclick = closeDrawer;
+
+  const renderPatientBookingHint = async () => {
+    const doctorId = String(
+      document.getElementById("patient-booking-doctor-id")?.value || "",
+    ).trim();
+    const date = String(bookingForm?.date?.value || "").trim();
+    if (!doctorId || !date) {
+      if (smartHintEl) smartHintEl.style.display = "none";
+      if (smartTimesEl) smartTimesEl.innerHTML = "";
+      return;
+    }
+    try {
+      const url = new URL(
+        `${API_BASE}/appointments/booking-hints`,
+        window.location.origin,
+      );
+      url.searchParams.set("doctorId", doctorId);
+      url.searchParams.set("date", date);
+      const res = await apiRequest(url.toString());
+      if (!res.ok) {
+        if (smartHintEl) {
+          smartHintEl.style.display = "block";
+          smartHintEl.className = "feedback error booking-hint";
+          smartHintEl.textContent = await getApiErrorMessage(
+            res,
+            "Unable to load booking hints.",
+          );
+        }
+        if (smartTimesEl) smartTimesEl.innerHTML = "";
+        return;
+      }
+      const info = await res.json();
+      if (smartHintEl) {
+        smartHintEl.style.display = "block";
+        smartHintEl.className =
+          Number(info.remainingSlots) > 0
+            ? "feedback booking-hint"
+            : "feedback error booking-hint";
+        smartHintEl.textContent = String(info.hint || "");
+      }
+      if (smartTimesEl) {
+        smartTimesEl.innerHTML = buildBookingTimeGridHtml({
+          suggestedAvailableTimes: info.suggestedAvailableTimes,
+          conflictingTimes: info.conflictingTimes,
+          selectedTime: bookingForm?.time?.value || "",
+        });
+      }
+      smartTimesEl?.querySelectorAll("[data-smart-time]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const next = normalizeTimeText(btn.getAttribute("data-smart-time"));
+          if (!next || !bookingForm || !bookingForm.time) return;
+          bookingForm.time.value = next;
+          void renderPatientBookingHint();
+        });
+      });
+    } catch (error) {
+      if (smartHintEl) {
+        smartHintEl.style.display = "block";
+        smartHintEl.className = "feedback error booking-hint";
+        smartHintEl.textContent = "Unable to load booking hints.";
+      }
+      if (smartTimesEl) smartTimesEl.innerHTML = "";
+    }
+  };
+  if (bookingForm) {
+    bookingForm.date?.addEventListener("change", renderPatientBookingHint);
+    bookingForm.time?.addEventListener("change", renderPatientBookingHint);
+
+    bookingForm.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!myPatient) {
+        window.location.hash = "#patients";
+        return;
+      }
+      const docIdInput = document.getElementById("patient-booking-doctor-id");
+      const doctorId = docIdInput ? docIdInput.value : "";
+      const fd = new FormData(bookingForm);
+      const date = fd.get("date");
+      const time = fd.get("time");
+      const notes = String(fd.get("notes") || "").trim();
+      if (feedbackEl) feedbackEl.style.display = "none";
+      try {
+        const res = await apiRequest(`${API_BASE}/appointments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            doctor: doctorId,
+            date,
+            time,
+            notes,
+            status: "pending",
+          }),
+        });
+        if (!res.ok) {
+          throw new Error(await getApiErrorMessage(res, "Booking failed"));
+        }
+        if (feedbackEl) {
+          feedbackEl.className = "feedback success";
+          feedbackEl.style.display = "block";
+          feedbackEl.textContent =
+            "Request sent. You will see it under Appointments—we will follow up soon.";
+        }
+        setTimeout(() => {
+          closeDrawer();
+          window.location.hash = "#appointments";
+          renderAppointments();
+        }, 1400);
+      } catch (err) {
+        if (feedbackEl) {
+          feedbackEl.className = "feedback error";
+          feedbackEl.style.display = "block";
+          feedbackEl.textContent = err.message || "Something went wrong.";
+        }
+      }
+    };
+  }
+}
+
+// --- Patients ---
+let cachedFacilities = null;
+let cachedHmoProviders = null;
+
+async function loadFacilities() {
+  if (cachedFacilities) return cachedFacilities;
+
+  const res = await apiRequest(`${API_BASE}/patients/constants/facilities`);
+  if (!res.ok) throw new Error("Failed to load facilities");
+
+  const data = await res.json();
+  cachedFacilities = data.facilities || [];
+
+  return cachedFacilities;
+}
+
+async function loadHmoProviders() {
+  if (cachedHmoProviders) return cachedHmoProviders;
+  const res = await apiRequest(`${API_BASE}/patients/constants/hmo-providers`);
+  if (!res.ok) throw new Error("Failed to load HMO providers");
+  const data = await res.json();
+  cachedHmoProviders = Array.isArray(data.providers) ? data.providers : [];
+  return cachedHmoProviders;
+}
+
+function parseAffiliatedClinics(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => String(item || "").trim())
+      .filter(Boolean);
+  }
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function setupTaggedFacilityMultiSelect({
+  inputSelector,
+  hiddenInputSelector,
+  tagsContainerSelector,
+  options,
+  initialValues = [],
+  root = document,
+}) {
+  const input = root.querySelector(inputSelector);
+  const hiddenInput = root.querySelector(hiddenInputSelector);
+  const tagsContainer = root.querySelector(tagsContainerSelector);
+  if (!input || !hiddenInput || !tagsContainer) return;
+
+  const selected = [];
+  const selectedSet = new Set();
+
+  const render = () => {
+    hiddenInput.value = selected.join(", ");
+    tagsContainer.innerHTML = selected
+      .map(
+        (name) =>
+          `<button type="button" class="facility-tag-btn" data-facility-remove="${escapeHtml(name)}">${escapeHtml(name)} <span aria-hidden="true">&times;</span></button>`,
+      )
+      .join("");
+    tagsContainer.querySelectorAll("[data-facility-remove]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const name = String(btn.getAttribute("data-facility-remove") || "");
+        if (!selectedSet.has(name)) return;
+        selectedSet.delete(name);
+        const idx = selected.indexOf(name);
+        if (idx >= 0) selected.splice(idx, 1);
+        render();
+      });
+    });
+  };
+
+  const addClinic = (raw) => {
+    const value = String(raw || "").trim();
+    if (!value) return;
+    if (selectedSet.has(value)) return;
+    selectedSet.add(value);
+    selected.push(value);
+    render();
+  };
+
+  initialValues.forEach(addClinic);
+  render();
+
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === ",") {
+      event.preventDefault();
+      addClinic(input.value);
+      input.value = "";
+    } else if (event.key === "Backspace" && !input.value.trim() && selected.length) {
+      const last = selected.pop();
+      if (last) selectedSet.delete(last);
+      render();
+    }
+  });
+
+  input.addEventListener("blur", () => {
+    if (input.value.trim()) {
+      addClinic(input.value);
+      input.value = "";
+    }
+  });
+
+  attachFacilityInputBehavior(inputSelector);
+  if (Array.isArray(options) && options.length) {
+    input.setAttribute("list", "facility-list");
+  }
+}
+
+async function renderFacilityDatalist(listId = "facility-list") {
+  const facilities = await loadFacilities();
+
+  const datalist = document.getElementById(listId);
+  if (!datalist) return;
+
+  datalist.innerHTML = facilities
+    .map((name) => `<option value="${escapeHtml(name)}"></option>`)
+    .join("");
+}
+
+function attachFacilityInputBehavior(selector) {
+  document.querySelectorAll(selector).forEach((input) => {
+    input.addEventListener("focus", () => {
+      const val = input.value;
+      input.value = " ";
+      input.value = val;
+    });
+  });
+}
+
 // --- renderAppointments, renderCalendar: now in ./modules/appointments.js ---
 // --- renderUsers, showUserForm, editUser, deleteUser: now in ./modules/users.js ---
 // --- window.closePatientForm: now in ./modules/patients.js ---
