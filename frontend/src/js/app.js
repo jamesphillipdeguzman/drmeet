@@ -2204,10 +2204,10 @@ function renderPricing() {
   mainContent.innerHTML = `
     <div class="pricing-container max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
       <div class="text-center mb-16">
-        <h2 class="text-slate-900 dark:text-white font-bold text-3xl mb-4">
+        <h2 class="font-bold text-3xl mb-4 text-slate-900 dark:text-white" style="color: ${document.body.classList.contains('theme-dark') ? '#ffffff' : '#0f172a'};">
           Flexible Plans for Medical Providers
         </h2>
-        <p class="text-slate-600 dark:text-slate-300 text-lg max-w-2xl mx-auto">
+        <p class="text-lg max-w-2xl mx-auto text-slate-600 dark:text-slate-300" style="color: ${document.body.classList.contains('theme-dark') ? '#cbd5e1' : '#475569'};">
           Scale your digital practice workflows, secure team communication, and automate patient outreach with DrMeet's specialized clinical plans.
         </p>
       </div>
