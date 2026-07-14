@@ -1082,54 +1082,6 @@ async function showClinicalTab(tab) {
           return `<option value="${escapeHtml(String(p._id))}">${escapeHtml(label)}</option>`;
         }),
       ].join("");
-      const groupedDocs = docs.reduce((acc, d) => {
-        const groupKey = String(d.patientName || "").trim() || "Shared Clinic Library";
-        if (!acc[groupKey]) acc[groupKey] = [];
-        acc[groupKey].push(d);
-        return acc;
-      }, {});
-
-      const groupedHtml = Object.keys(groupedDocs).length
-        ? Object.entries(groupedDocs)
-            .map(
-              ([groupKey, groupItems], index) => {
-                const divider = index > 0 ? `<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0;" />` : "";
-                return `
-                ${divider}
-                <div class="clinical-doc-group">
-                  <h5 class="clinical-doc-group-heading" style="font-weight: 600; color: #1e3a8a; font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem;">${escapeHtml(groupKey)}</h5>
-                  <ul class="clinical-doc-list">
-                    ${groupItems
-                      .map(
-                        (d) => `
-                      <li class="card clinical-doc-row">
-                        <div>
-                          <span style="font-weight: normal;">${escapeHtml(d.name || "Document")}</span>
-                          <p class="clinical-muted">${escapeHtml(
-                            d.source === "patient"
-                              ? "Patient chart"
-                              : d.source === "clinic"
-                                ? "Clinic library"
-                                : d.source || "—",
-                          )}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
-                          <p class="clinical-muted">${
-                            d.uploadedAt
-                              ? escapeHtml(new Date(d.uploadedAt).toLocaleString())
-                              : ""
-                          }</p>
-                        </div>
-                        <a class="btn btn-secondary btn-sm" href="${escapeHtml(
-                          d.fileUrl || d.url || "#",
-                        )}" target="_blank" rel="noopener noreferrer">Open</a>
-                      </li>`,
-                      )
-                      .join("")}
-                  </ul>
-                </div>`;
-              }
-            )
-            .join("")
-        : `<ul class="clinical-doc-list"><li class="feedback">No documents yet.</li></ul>`;
 
       panel.innerHTML = `
         <p class="clinical-muted clinical-doc-hint">Upload files to your shared clinic library or attach them to a specific patient’s chart.</p>
@@ -1157,25 +1109,95 @@ async function showClinicalTab(tab) {
         </section>
         <h4 class="clinical-docs-list-title">Recent uploads</h4>
         <div class="clinical-docs-grouped-container">
-          ${groupedHtml}
         </div>
       `;
 
       const scopeSel = document.getElementById("clinical-doc-scope");
       const patientSel = document.getElementById("clinical-doc-patient");
+
+      const renderRecentUploads = () => {
+        const selectedPatientId = patientSel?.value || "";
+        const filteredDocs = selectedPatientId
+          ? docs.filter((d) => String(d.patientId) === selectedPatientId)
+          : docs;
+
+        const groupedDocs = filteredDocs.reduce((acc, d) => {
+          const groupKey = String(d.patientName || "").trim() || "Shared Clinic Library";
+          if (!acc[groupKey]) acc[groupKey] = [];
+          acc[groupKey].push(d);
+          return acc;
+        }, {});
+
+        const groupedHtml = Object.keys(groupedDocs).length
+          ? Object.entries(groupedDocs)
+              .map(
+                ([groupKey, groupItems], index) => {
+                  const divider = index > 0 ? `<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0;" />` : "";
+                  return `
+                  ${divider}
+                  <div class="clinical-doc-group">
+                    <h5 class="clinical-doc-group-heading" style="font-weight: 600; color: #1e3a8a; font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem;">${escapeHtml(groupKey)}</h5>
+                    <ul class="clinical-doc-list">
+                      ${groupItems
+                        .map(
+                          (d) => `
+                        <li class="card clinical-doc-row">
+                          <div>
+                            <span style="font-weight: normal;">${escapeHtml(d.name || "Document")}</span>
+                            <p class="clinical-muted">${escapeHtml(
+                              d.source === "patient"
+                                ? "Patient chart"
+                                : d.source === "clinic"
+                                  ? "Clinic library"
+                                  : d.source || "—",
+                            )}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
+                            <p class="clinical-muted">${
+                              d.uploadedAt
+                                ? escapeHtml(new Date(d.uploadedAt).toLocaleString())
+                                : ""
+                            }</p>
+                          </div>
+                          <a class="btn btn-secondary btn-sm" href="${escapeHtml(
+                            d.fileUrl || d.url || "#",
+                          )}" target="_blank" rel="noopener noreferrer">Open</a>
+                        </li>`,
+                        )
+                        .join("")}
+                    </ul>
+                  </div>`;
+                }
+              )
+              .join("")
+          : `<ul class="clinical-doc-list"><li class="feedback">No documents yet.</li></ul>`;
+
+        const container = panel.querySelector(".clinical-docs-grouped-container");
+        if (container) {
+          container.innerHTML = groupedHtml;
+        }
+      };
+
       const syncDocPatientField = () => {
         const sc = scopeSel?.value || "clinic";
         if (!patientSel) return;
+        const hint = document.getElementById("clinical-doc-patient-hint");
         if (sc === "patient") {
-          patientSel.disabled = false;
           patientSel.required = true;
+          if (hint) hint.textContent = "Choose a patient when saving to a chart.";
         } else {
-          patientSel.disabled = true;
           patientSel.required = false;
-          patientSel.value = "";
+          if (hint) hint.textContent = "Filter recent uploads by this patient.";
         }
+        patientSel.disabled = false;
+        renderRecentUploads();
       };
       scopeSel?.addEventListener("change", syncDocPatientField);
+      patientSel?.addEventListener("change", () => {
+        doctorDashUI.selectedPatientId = patientSel.value || "";
+        renderRecentUploads();
+      });
+      if (doctorDashUI.selectedPatientId && patientSel) {
+        patientSel.value = doctorDashUI.selectedPatientId;
+      }
       syncDocPatientField();
 
       document

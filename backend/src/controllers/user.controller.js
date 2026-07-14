@@ -11,6 +11,7 @@ import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service
 import { findDoctorByUserId } from '../services/doctor.service.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
 import Doctor from '../models/doctor.model.js';
+import Patient from '../models/patient.model.js';
 import { uploadToCloudinary } from '../services/cloudinary.service.js';
 
 function csvEscape(val) {
@@ -262,6 +263,19 @@ export const deleteUser = async (req, res) => {
         if (!deletedUser) {
             return res.status(404).json({ error: 'User not found.' });
         }
+
+        // Deactivate linked Doctor/Patient profiles to match soft-deleted user
+        try {
+            await Doctor.findOneAndDelete({ userId: id });
+            await Patient.updateMany(
+                { userId: id, deletedAt: null },
+                { $set: { deletedAt: new Date(), isActive: false } }
+            );
+            console.log(`[USER] Cleaned up role profiles for user ${id}`);
+        } catch (profileErr) {
+            console.warn(`[USER] Failed to deactivate profiles for user ${id}:`, profileErr.message);
+        }
+
         console.log(
             `[USER]✅ DELETE /api/users/${id} - User ${deletedUser._id} successfully deleted`,
         );
