@@ -268,9 +268,11 @@ function normalizeFetchErrorMessage(err, fallbackMessage) {
 
 export function buildHeaders(baseHeaders = {}) {
   const token = localStorage.getItem("token");
+  const plan = localStorage.getItem("subscription_plan") || "starter";
+  const headers = { ...baseHeaders, "x-subscription-plan": plan };
   return token
-    ? { ...baseHeaders, Authorization: `Bearer ${token}` }
-    : { ...baseHeaders };
+    ? { ...headers, Authorization: `Bearer ${token}` }
+    : headers;
 }
 
 export async function apiRequest(url, options = {}) {
@@ -568,6 +570,7 @@ window.addEventListener("DOMContentLoaded", () => {
   loadDashboardState();
   setupShellInteractions();
   setupCommandPalette();
+  initLiveVisitorCounter();
   checkAuthStatus();
   void ensureDoctorSpecialtiesLoaded();
   updateAuthNav();
@@ -577,6 +580,44 @@ window.addEventListener("DOMContentLoaded", () => {
 
   window.addEventListener("message", handleGoogleAuthMessage);
 });
+
+async function initLiveVisitorCounter() {
+  const visitorCountEl = document.getElementById("visitor-count-text");
+  const sidebarVisitorCountEl = document.getElementById("sidebar-visitor-count-text");
+
+  let visitorId = localStorage.getItem("drmeet_visitor_id");
+  if (!visitorId) {
+    visitorId = "v_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
+    localStorage.setItem("drmeet_visitor_id", visitorId);
+  }
+
+  const hasRecordedSession = sessionStorage.getItem("drmeet_visited_session");
+  const method = hasRecordedSession ? "GET" : "POST";
+
+  try {
+    const res = await fetch(`${API_BASE}/system/visitor-count`, {
+      method: method,
+      headers: { "Content-Type": "application/json" },
+      body: method === "POST" ? JSON.stringify({ visitorId }) : undefined,
+    });
+
+    if (res.ok) {
+      if (method === "POST") {
+        sessionStorage.setItem("drmeet_visited_session", "true");
+      }
+      const data = await res.json();
+      const totalVisits = Number(data?.totalVisits || 1248).toLocaleString();
+      const text = `👁️ ${totalVisits} Total Visitors`;
+
+      if (visitorCountEl) visitorCountEl.textContent = text;
+      if (sidebarVisitorCountEl) sidebarVisitorCountEl.textContent = text;
+    }
+  } catch (err) {
+    console.warn("Visitor counter fetch fallback:", err);
+    if (visitorCountEl) visitorCountEl.textContent = "👁️ 1,248 Total Visitors";
+    if (sidebarVisitorCountEl) sidebarVisitorCountEl.textContent = "👁️ 1,248 Total Visitors";
+  }
+}
 
 
 function updateAuthNav() {
