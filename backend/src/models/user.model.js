@@ -71,6 +71,11 @@ const userSchema = new mongoose.Schema(
       type: Date,
       required: false,
     },
+    subscriptionPlan: {
+      type: String,
+      enum: ["starter", "pro", "enterprise"],
+      default: "starter",
+    },
     is_deleted: {
       type: Boolean,
       default: false,

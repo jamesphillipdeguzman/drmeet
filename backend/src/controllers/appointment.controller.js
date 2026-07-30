@@ -5,6 +5,7 @@ import User from '../models/user.model.js';
 import Doctor from '../models/doctor.model.js';
 import Appointment from '../models/appointment.model.js';
 import { patientActiveQuery } from '../services/patient.service.js';
+import { assertStarterPlanPatientLimit } from '../utils/planLimit.js';
 
 import {
     findAllAppointmentsWithPatientMeta,
@@ -378,6 +379,24 @@ export const postAppointment = async (req, res) => {
                 date: appointmentData.date,
                 time: appointmentData.time,
             });
+        }
+
+        if (appointmentData.doctor && appointmentData.patient) {
+            const patientObj = await Patient.findById(appointmentData.patient).select('careTeamDoctorIds').lean();
+            const existingCareTeam = Array.isArray(patientObj?.careTeamDoctorIds)
+                ? patientObj.careTeamDoctorIds.map(String)
+                : [];
+            const isAlreadyLinked = existingCareTeam.includes(String(appointmentData.doctor));
+            await assertStarterPlanPatientLimit({
+                doctorId: appointmentData.doctor,
+                req,
+                isNewPatientForDoctor: !isAlreadyLinked,
+            });
+            if (!isAlreadyLinked && patientObj) {
+                await Patient.findByIdAndUpdate(appointmentData.patient, {
+                    $addToSet: { careTeamDoctorIds: appointmentData.doctor },
+                });
+            }
         }
 
         const newAppointment = await createAppointmentService(appointmentData);

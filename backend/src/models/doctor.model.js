@@ -127,6 +127,11 @@ const doctorSchema = new mongoose.Schema(
       emailAppointments: { type: Boolean, default: true },
       emailMessages: { type: Boolean, default: true },
     },
+    subscriptionPlan: {
+      type: String,
+      enum: ["starter", "pro", "enterprise"],
+      default: "starter",
+    },
     bookingPolicy: {
       maxPatientsPerDay: { type: Number, default: 10, min: 1, max: 200 },
     },

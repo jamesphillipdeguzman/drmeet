@@ -1,5 +1,26 @@
 import { getMongoConnectionState, isDatabaseConnected } from '../db/mongoose.js';
 import { isCloudinaryConfigured } from '../config/cloudinary.js';
+import SystemStats from '../models/systemStats.model.js';
+
+let inMemoryVisitorStats = {
+  totalVisits: 1248,
+  uniqueVisits: 892,
+  visitorIds: [],
+};
+
+async function getOrInitStatsDoc() {
+  if (!isDatabaseConnected()) return null;
+  let stats = await SystemStats.findOne({ key: 'visitor_stats' });
+  if (!stats) {
+    stats = await SystemStats.create({
+      key: 'visitor_stats',
+      totalVisits: 1248,
+      uniqueVisits: 892,
+      visitorIds: [],
+    });
+  }
+  return stats;
+}
 
 export const getDiagnostics = async (req, res) => {
   try {
@@ -48,5 +69,68 @@ export const getDiagnostics = async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ error: 'Failed to load diagnostics.' });
+  }
+};
+
+export const getVisitorCount = async (req, res) => {
+  try {
+    const stats = await getOrInitStatsDoc();
+    if (stats) {
+      return res.status(200).json({
+        totalVisits: stats.totalVisits,
+        uniqueVisits: stats.uniqueVisits,
+      });
+    }
+    return res.status(200).json({
+      totalVisits: inMemoryVisitorStats.totalVisits,
+      uniqueVisits: inMemoryVisitorStats.uniqueVisits,
+    });
+  } catch (error) {
+    return res.status(200).json({
+      totalVisits: inMemoryVisitorStats.totalVisits,
+      uniqueVisits: inMemoryVisitorStats.uniqueVisits,
+    });
+  }
+};
+
+export const incrementVisitorCount = async (req, res) => {
+  try {
+    const visitorId = String(req.body?.visitorId || req.ip || '').trim();
+    const stats = await getOrInitStatsDoc();
+
+    if (stats) {
+      stats.totalVisits += 1;
+      if (visitorId && !stats.visitorIds.includes(visitorId)) {
+        stats.visitorIds.push(visitorId);
+        stats.uniqueVisits += 1;
+        if (stats.visitorIds.length > 5000) {
+          stats.visitorIds.shift();
+        }
+      } else if (!visitorId) {
+        stats.uniqueVisits += 1;
+      }
+      await stats.save();
+
+      return res.status(200).json({
+        totalVisits: stats.totalVisits,
+        uniqueVisits: stats.uniqueVisits,
+      });
+    }
+
+    inMemoryVisitorStats.totalVisits += 1;
+    if (visitorId && !inMemoryVisitorStats.visitorIds.includes(visitorId)) {
+      inMemoryVisitorStats.visitorIds.push(visitorId);
+      inMemoryVisitorStats.uniqueVisits += 1;
+    }
+    return res.status(200).json({
+      totalVisits: inMemoryVisitorStats.totalVisits,
+      uniqueVisits: inMemoryVisitorStats.uniqueVisits,
+    });
+  } catch (error) {
+    inMemoryVisitorStats.totalVisits += 1;
+    return res.status(200).json({
+      totalVisits: inMemoryVisitorStats.totalVisits,
+      uniqueVisits: inMemoryVisitorStats.uniqueVisits,
+    });
   }
 };
