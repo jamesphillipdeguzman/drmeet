@@ -368,22 +368,32 @@ export function clearSessionExpiredState() {
   }
 }
 
-export async function checkAuthStatus() {
-  try {
-    const token = localStorage.getItem("token");
-    const headers = { Accept: "application/json" };
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const res = await fetch(`${API_ORIGIN}/auth/status`, {
-      method: "GET",
-      credentials: "include",
-      headers,
-    });
-    const data = await res.json();
-    if (data?.authenticated) {
-      updateAuthNav();
+export async function checkAuthStatus(retries = 2) {
+  let attempt = 0;
+  while (attempt <= retries) {
+    try {
+      const token = localStorage.getItem("token");
+      const headers = { Accept: "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(`${API_ORIGIN}/auth/status`, {
+        method: "GET",
+        credentials: "include",
+        headers,
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data?.authenticated) {
+        updateAuthNav();
+      }
+      return;
+    } catch (error) {
+      attempt++;
+      if (attempt > retries) {
+        console.warn("Auth status check failed:", error);
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 1200 * attempt));
     }
-  } catch (error) {
-    console.warn("Auth status check failed:", error);
   }
 }
 
