@@ -1918,7 +1918,7 @@ async function renderSettings() {
   );
   const presetRole = getCurrentUserRole() === "doctor" ? "doctor" : "patient";
   const plan = localStorage.getItem("subscription_plan") || "starter";
-  const planName = plan === "pro" ? "Clinic Pro ($49/mo)" : plan === "enterprise" ? "Enterprise (Custom)" : "Starter (Free)";
+  const planName = plan === "pro" ? "Clinic Pro (₱2,499/mo)" : plan === "enterprise" ? "Enterprise (Custom)" : "Starter (Free)";
 
   mainContent.innerHTML = `
     <h2 class="page-title">Settings</h2>
@@ -2298,7 +2298,7 @@ function renderPricing() {
             <h3 class="text-xl font-semibold text-slate-950 dark:text-[#e6ecff] mb-2">Starter</h3>
             <p class="text-sm text-slate-600 dark:text-slate-400 mb-6">Great for individual providers testing digital patient workflow automation.</p>
             <div class="flex items-baseline text-slate-950 dark:text-[#e6ecff] mb-6">
-              <span class="text-5xl font-extrabold tracking-tight">$0</span>
+              <span class="text-4xl sm:text-5xl font-extrabold tracking-tight">₱0</span>
               <span class="ml-1 text-xl font-semibold text-slate-500 dark:text-slate-400">/mo</span>
             </div>
             <ul class="space-y-4 mb-8">
@@ -2336,7 +2336,7 @@ function renderPricing() {
             <h3 class="text-xl font-semibold text-slate-950 dark:text-white mb-2">Clinic Pro</h3>
             <p class="text-sm text-slate-600 dark:text-slate-300 mb-6">Designed to supercharge standard clinic practices and patient scheduling.</p>
             <div class="flex items-baseline text-slate-950 dark:text-white mb-6">
-              <span class="text-5xl font-extrabold tracking-tight">$49</span>
+              <span class="text-4xl sm:text-5xl font-extrabold tracking-tight">₱2,499</span>
               <span class="ml-1 text-xl font-semibold text-slate-500 dark:text-slate-300">/mo</span>
             </div>
             <ul class="space-y-4 mb-8">
