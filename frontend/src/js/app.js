@@ -2192,6 +2192,63 @@ function showPricingModal(title, contentHtml, onFormSubmit) {
   dialog.showModal();
 }
 
+async function initiatePayMongoCheckout(btnElement) {
+  if (!isLoggedIn()) {
+    showToast("Please register or login to subscribe to Pro.", "info");
+    window.location.hash = "#signup?role=doctor";
+    void renderSignup();
+    return;
+  }
+
+  const btn = btnElement || document.getElementById("pricing-btn-pro");
+  const originalHtml = btn ? btn.innerHTML : "Upgrade to Pro";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="inline-flex items-center justify-center gap-2 w-full">
+      <svg class="animate-spin h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+      </svg>
+      Redirecting...
+    </span>`;
+  }
+
+  try {
+    let response = await fetch(`${API_BASE}/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      try {
+        const fallbackRes = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (fallbackRes.ok) {
+          response = fallbackRes;
+        }
+      } catch (e) {}
+    }
+
+    const data = await response.json();
+    const checkoutUrl = data?.checkout_url || data?.checkoutUrl;
+
+    if (checkoutUrl) {
+      window.location.href = checkoutUrl;
+    } else {
+      throw new Error(data?.error || "Failed to retrieve PayMongo checkout URL.");
+    }
+  } catch (err) {
+    console.error("[PayMongo Checkout Error]", err);
+    showToast(err?.message || "Failed to initiate checkout. Please try again.", "error");
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+  }
+}
+
 function renderPricing() {
   if (!mainContent) return;
   setPageTone("");
@@ -2394,7 +2451,16 @@ function renderPricing() {
     }
   });
 
-  document.getElementById("pricing-btn-pro")?.addEventListener("click", () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get("success") === "true") {
+    localStorage.setItem("subscription_plan", "pro");
+    showToast("Subscription successful! Welcome to Clinic Pro.", "success");
+    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + window.location.hash;
+    window.history.replaceState({ path: cleanUrl }, "", cleanUrl);
+    updateSidebarAccountInfoAndPlan();
+  }
+
+  document.getElementById("pricing-btn-pro")?.addEventListener("click", (e) => {
     if (!isLoggedIn()) {
       showToast("Please register or login to subscribe to Pro.", "info");
       window.location.hash = "#signup?role=doctor";
@@ -2409,7 +2475,7 @@ function renderPricing() {
         `<div class="text-center py-4">
           <div class="text-4xl mb-3">⚙️</div>
           <p class="text-sm text-slate-600 dark:text-slate-400 font-semibold mb-2">You are currently subscribed to Clinic Pro.</p>
-          <p class="text-xs text-slate-500 dark:text-slate-450">Billing Cycle: Monthly ($49.00/mo)</p>
+          <p class="text-xs text-slate-500 dark:text-slate-450">Billing Cycle: Monthly (₱2,499.00/mo)</p>
           <div class="mt-6 flex flex-col gap-2">
             <button type="button" id="pricing-btn-cancel-pro" class="w-full py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold transition-colors cursor-pointer">Cancel Subscription</button>
             <button type="button" id="pricing-modal-ok" class="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-semibold transition-colors cursor-pointer">Done</button>
@@ -2427,41 +2493,8 @@ function renderPricing() {
       return;
     }
 
-    showPricingModal(
-      "Subscribe to Clinic Pro",
-      `<form id="checkout-form" class="space-y-4">
-        <p class="text-sm text-slate-500 dark:text-slate-400">You are subscribing to the <strong>Clinic Pro Plan</strong> for <strong>$49.00/month</strong>.</p>
-        <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Cardholder Name</label>
-          <input type="text" placeholder="Dr. Jane Doe" required class="w-full px-3 py-2 border rounded-lg bg-slate-50 border-slate-200 dark:bg-[#0e1a31] dark:border-[#2e456f] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100" />
-        </div>
-        <div>
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Card Details</label>
-          <div class="relative">
-            <input type="text" placeholder="4111 2222 3333 4444" required class="w-full px-3 py-2 border rounded-lg bg-slate-50 border-slate-200 dark:bg-[#0e1a31] dark:border-[#2e456f] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100" />
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Expiry (MM/YY)</label>
-            <input type="text" placeholder="12/28" required class="w-full px-3 py-2 border rounded-lg bg-slate-50 border-slate-200 dark:bg-[#0e1a31] dark:border-[#2e456f] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100" />
-          </div>
-          <div>
-            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">CVC</label>
-            <input type="text" placeholder="123" required class="w-full px-3 py-2 border rounded-lg bg-slate-50 border-slate-200 dark:bg-[#0e1a31] dark:border-[#2e456f] text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-slate-100" />
-          </div>
-        </div>
-        <button type="submit" class="w-full py-3 px-4 rounded-xl font-semibold text-center text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 hover:shadow-indigo-500/50 transition-all duration-200 cursor-pointer mt-6">
-          Confirm & Subscribe
-        </button>
-      </form>`,
-      () => {
-        localStorage.setItem("subscription_plan", "pro");
-        showToast("Subscription successful! Welcome to Clinic Pro.", "success");
-        updateSidebarAccountInfoAndPlan();
-        renderPricing();
-      }
-    );
+    const btn = e.currentTarget;
+    initiatePayMongoCheckout(btn);
   });
 
   document.getElementById("pricing-btn-enterprise")?.addEventListener("click", () => {

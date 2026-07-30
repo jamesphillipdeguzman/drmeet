@@ -11,6 +11,7 @@ import messageRoutes from './src/routes/message.routes.js';
 import prescriptionRoutes from './src/routes/prescription.routes.js';
 import medicalHistoryRoutes from './src/routes/medicalHistory.routes.js';
 import systemRoutes from './src/routes/system.routes.js';
+import checkoutRoutes from './src/routes/checkout.routes.js';
 
 import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './src/docs/swagger.js';
@@ -151,6 +152,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/medical-history', medicalHistoryRoutes);
 app.use('/api/system', systemRoutes);
+app.use('/api/checkout', checkoutRoutes);
 
 // ========================
 export { app };

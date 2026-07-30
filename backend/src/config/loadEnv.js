@@ -21,5 +21,7 @@ const runningOnRender =
 
 if (!runningOnRender) {
   dotenv.config({ path: backendEnvPath });
+  dotenv.config({ path: path.resolve(__dirname, '../../.env.local') });
   dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+  dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 }

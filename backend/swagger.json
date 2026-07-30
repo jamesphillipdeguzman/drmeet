@@ -417,7 +417,7 @@
               }
             }
           }
-        ],
+        },
         "responses": {
           "201": {
             "description": "User created successfully"
@@ -518,7 +518,7 @@
               }
             }
           }
-        ],
+        },
         "responses": {
           "200": {
             "description": "User updated successfully"
