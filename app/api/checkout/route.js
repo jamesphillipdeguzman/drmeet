@@ -25,8 +25,8 @@ export async function POST(request) {
             },
           ],
           payment_method_types: ['card', 'gcash', 'paymaya'],
-          success_url: 'https://mydrmeet.netlify.app/pricing?success=true',
-          cancel_url: 'https://mydrmeet.netlify.app/pricing',
+          success_url: 'https://mydrmeet.netlify.app/#pricing?success=true',
+          cancel_url: 'https://mydrmeet.netlify.app/#pricing',
         },
       },
     };

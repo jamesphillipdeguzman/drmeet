@@ -2451,11 +2451,16 @@ function renderPricing() {
     }
   });
 
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get("success") === "true") {
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashQueryIndex = window.location.hash.indexOf("?");
+  const hashParams = hashQueryIndex !== -1 ? new URLSearchParams(window.location.hash.substring(hashQueryIndex)) : new URLSearchParams();
+  const isSuccess = searchParams.get("success") === "true" || hashParams.get("success") === "true";
+
+  if (isSuccess) {
     localStorage.setItem("subscription_plan", "pro");
     showToast("Subscription successful! Welcome to Clinic Pro.", "success");
-    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + window.location.hash;
+    const cleanHash = window.location.hash.split("?")[0] || "#pricing";
+    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + cleanHash;
     window.history.replaceState({ path: cleanUrl }, "", cleanUrl);
     updateSidebarAccountInfoAndPlan();
   }
