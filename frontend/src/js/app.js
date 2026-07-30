@@ -316,9 +316,6 @@ export async function apiRequest(url, options = {}, retries = 2, delayMs = 1500)
         console.warn(`[API Request Error] ${urlStr}:`, err);
         throw err;
       }
-      if (attempt === 1 && typeof showToast === "function") {
-        showToast("Connecting to server (waking up service)...", "info");
-      }
       await new Promise((r) => setTimeout(r, delayMs * attempt));
     }
   }
