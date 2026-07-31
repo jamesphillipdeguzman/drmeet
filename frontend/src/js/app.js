@@ -195,13 +195,13 @@ function updateSidebarAccountInfoAndPlan() {
       if (pricingBadge) {
         if (plan === "pro") {
           pricingBadge.textContent = "Pro";
-          pricingBadge.className = "ml-auto text-[9px] px-1.5 py-0.5 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider block";
+          pricingBadge.className = "upgrade-badge ml-auto text-[9px] px-1.5 py-0.5 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider block";
         } else if (plan === "enterprise") {
           pricingBadge.textContent = "Ent";
-          pricingBadge.className = "ml-auto text-[9px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold uppercase tracking-wider block";
+          pricingBadge.className = "upgrade-badge ml-auto text-[9px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold uppercase tracking-wider block";
         } else {
           pricingBadge.textContent = "Upgrade";
-          pricingBadge.className = "ml-auto text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold uppercase tracking-wider block animate-pulse";
+          pricingBadge.className = "upgrade-badge ml-auto text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold uppercase tracking-wider block animate-pulse";
         }
       }
     }
