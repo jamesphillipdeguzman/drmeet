@@ -53,6 +53,17 @@ describe('Integration Tests: PayMongo Checkout Routes (/api/checkout)', () => {
       expect(res.body.successUrl).toContain('/#pricing?payment=success');
       expect(res.body.cancelUrl).toContain('/#pricing?payment=cancelled');
     });
+
+    test('should support POST /api/checkout root path with valid Bearer token', async () => {
+      const res = await request(app)
+        .post('/api/checkout')
+        .set('Authorization', `Bearer ${doctorToken}`)
+        .send({ planTier: 'pro' });
+
+      expect(res.statusCode).toBe(201);
+      expect(res.body).toHaveProperty('checkout_url');
+      expect(res.body.successUrl).toContain('/#pricing?payment=success');
+    });
   });
 
   describe('POST /api/checkout/webhook (PayMongo Webhook)', () => {

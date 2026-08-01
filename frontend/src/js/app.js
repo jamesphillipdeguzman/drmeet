@@ -2268,19 +2268,37 @@ async function initiatePayMongoCheckout(btnElement) {
   }
 
   try {
+    const headers = buildHeaders({ "Content-Type": "application/json" });
+    const payload = JSON.stringify({ planTier: "pro" });
+
     let response = await fetch(`${API_BASE}/checkout`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
+      body: payload,
     });
 
     if (!response.ok) {
       try {
-        const fallbackRes = await fetch("/api/checkout", {
+        const fallbackRes = await fetch(`${API_BASE}/checkout/create-session`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
+          body: payload,
         });
         if (fallbackRes.ok) {
           response = fallbackRes;
+        }
+      } catch (e) {}
+    }
+
+    if (!response.ok) {
+      try {
+        const fallbackRes2 = await fetch("/api/checkout", {
+          method: "POST",
+          headers,
+          body: payload,
+        });
+        if (fallbackRes2.ok) {
+          response = fallbackRes2;
         }
       } catch (e) {}
     }
