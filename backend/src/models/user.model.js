@@ -14,7 +14,6 @@ const userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      unique: true,
       required: true,
       trim: true,
       lowercase: true,
@@ -72,8 +71,26 @@ const userSchema = new mongoose.Schema(
       type: Date,
       required: false,
     },
+    subscriptionPlan: {
+      type: String,
+      enum: ["starter", "pro", "enterprise"],
+      default: "starter",
+    },
+    is_deleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
   },
   { timestamps: true }
+);
+
+userSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { is_deleted: { $ne: true } },
+  }
 );
 
 export default mongoose.model("User", userSchema);

@@ -38,6 +38,7 @@ async function readPaymentMethodsJson() {
 import { findDoctorByUserId, findDoctorById } from '../services/doctor.service.js';
 import User from '../models/user.model.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
+import { assertStarterPlanPatientLimit } from '../utils/planLimit.js';
 import { uploadToCloudinary } from '../services/cloudinary.service.js';
 import {
   findAppointmentsByDoctor,
@@ -476,9 +477,11 @@ export const postPatient = async (req, res) => {
       delete patientData.userId;
     }
 
+    let targetDoctorId = null;
     if (role === 'doctor' && uid) {
       const doctor = await findDoctorByUserId(uid);
       if (doctor) {
+        targetDoctorId = doctor._id;
         const cur = Array.isArray(patientData.careTeamDoctorIds)
           ? patientData.careTeamDoctorIds.map(String)
           : [];
@@ -490,6 +493,7 @@ export const postPatient = async (req, res) => {
     } else if (role === 'receptionist' && uid) {
       const ru = await User.findById(uid).select('linkedDoctorId').lean();
       if (ru?.linkedDoctorId) {
+        targetDoctorId = ru.linkedDoctorId;
         const cur = Array.isArray(patientData.careTeamDoctorIds)
           ? patientData.careTeamDoctorIds.map(String)
           : [];
@@ -498,6 +502,12 @@ export const postPatient = async (req, res) => {
           patientData.careTeamDoctorIds = [...(patientData.careTeamDoctorIds || []), ru.linkedDoctorId];
         }
       }
+    } else if (Array.isArray(patientData.careTeamDoctorIds) && patientData.careTeamDoctorIds.length) {
+      targetDoctorId = patientData.careTeamDoctorIds[0];
+    }
+
+    if (targetDoctorId) {
+      await assertStarterPlanPatientLimit({ doctorId: targetDoctorId, req });
     }
 
     const emailNorm = String(email || '').trim().toLowerCase();
@@ -832,11 +842,15 @@ export const attachExistingPatientToCareTeam = async (req, res) => {
       ? patient.careTeamDoctorIds.map((x) => String(x))
       : [];
     if (!existing.includes(doctorId)) {
+      await assertStarterPlanPatientLimit({ doctorId, req });
       patient.careTeamDoctorIds = [...existing, doctorId];
       await patient.save();
     }
     return res.status(200).json(mapPatientForClient(patient, req));
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ error: error.message });
+    }
     return res.status(500).json({ error: 'Failed to attach existing patient.' });
   }
 };

@@ -168,6 +168,51 @@ async function ensureAvatarPresetsLoaded() {
   return avatarPresetsPromise;
 }
 
+function updateSidebarAccountInfoAndPlan() {
+  updateSidebarAccountInfo();
+  if (isLoggedIn()) {
+    const role = getCurrentUserRole();
+    if (role === "doctor" || role === "receptionist") {
+      const plan = localStorage.getItem("subscription_plan") || "starter";
+      const planName = plan === "pro" ? "Clinic Pro" : plan === "enterprise" ? "Enterprise" : "Starter (Free)";
+      const accountMetaEl = document.getElementById("sidebar-account-meta");
+      if (accountMetaEl) {
+        const fullName = getCurrentUserName();
+        const roleLabel = getSidebarRoleLabel(role);
+        const planBadge = plan === "pro"
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 mt-1">Clinic Pro</span>`
+          : plan === "enterprise"
+            ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 mt-1">Enterprise</span>`
+            : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-800 dark:bg-slate-850 dark:text-slate-350 mt-1">Starter</span>`;
+        accountMetaEl.innerHTML = `
+          <strong>${escapeHtml(fullName || "User")}</strong>
+          <span class="role-label">${escapeHtml(roleLabel)}</span>
+          <div class="mt-1">${planBadge}</div>
+        `;
+      }
+      
+      const pricingBadge = document.getElementById("nav-pricing-badge");
+      if (pricingBadge) {
+        if (plan === "pro") {
+          pricingBadge.textContent = "Pro";
+          pricingBadge.className = "upgrade-badge ml-auto text-[9px] px-1.5 py-0.5 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider block";
+        } else if (plan === "enterprise") {
+          pricingBadge.textContent = "Ent";
+          pricingBadge.className = "upgrade-badge ml-auto text-[9px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold uppercase tracking-wider block";
+        } else {
+          pricingBadge.textContent = "Upgrade";
+          pricingBadge.className = "upgrade-badge ml-auto text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold uppercase tracking-wider block animate-pulse";
+        }
+      }
+    }
+  } else {
+    const pricingBadge = document.getElementById("nav-pricing-badge");
+    if (pricingBadge) {
+      pricingBadge.className = "hidden";
+    }
+  }
+}
+
 function isAllowedPresetImageUrl(url) {
   const s = String(url || "").trim();
   return /^images\/[a-zA-Z0-9._-]+\.(webp|png|jpg|jpeg|svg)$/i.test(s);
@@ -223,12 +268,14 @@ function normalizeFetchErrorMessage(err, fallbackMessage) {
 
 export function buildHeaders(baseHeaders = {}) {
   const token = localStorage.getItem("token");
+  const plan = localStorage.getItem("subscription_plan") || "starter";
+  const headers = { ...baseHeaders, "x-subscription-plan": plan };
   return token
-    ? { ...baseHeaders, Authorization: `Bearer ${token}` }
-    : { ...baseHeaders };
+    ? { ...headers, Authorization: `Bearer ${token}` }
+    : headers;
 }
 
-export async function apiRequest(url, options = {}) {
+export async function apiRequest(url, options = {}, retries = 2, delayMs = 1500) {
   const urlStr = typeof url === "string" ? url : "";
   const skipAuthBlock =
     /\/auth\/(login|signup|status)/.test(urlStr) ||
@@ -243,22 +290,35 @@ export async function apiRequest(url, options = {}) {
     );
   }
   const headers = buildHeaders(options.headers || {});
-  const res = await fetch(url, { ...options, headers, credentials: "include" });
-  if (res.status === 401 && !skipAuthBlock) {
+
+  let attempt = 0;
+  while (attempt <= retries) {
     try {
-      const data = await res.clone().json();
-      if (
-        data?.code === "TOKEN_EXPIRED" ||
-        /session expired/i.test(String(data?.message || ""))
-      ) {
-        authState.sessionExpired = true;
-        showSessionExpiredBanner();
+      const res = await fetch(url, { ...options, headers, credentials: "include" });
+      if (res.status === 401 && !skipAuthBlock) {
+        try {
+          const data = await res.clone().json();
+          if (
+            data?.code === "TOKEN_EXPIRED" ||
+            /session expired/i.test(String(data?.message || ""))
+          ) {
+            authState.sessionExpired = true;
+            showSessionExpiredBanner();
+          }
+        } catch (e) {
+          /* ignore */
+        }
       }
-    } catch (e) {
-      /* ignore */
+      return res;
+    } catch (err) {
+      attempt++;
+      if (attempt > retries) {
+        console.warn(`[API Request Error] ${urlStr}:`, err);
+        throw err;
+      }
+      await new Promise((r) => setTimeout(r, delayMs * attempt));
     }
   }
-  return res;
 }
 
 export async function getApiErrorMessage(res, fallbackMessage) {
@@ -338,6 +398,51 @@ function buildBookingTimeGridHtml({
 }
 
 window.addEventListener("DOMContentLoaded", () => {
+  // Enforce patient limit check getter/setter
+  let _showPatientForm = null;
+  Object.defineProperty(window, "showPatientForm", {
+    get() {
+      return async function(editId = null, familyMode = false) {
+        if (!editId) {
+          const plan = localStorage.getItem("subscription_plan") || "starter";
+          if (plan === "starter") {
+            try {
+              const res = await apiRequest(`${API_BASE}/patients`);
+              if (res.ok) {
+                const patients = await res.json();
+                if (patients && patients.length >= 10) {
+                  showPricingModal(
+                    "Patient Limit Reached",
+                    `<div class="text-center py-4">
+                      <div class="text-4xl mb-3">⚠️</div>
+                      <p class="text-sm text-slate-600 dark:text-slate-400">You have reached the limit of <strong>10 active patients</strong> on the Starter plan. Please upgrade to Clinic Pro for unlimited patient records.</p>
+                      <button type="button" id="pricing-modal-upgrade" class="mt-6 w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors cursor-pointer">Upgrade to Pro</button>
+                    </div>`
+                  );
+                  document.getElementById("pricing-modal-upgrade")?.addEventListener("click", () => {
+                    const dialog = document.getElementById("pricing-interaction-dialog");
+                    dialog?.close();
+                    window.location.hash = "#pricing";
+                  });
+                  return;
+                }
+              }
+            } catch (e) {
+              console.error("Error checking patient limit:", e);
+            }
+          }
+        }
+        if (typeof _showPatientForm === "function") {
+          return _showPatientForm.apply(this, arguments);
+        }
+      };
+    },
+    set(val) {
+      _showPatientForm = val;
+    },
+    configurable: true
+  });
+
   // DOM element selections
   mainContent = document.getElementById("main-content");
   navLinks = document.querySelectorAll(".nav-link");
@@ -377,6 +482,7 @@ window.addEventListener("DOMContentLoaded", () => {
       renderLogin,
       renderSignup,
       renderPatientBooking,
+      renderPricing,
       renderHome,
     },
   });
@@ -477,6 +583,7 @@ window.addEventListener("DOMContentLoaded", () => {
   loadDashboardState();
   setupShellInteractions();
   setupCommandPalette();
+  initLiveVisitorCounter();
   checkAuthStatus();
   void ensureDoctorSpecialtiesLoaded();
   updateAuthNav();
@@ -486,6 +593,44 @@ window.addEventListener("DOMContentLoaded", () => {
 
   window.addEventListener("message", handleGoogleAuthMessage);
 });
+
+async function initLiveVisitorCounter() {
+  const visitorCountEl = document.getElementById("visitor-count-text");
+  const sidebarVisitorCountEl = document.getElementById("sidebar-visitor-count-text");
+
+  let visitorId = localStorage.getItem("drmeet_visitor_id");
+  if (!visitorId) {
+    visitorId = "v_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
+    localStorage.setItem("drmeet_visitor_id", visitorId);
+  }
+
+  const hasRecordedSession = sessionStorage.getItem("drmeet_visited_session");
+  const method = hasRecordedSession ? "GET" : "POST";
+
+  try {
+    const res = await fetch(`${API_BASE}/system/visitor-count`, {
+      method: method,
+      headers: { "Content-Type": "application/json" },
+      body: method === "POST" ? JSON.stringify({ visitorId }) : undefined,
+    });
+
+    if (res.ok) {
+      if (method === "POST") {
+        sessionStorage.setItem("drmeet_visited_session", "true");
+      }
+      const data = await res.json();
+      const totalVisits = Number(data?.totalVisits || 1248).toLocaleString();
+      const text = `👁️ ${totalVisits} Total Visitors`;
+
+      if (visitorCountEl) visitorCountEl.textContent = text;
+      if (sidebarVisitorCountEl) sidebarVisitorCountEl.textContent = text;
+    }
+  } catch (err) {
+    console.warn("Visitor counter fetch fallback:", err);
+    if (visitorCountEl) visitorCountEl.textContent = "👁️ 1,248 Total Visitors";
+    if (sidebarVisitorCountEl) sidebarVisitorCountEl.textContent = "👁️ 1,248 Total Visitors";
+  }
+}
 
 
 function updateAuthNav() {
@@ -530,7 +675,7 @@ function updateAuthNav() {
   if (sidebarUserTrigger) {
     sidebarUserTrigger.style.display = signedIn ? "" : "none";
   }
-  updateSidebarAccountInfo();
+  updateSidebarAccountInfoAndPlan();
   if (sidebarClockIntervalId) {
     clearInterval(sidebarClockIntervalId);
     sidebarClockIntervalId = null;
@@ -538,7 +683,7 @@ function updateAuthNav() {
   if (signedIn) {
     cacheCurrentUserProfile();
     refreshCurrentUserCacheFromApi();
-    sidebarClockIntervalId = setInterval(updateSidebarAccountInfo, 1000);
+    sidebarClockIntervalId = setInterval(updateSidebarAccountInfoAndPlan, 1000);
   }
   if (signedIn) {
     loginLink.textContent = "Login";
@@ -991,54 +1136,6 @@ async function showClinicalTab(tab) {
           return `<option value="${escapeHtml(String(p._id))}">${escapeHtml(label)}</option>`;
         }),
       ].join("");
-      const groupedDocs = docs.reduce((acc, d) => {
-        const groupKey = String(d.patientName || "").trim() || "Shared Clinic Library";
-        if (!acc[groupKey]) acc[groupKey] = [];
-        acc[groupKey].push(d);
-        return acc;
-      }, {});
-
-      const groupedHtml = Object.keys(groupedDocs).length
-        ? Object.entries(groupedDocs)
-            .map(
-              ([groupKey, groupItems], index) => {
-                const divider = index > 0 ? `<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0;" />` : "";
-                return `
-                ${divider}
-                <div class="clinical-doc-group">
-                  <h5 class="clinical-doc-group-heading" style="font-weight: 600; color: #1e3a8a; font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem;">${escapeHtml(groupKey)}</h5>
-                  <ul class="clinical-doc-list">
-                    ${groupItems
-                      .map(
-                        (d) => `
-                      <li class="card clinical-doc-row">
-                        <div>
-                          <span style="font-weight: normal;">${escapeHtml(d.name || "Document")}</span>
-                          <p class="clinical-muted">${escapeHtml(
-                            d.source === "patient"
-                              ? "Patient chart"
-                              : d.source === "clinic"
-                                ? "Clinic library"
-                                : d.source || "—",
-                          )}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
-                          <p class="clinical-muted">${
-                            d.uploadedAt
-                              ? escapeHtml(new Date(d.uploadedAt).toLocaleString())
-                              : ""
-                          }</p>
-                        </div>
-                        <a class="btn btn-secondary btn-sm" href="${escapeHtml(
-                          d.fileUrl || d.url || "#",
-                        )}" target="_blank" rel="noopener noreferrer">Open</a>
-                      </li>`,
-                      )
-                      .join("")}
-                  </ul>
-                </div>`;
-              }
-            )
-            .join("")
-        : `<ul class="clinical-doc-list"><li class="feedback">No documents yet.</li></ul>`;
 
       panel.innerHTML = `
         <p class="clinical-muted clinical-doc-hint">Upload files to your shared clinic library or attach them to a specific patient’s chart.</p>
@@ -1066,25 +1163,95 @@ async function showClinicalTab(tab) {
         </section>
         <h4 class="clinical-docs-list-title">Recent uploads</h4>
         <div class="clinical-docs-grouped-container">
-          ${groupedHtml}
         </div>
       `;
 
       const scopeSel = document.getElementById("clinical-doc-scope");
       const patientSel = document.getElementById("clinical-doc-patient");
+
+      const renderRecentUploads = () => {
+        const selectedPatientId = patientSel?.value || "";
+        const filteredDocs = selectedPatientId
+          ? docs.filter((d) => String(d.patientId) === selectedPatientId)
+          : docs;
+
+        const groupedDocs = filteredDocs.reduce((acc, d) => {
+          const groupKey = String(d.patientName || "").trim() || "Shared Clinic Library";
+          if (!acc[groupKey]) acc[groupKey] = [];
+          acc[groupKey].push(d);
+          return acc;
+        }, {});
+
+        const groupedHtml = Object.keys(groupedDocs).length
+          ? Object.entries(groupedDocs)
+              .map(
+                ([groupKey, groupItems], index) => {
+                  const divider = index > 0 ? `<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0;" />` : "";
+                  return `
+                  ${divider}
+                  <div class="clinical-doc-group">
+                    <h5 class="clinical-doc-group-heading" style="font-weight: 600; color: #1e3a8a; font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem;">${escapeHtml(groupKey)}</h5>
+                    <ul class="clinical-doc-list">
+                      ${groupItems
+                        .map(
+                          (d) => `
+                        <li class="card clinical-doc-row">
+                          <div>
+                            <span style="font-weight: normal;">${escapeHtml(d.name || "Document")}</span>
+                            <p class="clinical-muted">${escapeHtml(
+                              d.source === "patient"
+                                ? "Patient chart"
+                                : d.source === "clinic"
+                                  ? "Clinic library"
+                                  : d.source || "—",
+                            )}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
+                            <p class="clinical-muted">${
+                              d.uploadedAt
+                                ? escapeHtml(new Date(d.uploadedAt).toLocaleString())
+                                : ""
+                            }</p>
+                          </div>
+                          <a class="btn btn-secondary btn-sm" href="${escapeHtml(
+                            d.fileUrl || d.url || "#",
+                          )}" target="_blank" rel="noopener noreferrer">Open</a>
+                        </li>`,
+                        )
+                        .join("")}
+                    </ul>
+                  </div>`;
+                }
+              )
+              .join("")
+          : `<ul class="clinical-doc-list"><li class="feedback">No documents yet.</li></ul>`;
+
+        const container = panel.querySelector(".clinical-docs-grouped-container");
+        if (container) {
+          container.innerHTML = groupedHtml;
+        }
+      };
+
       const syncDocPatientField = () => {
         const sc = scopeSel?.value || "clinic";
         if (!patientSel) return;
+        const hint = document.getElementById("clinical-doc-patient-hint");
         if (sc === "patient") {
-          patientSel.disabled = false;
           patientSel.required = true;
+          if (hint) hint.textContent = "Choose a patient when saving to a chart.";
         } else {
-          patientSel.disabled = true;
           patientSel.required = false;
-          patientSel.value = "";
+          if (hint) hint.textContent = "Filter recent uploads by this patient.";
         }
+        patientSel.disabled = false;
+        renderRecentUploads();
       };
       scopeSel?.addEventListener("change", syncDocPatientField);
+      patientSel?.addEventListener("change", () => {
+        doctorDashUI.selectedPatientId = patientSel.value || "";
+        renderRecentUploads();
+      });
+      if (doctorDashUI.selectedPatientId && patientSel) {
+        patientSel.value = doctorDashUI.selectedPatientId;
+      }
       syncDocPatientField();
 
       document
@@ -1804,6 +1971,9 @@ async function renderSettings() {
     String(role || ""),
   );
   const presetRole = getCurrentUserRole() === "doctor" ? "doctor" : "patient";
+  const plan = localStorage.getItem("subscription_plan") || "starter";
+  const planName = plan === "pro" ? "Clinic Pro (₱2,499/mo)" : plan === "enterprise" ? "Enterprise (Custom)" : "Starter (Free)";
+
   mainContent.innerHTML = `
     <h2 class="page-title">Settings</h2>
     <section class="card">
@@ -1836,7 +2006,25 @@ async function renderSettings() {
       <label><input type="checkbox" id="settings-notify-email" disabled /> Email reminders (coming soon)</label>
     </section>
     ${isStaffBookingPolicyRole
-      ? `<section class="card">
+      ? `<section class="card settings-subscription-card">
+      <h3>Subscription & Plan</h3>
+      <p class="signup-lead">Manage your clinic subscription and billing plan.</p>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+        <div>
+          <span style="font-size: 0.85rem; text-transform: uppercase; color: #64748b; font-weight: 600; display: block; margin-bottom: 2px;">Current Plan</span>
+          <strong style="font-size: 1.15rem;" class="text-slate-800 dark:text-slate-200" id="settings-current-plan-name">${planName}</strong>
+        </div>
+        <div>
+          ${plan === "starter" 
+            ? `<button type="button" class="btn btn-primary" onclick="window.location.hash = '#pricing';">Upgrade Plan</button>`
+            : plan === "pro"
+              ? `<button type="button" class="btn btn-secondary btn-action-delete" id="settings-cancel-sub-btn">Cancel Subscription</button>`
+              : `<button type="button" class="btn btn-secondary" onclick="window.location.hash = '#pricing';">Change Plan</button>`
+          }
+        </div>
+      </div>
+    </section>
+    <section class="card">
       <h3>Booking Strategy</h3>
       <p class="signup-lead">Set a daily patient booking cap for your clinic calendar.</p>
       <label>Maximum patients per day
@@ -1883,7 +2071,7 @@ async function renderSettings() {
         const savedUser = await res.json();
         applyUserRecordToLocalCache(savedUser);
         await refreshCurrentUserCacheFromApi();
-        updateSidebarAccountInfo();
+        updateSidebarAccountInfoAndPlan();
         if (fb) {
           fb.style.display = "block";
           fb.className = "feedback success";
@@ -1976,6 +2164,36 @@ async function renderSettings() {
           showToast(err?.message || "Unable to save booking limit.", "error");
         }
       });
+
+    document
+      .getElementById("settings-cancel-sub-btn")
+      ?.addEventListener("click", () => {
+        showPricingModal(
+          "Cancel Subscription",
+          `<div class="text-center py-4">
+            <div class="text-4xl mb-3">❓</div>
+            <p class="text-sm text-slate-600 dark:text-slate-400">Are you sure you want to cancel your Clinic Pro subscription? You will be downgraded to the Starter plan, which is limited to 10 active patients.</p>
+            <div class="mt-6 flex gap-4">
+              <button type="button" id="confirm-cancel-sub" class="w-full py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold transition-colors cursor-pointer">Yes, Downgrade</button>
+              <button type="button" id="keep-cancel-sub" class="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-semibold transition-colors cursor-pointer">Keep Clinic Pro</button>
+            </div>
+          </div>`
+        );
+        
+        const dialog = document.getElementById("pricing-interaction-dialog");
+        
+        document.getElementById("confirm-cancel-sub")?.addEventListener("click", () => {
+          localStorage.setItem("subscription_plan", "starter");
+          showToast("Subscription cancelled. Downgraded to Starter plan.", "success");
+          dialog?.close();
+          updateSidebarAccountInfoAndPlan();
+          void renderSettings();
+        });
+        
+        document.getElementById("keep-cancel-sub")?.addEventListener("click", () => {
+          dialog?.close();
+        });
+      });
   }
 }
 
@@ -1991,6 +2209,429 @@ function renderPrivacy() {
     </section>
   `;
 }
+
+// Dynamic Dialog Creator Function for Pricing interactions
+function showPricingModal(title, contentHtml, onFormSubmit) {
+  let dialog = document.getElementById("pricing-interaction-dialog");
+  if (!dialog) {
+    dialog = document.createElement("dialog");
+    dialog.id = "pricing-interaction-dialog";
+    dialog.className = "rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111a2f] p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm max-w-md w-full overflow-hidden";
+    document.body.appendChild(dialog);
+  }
+  dialog.innerHTML = `
+    <div class="p-6 text-slate-900 dark:text-slate-100">
+      <div class="flex justify-between items-center mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+        <h3 class="text-xl font-bold text-slate-900 dark:text-white">${title}</h3>
+        <button type="button" id="pricing-modal-close" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors text-2xl font-semibold leading-none">&times;</button>
+      </div>
+      <div class="modal-body mb-6">
+        ${contentHtml}
+      </div>
+    </div>
+  `;
+  dialog.querySelector("#pricing-modal-close").onclick = () => dialog.close();
+  const form = dialog.querySelector("form");
+  if (form && onFormSubmit) {
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      onFormSubmit(form);
+      dialog.close();
+    };
+  }
+  const okBtn = dialog.querySelector("#pricing-modal-ok");
+  if (okBtn) {
+    okBtn.onclick = () => dialog.close();
+  }
+  dialog.showModal();
+}
+
+async function initiatePayMongoCheckout(btnElement) {
+  if (!isLoggedIn()) {
+    showToast("Please register or login to subscribe to Pro.", "info");
+    window.location.hash = "#signup?role=doctor";
+    void renderSignup();
+    return;
+  }
+
+  const btn = btnElement || document.getElementById("pricing-btn-pro");
+  const originalHtml = btn ? btn.innerHTML : "Upgrade to Pro";
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="inline-flex items-center justify-center gap-2 w-full">
+      <svg class="animate-spin h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+      </svg>
+      Redirecting...
+    </span>`;
+  }
+
+  try {
+    let response = await fetch(`${API_BASE}/checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      try {
+        const fallbackRes = await fetch("/api/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (fallbackRes.ok) {
+          response = fallbackRes;
+        }
+      } catch (e) {}
+    }
+
+    const data = await response.json();
+    const checkoutUrl = data?.checkout_url || data?.checkoutUrl;
+
+    if (checkoutUrl) {
+      window.location.href = checkoutUrl;
+    } else {
+      throw new Error(data?.error || "Failed to retrieve PayMongo checkout URL.");
+    }
+  } catch (err) {
+    console.error("[PayMongo Checkout Error]", err);
+    showToast(err?.message || "Failed to initiate checkout. Please try again.", "error");
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+  }
+}
+
+function renderPricing() {
+  if (!mainContent) return;
+  setPageTone("");
+
+  const signedIn = isLoggedIn();
+  const plan = signedIn ? (localStorage.getItem("subscription_plan") || "starter") : null;
+
+  // Starter Button styling
+  let starterBtnText = "Get Started";
+  let starterBtnClass = "w-full py-3 px-4 rounded-xl font-semibold text-center text-slate-900 dark:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors duration-200 cursor-pointer";
+  if (plan === "starter") {
+    starterBtnText = "✓ Current Plan";
+    starterBtnClass = "w-full py-3 px-4 rounded-xl font-semibold text-center text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 transition-colors duration-200 cursor-default";
+  }
+
+  // Pro Button styling
+  let proBtnText = "Upgrade to Pro";
+  let proBtnClass = "w-full py-3 px-4 rounded-xl font-semibold text-center text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 hover:shadow-indigo-500/50 transition-all duration-200 cursor-pointer";
+  if (plan === "pro") {
+    proBtnText = "✓ Current Plan (Manage)";
+    proBtnClass = "w-full py-3 px-4 rounded-xl font-semibold text-center text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/30 hover:shadow-emerald-500/50 transition-all duration-200 cursor-pointer";
+  }
+
+  // Enterprise Button styling
+  let entBtnText = "Contact Sales";
+  let entBtnClass = "w-full py-3 px-4 rounded-xl font-semibold text-center text-slate-900 dark:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors duration-200 cursor-pointer";
+  if (plan === "enterprise") {
+    entBtnText = "✓ Current Plan (Inquiry Active)";
+    entBtnClass = "w-full py-3 px-4 rounded-xl font-semibold text-center text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/30 hover:shadow-emerald-500/50 transition-all duration-200 cursor-pointer";
+  }
+
+  mainContent.innerHTML = `
+    <div class="pricing-container max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
+      <div class="text-center mb-12 text-slate-900 dark:text-white">
+        <h2 id="pricing-title" class="font-bold text-3xl mb-4 text-slate-900 dark:text-white">
+          Flexible Plans for Medical Providers
+        </h2>
+        <p id="pricing-desc" class="text-lg max-w-2xl mx-auto text-slate-600 dark:text-slate-300">
+          Scale your digital practice workflows, secure team communication, and automate patient outreach with DrMeet's specialized clinical plans.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:gap-8 items-stretch">
+        <!-- Starter Card -->
+        <div class="flex flex-col bg-white dark:bg-[#111a2f] border border-slate-200 dark:border-[#263554] rounded-2xl shadow-xl hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(59,130,246,0.15)] hover:border-blue-500/60 dark:hover:border-blue-500/60 transition-all duration-300 relative p-8">
+          <div class="flex-1">
+            <h3 class="text-xl font-semibold text-slate-950 dark:text-[#e6ecff] mb-2">Starter</h3>
+            <p class="text-sm text-slate-600 dark:text-slate-400 mb-6">Great for individual providers testing digital patient workflow automation.</p>
+            <div class="flex items-baseline text-slate-950 dark:text-[#e6ecff] mb-6">
+              <span class="text-4xl sm:text-5xl font-extrabold tracking-tight">₱0</span>
+              <span class="ml-1 text-xl font-semibold text-slate-500 dark:text-slate-400">/mo</span>
+            </div>
+            <ul class="space-y-4 mb-8">
+              <li class="flex items-start text-sm text-slate-800 dark:text-[#dbe7ff]">
+                <svg class="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span><strong>10 active patients</strong> allocation</span>
+              </li>
+              <li class="flex items-start text-sm text-slate-800 dark:text-[#dbe7ff]">
+                <svg class="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Basic scheduling & booking calendar</span>
+              </li>
+              <li class="flex items-start text-sm text-slate-800 dark:text-[#dbe7ff]">
+                <svg class="h-5 w-5 text-blue-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Quick medical reference tools</span>
+              </li>
+            </ul>
+          </div>
+          <button type="button" id="pricing-btn-starter" class="${starterBtnClass}">
+            ${starterBtnText}
+          </button>
+        </div>
+
+        <!-- Pro Card (Most Popular) -->
+        <div class="flex flex-col bg-white dark:bg-[#15223e] border-2 border-indigo-500 rounded-2xl shadow-xl hover:scale-[1.03] hover:shadow-[0_0_25px_rgba(99,102,241,0.3)] transition-all duration-300 overflow-hidden relative p-8">
+          <div class="absolute top-0 right-0 bg-indigo-500 text-white text-xs font-bold uppercase px-3 py-1 rounded-bl-xl tracking-wider">
+            Most Popular
+          </div>
+          <div class="flex-1">
+            <h3 class="text-xl font-semibold text-slate-950 dark:text-white mb-2">Clinic Pro</h3>
+            <p class="text-sm text-slate-600 dark:text-slate-300 mb-6">Designed to supercharge standard clinic practices and patient scheduling.</p>
+            <div class="flex items-baseline text-slate-950 dark:text-white mb-6">
+              <span class="text-4xl sm:text-5xl font-extrabold tracking-tight">₱2,499</span>
+              <span class="ml-1 text-xl font-semibold text-slate-500 dark:text-slate-300">/mo</span>
+            </div>
+            <ul class="space-y-4 mb-8">
+              <li class="flex items-start text-sm text-slate-800 dark:text-[#dbe7ff]">
+                <svg class="h-5 w-5 text-indigo-500 dark:text-indigo-400 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span><strong>Unlimited patients</strong> & profiles</span>
+              </li>
+              <li class="flex items-start text-sm text-slate-800 dark:text-[#dbe7ff]">
+                <svg class="h-5 w-5 text-indigo-500 dark:text-indigo-400 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Automated reminders</span>
+              </li>
+              <li class="flex items-start text-sm text-slate-800 dark:text-[#dbe7ff]">
+                <svg class="h-5 w-5 text-indigo-500 dark:text-indigo-400 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Advanced calendar views</span>
+              </li>
+              <li class="flex items-start text-sm text-slate-800 dark:text-[#dbe7ff]">
+                <svg class="h-5 w-5 text-indigo-500 dark:text-indigo-400 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Priority customer support response</span>
+              </li>
+            </ul>
+          </div>
+          <button type="button" id="pricing-btn-pro" class="${proBtnClass}">
+            ${proBtnText}
+          </button>
+        </div>
+
+        <!-- Enterprise Card -->
+        <div class="flex flex-col bg-white dark:bg-[#111a2f] border border-slate-200 dark:border-[#263554] rounded-2xl shadow-xl hover:scale-[1.03] hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:border-emerald-500/60 dark:hover:border-emerald-500/60 transition-all duration-300 relative p-8">
+          <div class="flex-1">
+            <h3 class="text-xl font-semibold text-slate-950 dark:text-[#e6ecff] mb-2">Enterprise</h3>
+            <p class="text-sm text-slate-600 dark:text-slate-400 mb-6">Custom multi-provider solution for large networks and medical clinics.</p>
+            <div class="flex items-baseline text-slate-950 dark:text-[#e6ecff] mb-6">
+              <span class="text-5xl font-extrabold tracking-tight">Custom</span>
+            </div>
+            <ul class="space-y-4 mb-8">
+              <li class="flex items-start text-sm text-slate-800 dark:text-[#dbe7ff]">
+                <svg class="h-5 w-5 text-emerald-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span><strong>Multi-provider team accounts</strong></span>
+              </li>
+              <li class="flex items-start text-sm text-slate-800 dark:text-[#dbe7ff]">
+                <svg class="h-5 w-5 text-emerald-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Custom clinic metrics tracking</span>
+              </li>
+              <li class="flex items-start text-sm text-slate-800 dark:text-[#dbe7ff]">
+                <svg class="h-5 w-5 text-emerald-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Dedicated manager & custom integrations</span>
+              </li>
+            </ul>
+          </div>
+          <button type="button" id="pricing-btn-enterprise" class="${entBtnClass}">
+            ${entBtnText}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Bind Buttons
+  document.getElementById("pricing-btn-starter")?.addEventListener("click", () => {
+    if (!isLoggedIn()) {
+      showToast("Please register or login to get started.", "info");
+      window.location.hash = "#signup?role=doctor";
+      void renderSignup();
+      return;
+    }
+    
+    if (plan === "starter") {
+      showPricingModal(
+        "Starter Active",
+        `<div class="text-center py-4">
+          <div class="text-4xl mb-3">✅</div>
+          <p class="text-sm text-slate-600 dark:text-slate-400 font-semibold mb-2">You are on the Starter Plan.</p>
+          <p class="text-xs text-slate-500 dark:text-slate-450">Active access to Starter scheduling and quick medical reference links.</p>
+          <button type="button" id="pricing-modal-ok" class="mt-6 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-colors cursor-pointer">OK</button>
+        </div>`
+      );
+    } else {
+      // Downgrade confirmation
+      showPricingModal(
+        "Switch to Starter Plan",
+        `<div class="text-center py-4">
+          <div class="text-4xl mb-3">❓</div>
+          <p class="text-sm text-slate-600 dark:text-slate-400">Would you like to switch to the Starter plan? This will downgrade your active subscription benefits.</p>
+          <div class="mt-6 flex gap-4">
+            <button type="button" id="pricing-btn-confirm-starter" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-colors cursor-pointer">Confirm Switch</button>
+            <button type="button" id="pricing-modal-ok" class="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors cursor-pointer">Cancel</button>
+          </div>
+        </div>`
+      );
+      document.getElementById("pricing-btn-confirm-starter")?.addEventListener("click", () => {
+        localStorage.setItem("subscription_plan", "starter");
+        showToast("Downgraded to Starter plan.", "success");
+        const dialog = document.getElementById("pricing-interaction-dialog");
+        dialog?.close();
+        updateSidebarAccountInfoAndPlan();
+        renderPricing();
+      });
+    }
+  });
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashQueryIndex = window.location.hash.indexOf("?");
+  const hashParams = hashQueryIndex !== -1 ? new URLSearchParams(window.location.hash.substring(hashQueryIndex)) : new URLSearchParams();
+  const isSuccess = searchParams.get("success") === "true" || hashParams.get("success") === "true";
+
+  if (isSuccess) {
+    localStorage.setItem("subscription_plan", "pro");
+    showToast("Subscription successful! Welcome to Clinic Pro.", "success");
+    const cleanHash = window.location.hash.split("?")[0] || "#pricing";
+    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + cleanHash;
+    window.history.replaceState({ path: cleanUrl }, "", cleanUrl);
+    updateSidebarAccountInfoAndPlan();
+  }
+
+  document.getElementById("pricing-btn-pro")?.addEventListener("click", (e) => {
+    if (!isLoggedIn()) {
+      showToast("Please register or login to subscribe to Pro.", "info");
+      window.location.hash = "#signup?role=doctor";
+      void renderSignup();
+      return;
+    }
+
+    if (plan === "pro") {
+      // Manage subscription
+      showPricingModal(
+        "Manage Clinic Pro",
+        `<div class="text-center py-4">
+          <div class="text-4xl mb-3">⚙️</div>
+          <p class="text-sm text-slate-600 dark:text-slate-400 font-semibold mb-2">You are currently subscribed to Clinic Pro.</p>
+          <p class="text-xs text-slate-500 dark:text-slate-450">Billing Cycle: Monthly (₱2,499.00/mo)</p>
+          <div class="mt-6 flex flex-col gap-2">
+            <button type="button" id="pricing-btn-cancel-pro" class="w-full py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold transition-colors cursor-pointer">Cancel Subscription</button>
+            <button type="button" id="pricing-modal-ok" class="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-semibold transition-colors cursor-pointer">Done</button>
+          </div>
+        </div>`
+      );
+      document.getElementById("pricing-btn-cancel-pro")?.addEventListener("click", () => {
+        localStorage.setItem("subscription_plan", "starter");
+        showToast("Subscription cancelled. Downgraded to Starter.", "success");
+        const dialog = document.getElementById("pricing-interaction-dialog");
+        dialog?.close();
+        updateSidebarAccountInfoAndPlan();
+        renderPricing();
+      });
+      return;
+    }
+
+    const btn = e.currentTarget;
+    initiatePayMongoCheckout(btn);
+  });
+
+  document.getElementById("pricing-btn-enterprise")?.addEventListener("click", () => {
+    if (!isLoggedIn()) {
+      showToast("Please register or login to contact sales.", "info");
+      window.location.hash = "#signup?role=doctor";
+      void renderSignup();
+      return;
+    }
+
+    if (plan === "enterprise") {
+      showPricingModal(
+        "Enterprise Inquiry Status",
+        `<div class="text-center py-4">
+          <div class="text-4xl mb-3">💼</div>
+          <p class="text-sm text-slate-600 dark:text-slate-400 font-semibold mb-2">Your Enterprise inquiry is active.</p>
+          <p class="text-xs text-slate-500 dark:text-slate-450">Our team is reviewing your requirements and will reach out via email shortly.</p>
+          <button type="button" id="pricing-modal-ok" class="mt-6 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-colors cursor-pointer">OK</button>
+        </div>`
+      );
+      return;
+    }
+
+    showPricingModal(
+      "Contact Enterprise Sales",
+      `<form id="enterprise-form" class="space-y-4">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Tell us about your clinic setup, and our team will prepare a custom proposal.</p>
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Full Name</label>
+          <input type="text" placeholder="Dr. John Smith" required class="w-full px-3 py-2 border rounded-lg bg-slate-50 border-slate-200 dark:bg-[#0e1a31] dark:border-[#2e456f] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Clinic or Hospital Name</label>
+          <input type="text" placeholder="Metro Medical Center" required class="w-full px-3 py-2 border rounded-lg bg-slate-50 border-slate-200 dark:bg-[#0e1a31] dark:border-[#2e456f] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Estimated Provider Count</label>
+          <select required class="w-full px-3 py-2 border rounded-lg bg-slate-50 border-slate-200 dark:bg-[#0e1a31] dark:border-[#2e456f] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100">
+            <option value="">Select range...</option>
+            <option value="5-10">5 - 10 providers</option>
+            <option value="11-50">11 - 50 providers</option>
+            <option value="50+">More than 50 providers</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Special Requirements</label>
+          <textarea placeholder="e.g. EHR integrations, custom reporting..." rows="3" class="w-full px-3 py-2 border rounded-lg bg-slate-50 border-slate-200 dark:bg-[#0e1a31] dark:border-[#2e456f] text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"></textarea>
+        </div>
+        <button type="submit" class="w-full py-3 px-4 rounded-xl font-semibold text-center text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/30 hover:shadow-emerald-500/50 transition-all duration-200 cursor-pointer mt-6">
+          Submit Inquiry
+        </button>
+      </form>`,
+      () => {
+        localStorage.setItem("subscription_plan", "enterprise");
+        showToast("Inquiry submitted! Our sales team will contact you shortly.", "success");
+        updateSidebarAccountInfoAndPlan();
+        renderPricing();
+      }
+    );
+  });
+  syncPricingTheme();
+}
+
+function syncPricingTheme() {
+  const title = document.getElementById('pricing-title');
+  const desc = document.getElementById('pricing-desc');
+  if (!title || !desc) return;
+
+  if (document.body.classList.contains('theme-dark')) {
+    title.style.color = '#ffffff';
+    desc.style.color = '#cbd5e1';
+  } else {
+    title.style.color = '#0f172a';
+    desc.style.color = '#475569';
+  }
+}
+
+window.addEventListener("themechanged", syncPricingTheme);
 
 function renderHome() {
   if (!mainContent) return;
@@ -2416,11 +3057,14 @@ export function buildThreadMessagesHtml(messages, currentUserId) {
       const bubbleClass = isYou
         ? "thread-bubble--outgoing"
         : "thread-bubble--incoming";
+      const behalfLabel = msg.onBehalfOf
+        ? ` <span class="text-xs text-indigo-600 dark:text-indigo-400 italic ml-1">(on behalf of Doctor)</span>`
+        : "";
       return `
       <div class="thread-row thread-row--${rowSide}">
         <article class="thread-bubble ${bubbleClass}" data-sender-role="${escapeHtml(roleClass)}">
           <div class="thread-bubble-meta">
-            <strong>${escapeHtml(displayName)}</strong>
+            <strong>${escapeHtml(displayName)}${behalfLabel}</strong>
             <small>${msg.createdAt ? escapeHtml(formatRelativeTime(msg.createdAt)) : ""}</small>
           </div>
           <p class="thread-message-body">${escapeHtml(msg.message || "")}</p>

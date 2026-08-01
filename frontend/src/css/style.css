@@ -48,8 +48,10 @@ body {
   width: 78px;
 }
 .sidebar.collapsed .nav-label,
-.sidebar.collapsed .nav-brand {
-  display: none;
+.sidebar.collapsed .nav-brand,
+.sidebar.collapsed #nav-pricing-badge,
+.sidebar.collapsed .upgrade-badge {
+  display: none !important;
 }
 .sidebar.collapsed .nav-link {
   justify-content: center;

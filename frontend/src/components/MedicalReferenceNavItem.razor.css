@@ -46,8 +46,10 @@
 }
 
 /* Support for collapsed sidebar states if applied globally */
-:deep(.collapsed) .nav-label {
-    display: none;
+:deep(.collapsed) .nav-label,
+:deep(.collapsed) #nav-pricing-badge,
+:deep(.collapsed) .upgrade-badge {
+    display: none !important;
 }
 
 :deep(.collapsed) .nav-link {

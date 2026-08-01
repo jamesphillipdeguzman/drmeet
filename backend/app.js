@@ -27,7 +27,23 @@ app.set('trust proxy', 1);
 const isProduction = process.env.NODE_ENV === 'production';
 const defaultClientOrigin = 'https://mydrmeet.netlify.app';
 const envClientOrigin = process.env.CLIENT_ORIGIN || defaultClientOrigin;
-const allowedOrigins = [defaultClientOrigin, envClientOrigin].filter(Boolean);
+const allowedOrigins = Array.from(
+  new Set(
+    [
+      'https://mydrmeet.netlify.app',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5000',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+      'http://127.0.0.1:5000',
+      defaultClientOrigin,
+      envClientOrigin,
+      process.env.CLIENT_ORIGIN,
+    ].filter(Boolean)
+  )
+);
+
 const mongoUri = process.env.MONGO_URI;
 const mongoSrv =
   typeof mongoUri === 'string' && mongoUri.trim().startsWith('mongodb+srv://');
@@ -48,21 +64,26 @@ if (!mongoUri || !String(mongoUri).trim()) {
 // ========================
 // CORS
 // ========================
-app.use(
-  cors({
-    origin(origin, callback) {
-      // Allow server-to-server / curl / same-origin requests with no Origin header.
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  }),
-);
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin) || String(origin).endsWith('.netlify.app')) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'x-subscription-plan',
+    'X-Subscription-Plan',
+  ],
+};
 
-app.options(/.*/, cors());
+app.use(cors(corsOptions));
+app.options('*splat', cors(corsOptions));
 
 // ========================
 // BODY PARSERS
@@ -153,6 +174,7 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/medical-history', medicalHistoryRoutes);
 app.use('/api/system', systemRoutes);
+app.use('/api/checkout', checkoutRoutes);
 
 // ========================
 export { app };

@@ -36,7 +36,7 @@
   "description": "A patient-doctor booking app and more",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jamesphillipdeguzman/medora.git"
+    "url": "git+https://github.com/jamesphillipdeguzman/drmeet.git"
   },
   "keywords": [
     "patient",
@@ -48,9 +48,9 @@
   "author": "James Phillip De Guzman",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/jamesphillipdeguzman/medora/issues"
+    "url": "https://github.com/jamesphillipdeguzman/drmeet/issues"
   },
-  "homepage": "https://github.com/jamesphillipdeguzman/medora#readme",
+  "homepage": "https://github.com/jamesphillipdeguzman/drmeet#readme",
   "devDependencies": {
     "@babel/core": "^7.27.7",
     "@babel/preset-env": "^7.27.2",

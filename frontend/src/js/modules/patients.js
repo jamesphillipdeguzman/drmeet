@@ -505,8 +505,29 @@ window.closePatientForm = function () {
 };
 
 export async function showPatientForm(editId = null, familyMode = false) {
-  const modal = document.getElementById("patient-form-modal");
+  const plan = localStorage.getItem("subscription_plan") || "starter";
   const role = getCurrentUserRole();
+
+  if (!editId && plan === "starter" && ["doctor", "receptionist"].includes(role)) {
+    try {
+      const checkRes = await apiRequest(`${API_BASE}/patients`);
+      if (checkRes.ok) {
+        const currentList = await checkRes.json();
+        if (Array.isArray(currentList) && currentList.length >= 10) {
+          showToast(
+            "Starter plan limit reached (10 active patients). Please upgrade to Clinic Pro to add more patients.",
+            "error"
+          );
+          setTimeout(() => {
+            window.location.hash = "#pricing";
+          }, 1200);
+          return;
+        }
+      }
+    } catch (e) {}
+  }
+
+  const modal = document.getElementById("patient-form-modal");
   const canAttachExisting =
     !editId && (role === "doctor" || role === "receptionist");
   await ensureAvatarPresetsLoaded();
@@ -683,6 +704,11 @@ export async function showPatientForm(editId = null, familyMode = false) {
                 error.message || "Unable to attach existing patient.",
                 "error",
               );
+              if (error.message && error.message.includes("Starter plan limit")) {
+                setTimeout(() => {
+                  window.location.hash = "#pricing";
+                }, 1200);
+              }
             }
           });
         });
@@ -792,6 +818,11 @@ export async function showPatientForm(editId = null, familyMode = false) {
       renderPatients();
     } catch (err) {
       showToast(err.message, "error");
+      if (err.message && err.message.includes("Starter plan limit")) {
+        setTimeout(() => {
+          window.location.hash = "#pricing";
+        }, 1200);
+      }
     }
   };
 }

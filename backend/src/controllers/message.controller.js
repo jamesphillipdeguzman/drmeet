@@ -68,15 +68,22 @@ export const ensurePatientDoctorConversationId = async (req, res) => {
     assertValidObjectId(patientId);
     assertValidObjectId(doctorId);
 
-    const role = String(req.user?.role || "");
+    const role = String(req.user?.role || "").toLowerCase();
 
-    // ✅ Allow patient + doctor + admin
-    const allowedRoles = ["patient", "doctor", "admin"];
+    // Allow patient + doctor + receptionist. Admin is excluded!
+    const allowedRoles = ["patient", "doctor", "receptionist"];
 
     if (!allowedRoles.includes(role)) {
       return res.status(403).json({
-        error: "Only patient, doctor, or admin can start a patient-doctor conversation.",
+        error: "Only patient, doctor, or receptionist can start a patient-doctor conversation.",
       });
+    }
+
+    if (role === "receptionist") {
+      const linkedDoctor = await Doctor.findById(req.user.linkedDoctorId).select("_id").lean();
+      if (!linkedDoctor || String(linkedDoctor._id) !== String(doctorId)) {
+        return res.status(403).json({ error: "Forbidden. Doctor ID mismatch." });
+      }
     }
 
     // ✅ If user is patient, enforce ownership rule
@@ -143,9 +150,23 @@ async function assertUserIsParticipantOrAdmin({ req, conversationId }) {
   assertValidObjectId(conversationId);
 
   if (isAdmin(req)) {
-    const conversation = await Conversation.findById(conversationId);
-    if (!conversation) return null;
-    return conversation;
+    return null; // Admins have ZERO visibility
+  }
+
+  const role = String(req?.user?.role || "").toLowerCase();
+  
+  if (role === "receptionist" && req?.user?.linkedDoctorId) {
+    const doctor = await Doctor.findById(req.user.linkedDoctorId).select("userId").lean();
+    if (doctor?.userId) {
+      const conversation = await Conversation.findOne({
+        _id: conversationId,
+        $or: [
+          { participants: userId },
+          { participants: doctor.userId, conversationType: "patient-doctor" }
+        ]
+      });
+      if (conversation) return conversation;
+    }
   }
 
   const conversation = await Conversation.findOne({
@@ -216,7 +237,19 @@ export const getUserConversations = async (req, res) => {
     const userId = getUserId(req);
     if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-    const filter = isAdmin(req) ? {} : buildUserConversationsQuery(req.user);
+    if (isAdmin(req)) {
+      return res.status(200).json({ conversations: [] }); // Admin gets ZERO visibility
+    }
+
+    let doctorUserId = null;
+    if (req.user?.role === "receptionist" && req.user?.linkedDoctorId) {
+      const doctor = await Doctor.findById(req.user.linkedDoctorId).select("userId").lean();
+      if (doctor) {
+        doctorUserId = doctor.userId;
+      }
+    }
+
+    const filter = buildUserConversationsQuery(req.user, doctorUserId);
 
     const conversations = await Conversation.find(filter)
       .sort({ lastMessageAt: -1, updatedAt: -1 })
@@ -240,23 +273,21 @@ export const getMessagesByConversation = async (req, res) => {
     assertValidObjectId(conversationId);
 
     // Strict security: if user isn't participant -> 403.
-    let conversation = null;
-    if (!isAdmin(req)) {
-      conversation = await assertUserIsParticipantOrAdmin({
-        req,
-        conversationId,
-      });
-      if (!conversation) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
-      if (
-        !userMayAccessConversationType(req.user?.role, conversation.conversationType)
-      ) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
-    } else {
-      const exists = await Conversation.exists({ _id: conversationId });
-      if (!exists) return res.status(404).json({ error: "Not found" });
+    if (isAdmin(req)) {
+      return res.status(403).json({ error: "Forbidden" }); // Admins have ZERO visibility
+    }
+
+    const conversation = await assertUserIsParticipantOrAdmin({
+      req,
+      conversationId,
+    });
+    if (!conversation) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    if (
+      !userMayAccessConversationType(req.user?.role, conversation.conversationType)
+    ) {
+      return res.status(403).json({ error: "Forbidden" });
     }
 
     const messages = await Message.find({ conversationId })
@@ -298,18 +329,31 @@ export const sendMessage = async (req, res) => {
       assertValidObjectId(patientId);
       assertValidObjectId(doctorId);
 
-      if (String(req.user?.role || "") !== "patient") {
+      if (String(req.user?.role || "") === "admin") {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      if (String(req.user?.role || "") === "receptionist") {
+        // Receptionist can start on behalf of linked doctor
+        const linkedDoctor = await Doctor.findById(req.user.linkedDoctorId).select("_id").lean();
+        if (!linkedDoctor || String(linkedDoctor._id) !== String(doctorId)) {
+          return res.status(403).json({ error: "Forbidden. Doctor ID mismatch." });
+        }
+      } else if (String(req.user?.role || "") !== "patient") {
         return res
           .status(403)
           .json({ error: "Only patient can start a patient-doctor conversation." });
       }
-      if (String(patientId) !== userId) {
+      if (String(req.user?.role || "") === "patient" && String(patientId) !== userId) {
         return res.status(403).json({ error: "Forbidden." });
       }
 
       conversation = await ensurePatientDoctorConversation({ patientId, doctorId });
     } else {
       assertValidObjectId(conversationId);
+
+      if (String(req.user?.role || "") === "admin") {
+        return res.status(403).json({ error: "Forbidden" });
+      }
 
       conversation = await assertUserIsParticipantOrAdmin({
         req,
@@ -342,6 +386,7 @@ export const sendMessage = async (req, res) => {
       attachmentName: attachmentName || "",
       attachmentType: attachmentType || "",
       readBy: [userId],
+      onBehalfOf: req.user?.role === "receptionist" ? `${req.user.firstName} ${req.user.lastName}` : "",
     });
 
     // Populate sender for the frontend display logic.
@@ -377,20 +422,19 @@ export const markMessagesAsRead = async (req, res) => {
     const { conversationId } = req.params;
     assertValidObjectId(conversationId);
 
-    if (!isAdmin(req)) {
-      const conversation = await assertUserIsParticipantOrAdmin({
-        req,
-        conversationId,
-      });
-      if (!conversation) return res.status(403).json({ error: "Forbidden" });
-      if (
-        !userMayAccessConversationType(req.user?.role, conversation.conversationType)
-      ) {
-        return res.status(403).json({ error: "Forbidden" });
-      }
-    } else {
-      const exists = await Conversation.exists({ _id: conversationId });
-      if (!exists) return res.status(404).json({ error: "Not found" });
+    if (isAdmin(req)) {
+      return res.status(403).json({ error: "Forbidden" }); // Admins have ZERO visibility
+    }
+
+    const conversation = await assertUserIsParticipantOrAdmin({
+      req,
+      conversationId,
+    });
+    if (!conversation) return res.status(403).json({ error: "Forbidden" });
+    if (
+      !userMayAccessConversationType(req.user?.role, conversation.conversationType)
+    ) {
+      return res.status(403).json({ error: "Forbidden" });
     }
 
     const result = await Message.updateMany(

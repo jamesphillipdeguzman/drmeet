@@ -11,6 +11,7 @@ import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service
 import { findDoctorByUserId } from '../services/doctor.service.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
 import Doctor from '../models/doctor.model.js';
+import Patient from '../models/patient.model.js';
 import { uploadToCloudinary } from '../services/cloudinary.service.js';
 
 function csvEscape(val) {
@@ -92,6 +93,9 @@ export const getAllUsers = async (req, res) => {
                 || (linkedDoctorUserId && String(u._id) === linkedDoctorUserId),
             );
         }
+        if (role !== 'admin' && role !== 'doctor' && role !== 'receptionist') {
+            users = users.filter((u) => String(u._id) === requesterId);
+        }
 
         const q = String(req.query.q || '').trim().toLowerCase();
         const roleFilter = String(req.query.role || '').trim().toLowerCase();
@@ -132,15 +136,24 @@ export const getUserById = async (req, res) => {
         }
         const requesterRole = String(req.user?.role || '').toLowerCase();
         const requesterId = String(req.user?._id || req.user?.id || '');
-        if (requesterRole === 'doctor') {
-            const doctor = await findDoctorByUserId(requesterId);
-            const doctorId = doctor ? String(doctor._id) : '';
-            const isSelf = String(user._id) === requesterId;
-            const isLinkedReceptionist =
-                String(user.role || '').toLowerCase() === 'receptionist' &&
-                doctorId &&
-                String(user.linkedDoctorId || '') === doctorId;
-            if (!isSelf && !isLinkedReceptionist) {
+        if (requesterRole !== 'admin' && requesterId !== String(user._id)) {
+            if (requesterRole === 'doctor') {
+                const doctor = await findDoctorByUserId(requesterId);
+                const doctorId = doctor ? String(doctor._id) : '';
+                const isLinkedReceptionist =
+                    String(user.role || '').toLowerCase() === 'receptionist' &&
+                    doctorId &&
+                    String(user.linkedDoctorId || '') === doctorId;
+                if (!isLinkedReceptionist) {
+                    return res.status(403).json({ error: 'Forbidden.' });
+                }
+            } else if (requesterRole === 'receptionist') {
+                const doctor = await Doctor.findById(req.user?.linkedDoctorId).select('userId').lean();
+                const isLinkedDoctor = doctor && String(doctor.userId) === String(user._id);
+                if (!isLinkedDoctor) {
+                    return res.status(403).json({ error: 'Forbidden.' });
+                }
+            } else {
                 return res.status(403).json({ error: 'Forbidden.' });
             }
         }
@@ -160,6 +173,10 @@ export const getUserById = async (req, res) => {
  */
 export const postUser = async (req, res) => {
     try {
+        const requesterRole = String(req.user?.role || '').toLowerCase();
+        if (requesterRole !== 'admin') {
+            return res.status(403).json({ error: 'Forbidden.' });
+        }
         const userData = sanitizeInput(req.body || {});
         const newUser = await createUserService(userData);
         await syncRoleProfilesForUser(newUser, {
@@ -233,6 +250,11 @@ export const updateUser = async (req, res) => {
  */
 export const deleteUser = async (req, res) => {
     const { id } = req.params;
+    const requesterId = String(req.user?._id || req.user?.id || '');
+    const requesterRole = String(req.user?.role || '').toLowerCase();
+    if (requesterRole !== 'admin' && requesterId !== String(id)) {
+        return res.status(403).json({ error: 'Forbidden.' });
+    }
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid user ID format.' });
     }
@@ -241,6 +263,19 @@ export const deleteUser = async (req, res) => {
         if (!deletedUser) {
             return res.status(404).json({ error: 'User not found.' });
         }
+
+        // Deactivate linked Doctor/Patient profiles to match soft-deleted user
+        try {
+            await Doctor.findOneAndDelete({ userId: id });
+            await Patient.updateMany(
+                { userId: id, deletedAt: null },
+                { $set: { deletedAt: new Date(), isActive: false } }
+            );
+            console.log(`[USER] Cleaned up role profiles for user ${id}`);
+        } catch (profileErr) {
+            console.warn(`[USER] Failed to deactivate profiles for user ${id}:`, profileErr.message);
+        }
+
         console.log(
             `[USER]✅ DELETE /api/users/${id} - User ${deletedUser._id} successfully deleted`,
         );

@@ -14,6 +14,7 @@ import './src/models/medicationCatalog.model.js';
 import './src/models/supplyCatalog.model.js';
 import Conversation from './src/models/conversation.model.js';
 import Message from './src/models/message.model.js';
+import Doctor from './src/models/doctor.model.js';
 import {
   buildUserConversationsQuery,
   userMayAccessConversationType,
@@ -72,8 +73,17 @@ const startServer = async () => {
         return;
       }
 
-      const filter =
-        role === 'admin' ? {} : buildUserConversationsQuery(socket.user);
+      let doctorUserId = null;
+      if (role === 'receptionist' && socket.user?.linkedDoctorId) {
+        try {
+          const doc = await Doctor.findById(socket.user.linkedDoctorId).select('userId').lean();
+          if (doc) doctorUserId = doc.userId;
+        } catch (e) {
+          // ignore doctor fetch error
+        }
+      }
+
+      const filter = buildUserConversationsQuery(socket.user, doctorUserId);
 
       const conversations = await Conversation.find(filter).select('_id');
       conversations.forEach((c) => socket.join(String(c._id)));
@@ -82,11 +92,27 @@ const startServer = async () => {
         try {
           const conversationId = String(payload.conversationId || '');
           if (!conversationId) return;
-          const conversation = role === 'admin'
-            ? await Conversation.findById(conversationId)
-            : await Conversation.findOne({ _id: conversationId, participants: userId });
+          if (role === 'admin') return; // Admins excluded
+
+          let conversation = null;
+          if (role === 'receptionist' && socket.user?.linkedDoctorId) {
+            const doc = await Doctor.findById(socket.user.linkedDoctorId).select('userId').lean();
+            if (doc?.userId) {
+              conversation = await Conversation.findOne({
+                _id: conversationId,
+                $or: [
+                  { participants: userId },
+                  { participants: doc.userId, conversationType: 'patient-doctor' }
+                ]
+              });
+            }
+          }
+          if (!conversation) {
+            conversation = await Conversation.findOne({ _id: conversationId, participants: userId });
+          }
+
           if (!conversation) return;
-          if (role !== 'admin' && !userMayAccessConversationType(role, conversation.conversationType)) return;
+          if (!userMayAccessConversationType(role, conversation.conversationType)) return;
           socket.to(conversationId).emit('typing:update', {
             conversationId,
             userId: String(userId),
@@ -101,11 +127,27 @@ const startServer = async () => {
         try {
           const conversationId = String(payload.conversationId || '');
           if (!conversationId) return;
-          const conversation = role === 'admin'
-            ? await Conversation.findById(conversationId)
-            : await Conversation.findOne({ _id: conversationId, participants: userId });
+          if (role === 'admin') return; // Admins excluded
+
+          let conversation = null;
+          if (role === 'receptionist' && socket.user?.linkedDoctorId) {
+            const doc = await Doctor.findById(socket.user.linkedDoctorId).select('userId').lean();
+            if (doc?.userId) {
+              conversation = await Conversation.findOne({
+                _id: conversationId,
+                $or: [
+                  { participants: userId },
+                  { participants: doc.userId, conversationType: 'patient-doctor' }
+                ]
+              });
+            }
+          }
+          if (!conversation) {
+            conversation = await Conversation.findOne({ _id: conversationId, participants: userId });
+          }
+
           if (!conversation) return;
-          if (role !== 'admin' && !userMayAccessConversationType(role, conversation.conversationType)) return;
+          if (!userMayAccessConversationType(role, conversation.conversationType)) return;
           socket.to(conversationId).emit('typing:update', {
             conversationId,
             userId: String(userId),
@@ -126,20 +168,34 @@ const startServer = async () => {
             return;
           }
 
-          // Security: non-admin can only send to conversations they belong to.
-          const conversation = role === 'admin'
-            ? await Conversation.findById(conversationId)
-            : await Conversation.findOne({ _id: conversationId, participants: userId });
+          if (role === 'admin') {
+            if (ack) return ack({ error: 'Forbidden' });
+            return;
+          }
+
+          let conversation = null;
+          if (role === 'receptionist' && socket.user?.linkedDoctorId) {
+            const doc = await Doctor.findById(socket.user.linkedDoctorId).select('userId').lean();
+            if (doc?.userId) {
+              conversation = await Conversation.findOne({
+                _id: conversationId,
+                $or: [
+                  { participants: userId },
+                  { participants: doc.userId, conversationType: 'patient-doctor' }
+                ]
+              });
+            }
+          }
+          if (!conversation) {
+            conversation = await Conversation.findOne({ _id: conversationId, participants: userId });
+          }
 
           if (!conversation) {
             if (ack) return ack({ error: 'Forbidden' });
             return;
           }
 
-          if (
-            role !== 'admin' &&
-            !userMayAccessConversationType(role, conversation.conversationType)
-          ) {
+          if (!userMayAccessConversationType(role, conversation.conversationType)) {
             if (ack) return ack({ error: 'Forbidden' });
             return;
           }
@@ -149,6 +205,7 @@ const startServer = async () => {
             senderId: userId,
             message: text.trim(),
             readBy: [userId],
+            onBehalfOf: role === 'receptionist' ? `${socket.user.firstName} ${socket.user.lastName}` : '',
           });
 
           await newMessage.populate('senderId', 'firstName lastName email role');

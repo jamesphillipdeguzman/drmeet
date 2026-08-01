@@ -41,6 +41,11 @@ const MessageSchema = new mongoose.Schema(
         message: "readBy must be an array of userIds.",
       },
     },
+    onBehalfOf: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   { timestamps: true },
 );

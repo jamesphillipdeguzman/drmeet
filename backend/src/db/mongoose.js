@@ -157,6 +157,28 @@ const normalizeOptionalUserIdIndexes = async () => {
       },
     );
   }
+
+  try {
+    const usersCollection = db.collection("users");
+    const userIndexes = await usersCollection.indexes();
+    const emailIndex = userIndexes.find((index) => index.name === "email_1");
+    if (emailIndex) {
+      await usersCollection.dropIndex("email_1");
+    }
+    await usersCollection.createIndex(
+      { email: 1 },
+      {
+        name: "email_1",
+        unique: true,
+        partialFilterExpression: {
+          is_deleted: { $ne: true },
+        },
+      },
+    );
+    console.log("[MongoDB] Normalized users email unique index.");
+  } catch (err) {
+    console.error("[MongoDB] Failed to normalize users email unique index:", err?.message || err);
+  }
 };
 
 export default connectDB;
