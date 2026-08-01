@@ -23,7 +23,7 @@ import {
 } from '../services/patient.service.js';
 import { PHILIPPINES_HMO_PROVIDERS } from '../constants/philippinesHmo.js';
 
-const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+const MODULE_DIR = path.resolve(process.cwd(), 'src/controllers');
 let paymentMethodsJsonCache = null;
 
 async function readPaymentMethodsJson() {

@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname = path.resolve(process.cwd(), 'src/config');
 const backendEnvPath = path.resolve(__dirname, '../../.env');
 
 /**

@@ -28,6 +28,8 @@ jest.mock('../src/controllers/appointment.controller.js', () => ({
     postAppointment: (req, res) => res.status(201).json({ created: true }),
     updateAppointment: (req, res) => res.status(200).json({ updated: true }),
     deleteAppointment: (req, res) => res.status(200).json({ deleted: true }),
+    getBookingHints: (req, res) => res.status(200).json({ hints: [] }),
+    patchBookingPolicy: (req, res) => res.status(200).json({ updated: true }),
 }));
 
 // Create test app instance
