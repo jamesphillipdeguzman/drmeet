@@ -15,10 +15,11 @@ describe('Unit Tests: Pricing Tier Logic & Plan Limits', () => {
   });
 
   describe('Pro and Enterprise Plan Limits', () => {
-    test('should allow Pro plan up to 100 active patients', () => {
+    test('should allow Pro plan unlimited active patients', () => {
+      expect(TIER_LIMITS[PRICING_TIERS.PRO].maxActivePatients).toBe(Infinity);
       expect(canDoctorAddPatient(PRICING_TIERS.PRO, 10)).toBe(true);
-      expect(canDoctorAddPatient(PRICING_TIERS.PRO, 99)).toBe(true);
-      expect(canDoctorAddPatient(PRICING_TIERS.PRO, 100)).toBe(false);
+      expect(canDoctorAddPatient(PRICING_TIERS.PRO, 100)).toBe(true);
+      expect(canDoctorAddPatient(PRICING_TIERS.PRO, 50000)).toBe(true);
     });
 
     test('should allow Enterprise plan unlimited active patients', () => {
