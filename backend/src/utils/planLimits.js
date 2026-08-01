@@ -16,7 +16,7 @@ export const TIER_LIMITS = {
     allowUnlimitedReceptionists: false,
   },
   [PRICING_TIERS.PRO]: {
-    maxActivePatients: 100,
+    maxActivePatients: Inifinity,
     allowCustomBranding: true,
     allowAdvancedAnalytics: true,
     allowUnlimitedReceptionists: true,
