@@ -50,8 +50,8 @@ describe('Integration Tests: PayMongo Checkout Routes (/api/checkout)', () => {
 
       expect(res.statusCode).toBe(201);
       expect(res.body).toHaveProperty('checkoutUrl');
-      expect(res.body.successUrl).toContain('/#pricing?payment=success');
-      expect(res.body.cancelUrl).toContain('/#pricing?payment=cancelled');
+      expect(res.body.successUrl).toContain('/#pricing?status=success');
+      expect(res.body.cancelUrl).toContain('/#pricing?status=cancelled');
     });
 
     test('should support POST /api/checkout root path with valid Bearer token', async () => {
@@ -62,7 +62,7 @@ describe('Integration Tests: PayMongo Checkout Routes (/api/checkout)', () => {
 
       expect(res.statusCode).toBe(201);
       expect(res.body).toHaveProperty('checkout_url');
-      expect(res.body.successUrl).toContain('/#pricing?payment=success');
+      expect(res.body.successUrl).toContain('/#pricing?status=success');
     });
   });
 
