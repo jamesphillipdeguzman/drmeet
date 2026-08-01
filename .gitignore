@@ -3,10 +3,13 @@ node_modules/
 
 # Environment files
 .env
-
+.env.local
 # IDE / system files
 .vscode/
 .DS_Store
+
+#test coverage
+coverage/
 
 # Backend sensitive/generated data
 backend/src/constants/doctors.json
