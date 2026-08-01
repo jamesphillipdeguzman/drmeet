@@ -18,7 +18,7 @@ import {
 } from "../services/doctorDashboard.service.js";
 import { PHILIPPINES_HMO_PROVIDERS } from "../constants/philippinesHmo.js";
 
-const DASH_CTRL_DIR = path.dirname(fileURLToPath(import.meta.url));
+const DASH_CTRL_DIR = path.resolve(process.cwd(), 'src/controllers');
 let paymentsCatalogJsonCache = null;
 
 async function loadPaymentsCatalogJson() {

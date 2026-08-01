@@ -55,28 +55,28 @@ router.patch(
   '/me/appointments/:id/status',
   hybridAuth,
   requireRoles(['doctor']),
-  ...validateMongoIdParam,
+  validateMongoIdParam,
   patchDoctorDashboardAppointmentStatus,
 );
 router.get(
   '/me/appointments/:id/billing',
   hybridAuth,
   requireRoles(['doctor']),
-  ...validateMongoIdParam,
+  validateMongoIdParam,
   getDoctorAppointmentBilling,
 );
 router.patch(
   '/me/appointments/:id/billing',
   hybridAuth,
   requireRoles(['doctor']),
-  ...validateMongoIdParam,
+  validateMongoIdParam,
   patchDoctorAppointmentBilling,
 );
 router.post(
   '/me/appointments/:id/billing/documents',
   hybridAuth,
   requireRoles(['doctor']),
-  ...validateMongoIdParam,
+  validateMongoIdParam,
   postDoctorAppointmentBillingDocument,
 );
 router.get(

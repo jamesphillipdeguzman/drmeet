@@ -32,6 +32,7 @@ jest.mock('../src/controllers/patient.controller.js', () => ({
     attachExistingPatientToCareTeam: (req, res) => res.status(200).json({ ok: true }),
     getPatientMessagingRecipient: (req, res) => res.status(200).json({ recipientUserId: 'u1' }),
     getPhilippinesHmoProviders: (req, res) => res.status(200).json({ providers: [] }),
+    getPaymentMethodCatalog: (req, res) => res.status(200).json({ paymentMethods: [] }),
 }));
 
 const app = express();

@@ -168,6 +168,7 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/patients/constants', constantsRoutes);
 app.use('/api/patients', patientRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/checkout', checkoutRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/prescriptions', prescriptionRoutes);

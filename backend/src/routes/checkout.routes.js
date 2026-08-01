@@ -1,68 +1,44 @@
 import express from 'express';
+import { hybridAuth } from '../middlewares/auth.middleware.js';
+import { PRICING_TIERS } from '../utils/planLimits.js';
 
 const router = express.Router();
 
-router.post('/', async (req, res) => {
-  try {
-    const secretKey = process.env.PAYMONGO_SECRET_KEY;
-    if (!secretKey) {
-      console.error('[Checkout Route Error] PAYMONGO_SECRET_KEY is missing');
-      return res.status(500).json({ error: 'PAYMONGO_SECRET_KEY is not configured.' });
-    }
+// Simulated checkout session creation (PayMongo / Stripe style)
+router.post('/create-session', hybridAuth, (req, res) => {
+  const { planTier } = req.body;
+  const validPlans = Object.values(PRICING_TIERS);
 
-    const authHeader = Buffer.from(`${secretKey}:`).toString('base64');
-
-    const payload = {
-      data: {
-        attributes: {
-          line_items: [
-            {
-              currency: 'PHP',
-              amount: 249900,
-              name: 'Clinic Pro Plan',
-              description: 'Dr. Meet Clinic Pro Subscription',
-              quantity: 1,
-            },
-          ],
-          payment_method_types: ['card', 'gcash', 'paymaya'],
-          success_url: 'https://mydrmeet.netlify.app/#pricing?success=true',
-          cancel_url: 'https://mydrmeet.netlify.app/#pricing',
-        },
-      },
-    };
-
-    const response = await fetch('https://api.paymongo.com/v1/checkout_sessions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Basic ${authHeader}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('[PayMongo Error]', data);
-      return res.status(response.status).json({
-        error: data.errors?.[0]?.detail || 'Failed to create PayMongo checkout session',
-        details: data,
-      });
-    }
-
-    const checkoutUrl = data?.data?.attributes?.checkout_url;
-    if (!checkoutUrl) {
-      return res.status(500).json({ error: 'Checkout URL not returned from PayMongo.' });
-    }
-
-    return res.status(200).json({
-      checkout_url: checkoutUrl,
-      checkoutUrl: checkoutUrl,
-    });
-  } catch (err) {
-    console.error('[Checkout Route Exception]', err);
-    return res.status(500).json({ error: err.message || 'Internal server error' });
+  if (!planTier || !validPlans.includes(planTier)) {
+    return res.status(400).json({ error: 'Invalid or missing subscription plan tier.' });
   }
+
+  const clientOrigin = process.env.CLIENT_ORIGIN || 'https://mydrmeet.netlify.app';
+  const checkoutSession = {
+    id: `cs_test_${Date.now()}`,
+    planTier,
+    checkoutUrl: `https://checkout.paymongo.com/pay/${Date.now()}?plan=${planTier}`,
+    successUrl: `${clientOrigin}/#pricing?payment=success&tier=${planTier}`,
+    cancelUrl: `${clientOrigin}/#pricing?payment=cancelled`,
+  };
+
+  res.status(201).json(checkoutSession);
+});
+
+// Simulated PayMongo webhook endpoint
+router.post('/webhook', (req, res) => {
+  const { eventType, data } = req.body || {};
+
+  if (!eventType || eventType !== 'checkout.session.completed') {
+    return res.status(200).json({ received: true, processed: false });
+  }
+
+  const { doctorId, planTier } = data || {};
+  return res.status(200).json({
+    received: true,
+    processed: true,
+    message: `Doctor ${doctorId} upgraded to ${planTier} plan.`,
+  });
 });
 
 export default router;
