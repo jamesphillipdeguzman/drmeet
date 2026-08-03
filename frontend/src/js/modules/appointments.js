@@ -170,12 +170,25 @@ export async function renderAppointments() {
         ${getCurrentUserRole() === "admin" ? '<button class="cta-primary btn-secondary" id="export-appointments-csv">Export CSV</button>' : ""}
       </div>
       <hr class="section-divider" />
-      <div class="list-filters">
-        ${getCurrentUserRole() === "receptionist" ? "" : '<input type="search" id="appt-filter-doctor" placeholder="Filter by doctor" />'}
-        <input type="search" id="appt-filter-patient" placeholder="Filter by patient" />
-        <input type="search" id="appt-filter-date" placeholder="Filter by date (YYYY-MM-DD)" />
-        <input type="search" id="appt-filter-time" placeholder="Filter by time" />
-        <input type="search" id="appt-filter-status" placeholder="Filter by status" />
+      <div class="relative w-full max-w-xl mb-4" style="position: relative; width: 100%; max-width: 36rem; margin-bottom: 1rem; display: flex; align-items: center;">
+        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; display: flex; align-items: center;">🔍</span>
+        <input 
+          type="text" 
+          id="appointments-unified-search" 
+          placeholder="Search appointments by doctor, patient, date, time, or status..." 
+          class="search-input-unified" 
+          style="width: 100%; padding: 8px 36px 8px 48px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
+        />
+        <button 
+          type="button" 
+          id="appointments-search-clear" 
+          class="search-clear-btn hidden" 
+          aria-label="Clear search"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+            <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
       </div>
       <table>
         <thead><tr><th>Doctor</th><th>Patient</th><th>Date</th><th>Time</th><th>Status</th><th>Actions</th></tr></thead>
@@ -205,64 +218,52 @@ export async function renderAppointments() {
         )
         .join("");
     };
+    const apptSearchInput = document.getElementById("appointments-unified-search");
+    const apptSearchClear = document.getElementById("appointments-search-clear");
     const applyAppointmentFilters = () => {
-      const doctorQ = String(
-        document.getElementById("appt-filter-doctor")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const patientQ = String(
-        document.getElementById("appt-filter-patient")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const dateQ = String(
-        document.getElementById("appt-filter-date")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const timeQ = String(
-        document.getElementById("appt-filter-time")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const statusQ = String(
-        document.getElementById("appt-filter-status")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
+      const q = String(apptSearchInput?.value || "").toLowerCase().trim();
+      if (apptSearchClear) {
+        if (q.length > 0) {
+          apptSearchClear.classList.remove("hidden");
+          apptSearchClear.style.display = "block";
+        } else {
+          apptSearchClear.classList.add("hidden");
+          apptSearchClear.style.display = "none";
+        }
+      }
       const filtered = appointments.filter((a) => {
         const doctor = String(
           resolveAppointmentDoctorName(a, doctorLookup) || "",
         ).toLowerCase();
         const patient = String(
+          (typeof a.patientId === "object" ? (formatPatientDisplayName(a.patientId) || a.patientId?.name || "") : "") ||
           patientLookup.get(String(a.patient?._id || a.patient)) ||
           a.patient ||
           "",
         ).toLowerCase();
-        const date = formatDateForInput(a.date).toLowerCase();
+        const dateInput = formatDateForInput(a.date).toLowerCase();
+        const dateDisplay = String(formatDateDisplay(a.date) || "").toLowerCase();
         const time = String(a.time || "").toLowerCase();
         const status = String(a.status || "").toLowerCase();
         return (
-          (!doctorQ || doctor.includes(doctorQ)) &&
-          (!patientQ || patient.includes(patientQ)) &&
-          (!dateQ || date.includes(dateQ)) &&
-          (!timeQ || time.includes(timeQ)) &&
-          (!statusQ || status.includes(statusQ))
+          !q ||
+          doctor.includes(q) ||
+          patient.includes(q) ||
+          dateInput.includes(q) ||
+          dateDisplay.includes(q) ||
+          time.includes(q) ||
+          status.includes(q)
         );
       });
       renderRows(filtered);
     };
-    [
-      "appt-filter-doctor",
-      "appt-filter-patient",
-      "appt-filter-date",
-      "appt-filter-time",
-      "appt-filter-status",
-    ].forEach((id) => {
-      document
-        .getElementById(id)
-        ?.addEventListener("input", applyAppointmentFilters);
+    apptSearchInput?.addEventListener("input", applyAppointmentFilters);
+    apptSearchClear?.addEventListener("click", () => {
+      if (apptSearchInput) {
+        apptSearchInput.value = "";
+        applyAppointmentFilters();
+        apptSearchInput.focus();
+      }
     });
     renderRows(appointments);
     document.getElementById("appointments-refresh-btn")?.addEventListener("click", () => {
