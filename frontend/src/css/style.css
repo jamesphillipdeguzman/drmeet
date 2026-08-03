@@ -1753,22 +1753,18 @@ body.theme-dark .enterprise-modal-overlay label {
   color: #cbd5e1 !important;
 }
 
-/* Base Clear Button - ALWAYS Absolute */
+/* Base Clear Button - Simple, transparent icon without circular background */
 .search-clear-btn {
   position: absolute;
-  right: 10px;
+  right: 12px;
   top: 0;
   bottom: 0;
   margin: auto 0;
-  /* Centers vertically inside relative parent without transform */
-  width: 24px;
-  height: 24px;
   padding: 0;
   border: none;
   background: transparent;
   color: #94a3b8;
   cursor: pointer;
-  border-radius: 50%;
   box-sizing: border-box;
 }
 
@@ -1779,18 +1775,21 @@ body.theme-dark .enterprise-modal-overlay label {
   justify-content: center;
 }
 
+/* Hover effect targets icon color only, no background circle */
 .search-clear-btn:hover {
-  background-color: rgba(148, 163, 184, 0.15);
+  color: #475569;
+  background-color: transparent;
 }
 
 /* Dark Mode Overrides */
 body.theme-dark .search-clear-btn {
   color: #cbd5e1 !important;
+  background-color: transparent !important;
 }
 
 body.theme-dark .search-clear-btn:hover {
   color: #ffffff !important;
-  background-color: rgba(255, 255, 255, 0.15) !important;
+  background-color: transparent !important;
 }
 
 body.theme-dark .empty-workspace {
