@@ -243,7 +243,7 @@ export async function renderPatients() {
             type="button" 
             id="patients-search-clear"
             class="search-clear-btn hidden"
-            title="Clear search"
+            
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
               <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -579,26 +579,26 @@ export async function showPatientForm(editId = null, familyMode = false) {
       <section class="card" style="padding:0.75rem;">
         <h4 style="margin:0 0 0.45rem;">Search Existing Patient</h4>
         <label>Search by name, email, or phone</label>
-        <div class="relative w-full" style="position: relative; width: 100%; margin-top: 0.25rem;">
-          <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 pointer-events-none" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">🔍</span>
-          <input 
-            type="text" 
-            id="patient-existing-search" 
-            placeholder="Type at least 2 characters..." 
-            class="w-full pl-9 pr-9 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 dark:text-white"
-            style="width: 100%; padding: 8px 32px 8px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
-          />
-          <button 
-            type="button" 
-            id="patient-existing-search-clear"
-            class="search-clear-btn hidden"
-            title="Clear search"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-          </button>
-        </div>
+        <div class="relative w-full" style="position: relative; width: 100%; margin-top: 0.25rem; display: flex; align-items: center;">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 pointer-events-none" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; display: flex; align-items: center;">🔍</span>
+            <input 
+              type="text" 
+              id="patient-existing-search" 
+              placeholder="Type at least 2 characters..." 
+              class="w-full pl-9 pr-9 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 dark:text-white"
+              style="width: 100%; padding: 8px 36px 8px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
+            />
+            <button 
+              type="button" 
+              id="patient-existing-search-clear"
+              class="search-clear-btn hidden"
+              
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+                <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
         <div id="patient-existing-results" class="feedback" style="display:none"></div>
       </section>
       `
