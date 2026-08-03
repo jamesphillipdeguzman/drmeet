@@ -2605,17 +2605,30 @@ function buildDepartmentCardHtml(dept) {
           </div>
           ${rooms.length === 0 ? `<div style="font-size: 0.85rem; color: #94a3b8; font-style: italic;">No rooms assigned</div>` : `
             <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-              ${rooms.map((r) => `
-                <div class="room-card room-drop-target" data-room-id="${r.id}" style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.85rem; transition: all 0.2s ease;">
-                  <div>
-                    <strong>${escapeHtml(r.name)}</strong>
-                    <span style="font-size: 0.75rem; color: #64748b; display: block;">Cap: ${r.dailyCap} pts/day</span>
+              ${rooms.map((r) => {
+                const roomDoctors = doctors.filter((doc) => doc.assignedRoom && String(doc.assignedRoom.id || doc.assignedRoom._id || doc.assignedRoom) === String(r.id));
+                return `
+                  <div class="room-card room-drop-target" data-room-id="${r.id}" style="display: flex; flex-direction: column; background: #ffffff; padding: 0.5rem 0.6rem; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.85rem; transition: all 0.2s ease;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                      <div>
+                        <strong>${escapeHtml(r.name)}</strong>
+                        <span style="font-size: 0.75rem; color: #64748b; display: block;">Cap: ${r.dailyCap} pts/day</span>
+                      </div>
+                      ${isAdminUser ? `
+                        <button type="button" class="btn btn-secondary btn-action-delete btn-sm" style="padding: 2px 6px; font-size: 0.7rem;" data-action="delete-room" data-room-id="${r.id}">&times;</button>
+                      ` : ""}
+                    </div>
+                    ${roomDoctors.map((doc) => `
+                      <div class="assigned-doctor-badge flex items-center gap-2 mt-2 p-1.5 bg-blue-50 border border-blue-200 rounded-md text-xs font-medium text-blue-800" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.4rem; padding: 0.3rem 0.5rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 0.75rem; color: #1e40af; font-weight: 600;">
+                        <span>👨‍⚕️ ${escapeHtml(doc.name)}</span>
+                        ${isAdminUser ? `
+                          <button type="button" class="remove-from-room-btn text-xs text-red-500 hover:underline ml-auto" data-action="unassign-doctor-room" data-doctor-id="${doc.id}" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem; font-weight: bold; padding: 0 4px;" title="Remove doctor from room">&times;</button>
+                        ` : ""}
+                      </div>
+                    `).join("")}
                   </div>
-                  ${isAdminUser ? `
-                    <button type="button" class="btn btn-secondary btn-action-delete btn-sm" style="padding: 2px 6px; font-size: 0.7rem;" data-action="delete-room" data-room-id="${r.id}">&times;</button>
-                  ` : ""}
-                </div>
-              `).join("")}
+                `;
+              }).join("")}
             </div>
           `}
         </div>
@@ -2651,6 +2664,9 @@ function buildDepartmentCardHtml(dept) {
 }
 
 function wireEnterpriseTreeEvents(container) {
+  if (container._hasEnterpriseEvents) return;
+  container._hasEnterpriseEvents = true;
+
   container.addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-action]");
     if (!btn) return;
@@ -2666,10 +2682,33 @@ function wireEnterpriseTreeEvents(container) {
       showDeleteRoomModal(btn.dataset.roomId);
     } else if (action === "edit-doctor-node") {
       void showDoctorNodePopover(btn.dataset.docId);
+    } else if (action === "unassign-doctor-room") {
+      const docId = btn.dataset.doctorId;
+      if (!docId) return;
+      void (async () => {
+        try {
+          const res = await apiRequest(`${API_BASE}/organization/assign-room`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ doctorId: docId, roomId: null }),
+          });
+          if (!res.ok) {
+            await apiRequest(`${API_BASE}/organization/doctors/${docId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ assignedRoom: null }),
+            });
+          }
+          showToast("Doctor unassigned from consultation room.");
+          await loadEnterpriseTree(window.activeOrgId);
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      })();
     }
   });
 
-  // Drag and Drop Doctor-to-Room Assignment Listeners
+  // Drag and Drop Doctor-to-Room Assignment Listeners with Single Execution Guard
   container.addEventListener("dragstart", (e) => {
     const docCard = e.target.closest(".doctor-draggable-card");
     if (!docCard) return;
@@ -2692,15 +2731,21 @@ function wireEnterpriseTreeEvents(container) {
     const roomCard = e.target.closest(".room-drop-target");
     if (!roomCard) return;
     e.preventDefault();
+    e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
-    roomCard.style.borderColor = "#22c55e";
-    roomCard.style.backgroundColor = "#f0fdf4";
+    roomCard.style.borderColor = "#3b82f6";
+    roomCard.style.borderStyle = "dashed";
+    roomCard.style.borderWidth = "2px";
+    roomCard.style.backgroundColor = "rgba(239, 246, 255, 0.8)";
   });
 
   container.addEventListener("dragleave", (e) => {
     const roomCard = e.target.closest(".room-drop-target");
     if (!roomCard) return;
+    e.stopPropagation();
     roomCard.style.borderColor = "#e2e8f0";
+    roomCard.style.borderStyle = "solid";
+    roomCard.style.borderWidth = "1px";
     roomCard.style.backgroundColor = "#ffffff";
   });
 
@@ -2708,12 +2753,21 @@ function wireEnterpriseTreeEvents(container) {
     const roomCard = e.target.closest(".room-drop-target");
     if (!roomCard) return;
     e.preventDefault();
+    e.stopPropagation();
     roomCard.style.borderColor = "#e2e8f0";
+    roomCard.style.borderStyle = "solid";
+    roomCard.style.borderWidth = "1px";
     roomCard.style.backgroundColor = "#ffffff";
+
+    if (window._isAssigningDoctorRoom) return;
+    window._isAssigningDoctorRoom = true;
 
     const doctorId = e.dataTransfer.getData("text/plain");
     const roomId = roomCard.dataset.roomId;
-    if (!doctorId || !roomId) return;
+    if (!doctorId || !roomId) {
+      window._isAssigningDoctorRoom = false;
+      return;
+    }
 
     try {
       const res = await apiRequest(`${API_BASE}/organization/assign-room`, {
@@ -2733,6 +2787,8 @@ function wireEnterpriseTreeEvents(container) {
       await loadEnterpriseTree(window.activeOrgId);
     } catch (err) {
       showToast(err.message, "error");
+    } finally {
+      window._isAssigningDoctorRoom = false;
     }
   });
 }
