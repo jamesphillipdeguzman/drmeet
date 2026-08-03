@@ -8,7 +8,7 @@ import User from "../models/user.model.js";
 async function resolveOrganizationForUser(req) {
   let org = null;
   const user = req.user || {};
-  const requestedOrgId = req.query?.orgId || req.body?.orgId;
+  const requestedOrgId = req.query?.orgId || req.query?.organizationId || req.body?.orgId || req.body?.organizationId;
 
   if (requestedOrgId && mongoose.Types.ObjectId.isValid(requestedOrgId)) {
     org = await Organization.findById(requestedOrgId);
