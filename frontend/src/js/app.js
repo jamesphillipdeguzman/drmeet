@@ -2224,6 +2224,12 @@ async function renderSettings() {
   }
 }
 
+function isEnterpriseAdminUser() {
+  const userRole = getCurrentUserRole();
+  const orgRole = localStorage.getItem("org_role") || "";
+  return userRole === "admin" || orgRole === "org_admin" || orgRole === "department_head";
+}
+
 async function renderEnterpriseView() {
   if (!mainContent) return;
   setPageTone("enterprise");
@@ -2234,6 +2240,45 @@ async function renderEnterpriseView() {
 
   const userRole = getCurrentUserRole();
 
+  // 1. Patient Guard: Patients cannot view or manage Enterprise Hospital Hierarchy
+  if (userRole === "patient") {
+    mainContent.innerHTML = `
+      <section class="card" style="margin: 2rem auto; max-width: 580px; text-align: center; padding: 3rem 1.5rem;">
+        <span style="font-size: 3rem; display: block; margin-bottom: 0.5rem;">🚫</span>
+        <h2 style="color: #ef4444; margin-bottom: 0.5rem;">Access Restricted</h2>
+        <p style="color: #64748b; margin: 0 auto 1.5rem auto; line-height: 1.6;">
+          The Enterprise Hospital Hierarchy workspace is reserved exclusively for healthcare providers and organization administrators.
+        </p>
+        <a href="#appointments" class="btn btn-primary" style="text-decoration: none;">Go to My Appointments</a>
+      </section>
+    `;
+    return;
+  }
+
+  // 2. Doctor / Provider Plan Guard: Check if provider is on an Enterprise plan or linked to an org
+  const userPlan = (localStorage.getItem("subscription_plan") || "").toLowerCase();
+  const isEnterpriseMode = localStorage.getItem("drmeet_enterprise_mode") === "true";
+  const userOrgId = localStorage.getItem("drmeet_active_org_id") || "";
+
+  if (userRole === "doctor" && userPlan !== "enterprise" && !isEnterpriseMode && !userOrgId && userRole !== "admin") {
+    mainContent.innerHTML = `
+      <section class="card" style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%); border: 1px solid rgba(14, 165, 233, 0.2); padding: 3rem 1.5rem; text-align: center; margin: 2rem auto; max-width: 640px;">
+        <span style="font-size: 3.5rem; display: block; margin-bottom: 0.75rem;">🏢</span>
+        <h2 style="color: #0284c7; margin-bottom: 0.5rem;">Enterprise License Required</h2>
+        <p style="color: #475569; margin: 0 auto 1.5rem auto; line-height: 1.6;">
+          Unlock multi-hospital hierarchy trees, custom department capacity management, consultation room rosters, and multi-tenant patient routing with DrMeet Enterprise.
+        </p>
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+          <a href="#pricing" class="cta-primary" style="text-decoration: none; padding: 0.6rem 1.5rem;">Upgrade to Enterprise</a>
+          <a href="#doctor-dashboard" class="btn btn-secondary" style="text-decoration: none;">Provider Dashboard</a>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  const isAdminUser = isEnterpriseAdminUser();
+
   mainContent.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
       <div>
@@ -2242,8 +2287,10 @@ async function renderEnterpriseView() {
       </div>
       <div style="display:flex; gap:0.5rem; flex-wrap: wrap; align-items: center;">
         <button type="button" class="btn btn-secondary" id="enterprise-refresh-btn">Refresh Tree</button>
-        <button type="button" class="btn btn-secondary" id="enterprise-add-hospital-top-btn">+ Add New Hospital</button>
-        <button type="button" class="cta-primary" id="enterprise-add-dept-top-btn">+ Add Department</button>
+        ${isAdminUser ? `
+          <button type="button" class="btn btn-secondary" id="enterprise-add-hospital-top-btn">+ Add New Hospital</button>
+          <button type="button" class="cta-primary" id="enterprise-add-dept-top-btn">+ Add Department</button>
+        ` : ""}
       </div>
     </div>
     <div id="enterprise-tree-container"><div class="feedback">Loading hospital tree...</div></div>
@@ -2252,8 +2299,10 @@ async function renderEnterpriseView() {
   `;
 
   document.getElementById("enterprise-refresh-btn")?.addEventListener("click", () => void loadEnterpriseTree());
-  document.getElementById("enterprise-add-hospital-top-btn")?.addEventListener("click", () => showAddHospitalModal());
-  document.getElementById("enterprise-add-dept-top-btn")?.addEventListener("click", () => showAddDepartmentModal());
+  if (isAdminUser) {
+    document.getElementById("enterprise-add-hospital-top-btn")?.addEventListener("click", () => showAddHospitalModal());
+    document.getElementById("enterprise-add-dept-top-btn")?.addEventListener("click", () => showAddDepartmentModal());
+  }
 
   await loadEnterpriseTree();
 
@@ -2364,6 +2413,7 @@ function buildDepartmentCardHtml(dept) {
   const rooms = dept.rooms || [];
   const doctors = dept.doctors || [];
   const isGeneral = deptName === "General / Unassigned";
+  const isAdminUser = isEnterpriseAdminUser();
 
   return `
     <div class="card department-tree-card" style="border-left: 4px solid #0284c7; position: relative;">
@@ -2373,7 +2423,7 @@ function buildDepartmentCardHtml(dept) {
           <h3 style="margin: 0; font-size: 1.15rem;">${escapeHtml(deptName)}</h3>
           ${dept.headDoctor ? `<span class="badge" style="background: #e0e7ff; color: #4338ca; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600;">👑 Head: ${escapeHtml(dept.headDoctor.name)}</span>` : ""}
         </div>
-        ${!isGeneral ? `
+        ${!isGeneral && isAdminUser ? `
           <div style="display: flex; gap: 0.5rem;">
             <button type="button" class="btn btn-secondary btn-sm" data-action="add-doctor-to-dept" data-dept="${escapeHtml(deptName)}">+ Doctor</button>
             <button type="button" class="btn btn-secondary btn-sm" data-action="add-room-to-dept" data-dept="${escapeHtml(deptName)}">+ Room</button>
@@ -2396,7 +2446,9 @@ function buildDepartmentCardHtml(dept) {
                     <strong>${escapeHtml(r.name)}</strong>
                     <span style="font-size: 0.75rem; color: #64748b; display: block;">Cap: ${r.dailyCap} pts/day</span>
                   </div>
-                  <button type="button" class="btn btn-secondary btn-action-delete btn-sm" style="padding: 2px 6px; font-size: 0.7rem;" data-action="delete-room" data-room-id="${r.id}">&times;</button>
+                  ${isAdminUser ? `
+                    <button type="button" class="btn btn-secondary btn-action-delete btn-sm" style="padding: 2px 6px; font-size: 0.7rem;" data-action="delete-room" data-room-id="${r.id}">&times;</button>
+                  ` : ""}
                 </div>
               `).join("")}
             </div>
@@ -2419,7 +2471,9 @@ function buildDepartmentCardHtml(dept) {
                       <span style="font-size: 0.75rem; color: #64748b; display: block;">${escapeHtml(d.specialty || "General")} ${d.roomName ? `• 🚪 ${escapeHtml(d.roomName)}` : ""}</span>
                     </div>
                   </div>
-                  <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 0.75rem;" data-action="edit-doctor-node" data-doc-id="${d.id}">⚙️ Edit</button>
+                  ${isAdminUser ? `
+                    <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 0.75rem;" data-action="edit-doctor-node" data-doc-id="${d.id}">⚙️ Edit</button>
+                  ` : ""}
                 </div>
               `).join("")}
             </div>

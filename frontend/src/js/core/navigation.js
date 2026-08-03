@@ -256,7 +256,7 @@ export function createNavigation({
             { hash: "#users", label: "Users" },
           ]
         : []),
-      ...(localStorage.getItem("drmeet_enterprise_mode") === "true" || userRole === "admin"
+      ...(userRole !== "patient" && (localStorage.getItem("drmeet_enterprise_mode") === "true" || userRole === "admin" || userRole === "doctor")
         ? [{ hash: "#enterprise", label: "Hospital Tree" }]
         : []),
       { hash: "#settings", label: "Settings" },
