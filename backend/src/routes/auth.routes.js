@@ -59,6 +59,7 @@ router.get('/google', (req, res, next) => {
 });
 
 function sendAuthPopupResponse(res, clientOrigin, { success, token, reason = 'failed', message = 'Google sign-in failed.' }) {
+  res.setHeader('Cross-Origin-Opener-Policy', 'unsafe-none');
   if (success && token) {
     return res.send(`
       <!DOCTYPE html>

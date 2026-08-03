@@ -40,8 +40,9 @@ const doctorSchema = new mongoose.Schema(
     },
     orgRole: {
       type: String,
-      enum: ["org_admin", "department_head", "doctor", "staff"],
+      enum: ["org_admin", "department_head", "doctor", "staff", null],
       default: null,
+      required: false,
     },
     assignedRoom: {
       type: mongoose.Schema.Types.ObjectId,
