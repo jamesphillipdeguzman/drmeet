@@ -1818,6 +1818,28 @@ body.theme-dark .nav-link.nav-link-patient.active {
   color: #000;
 }
 
+/* Enterprise Metric Light Mode Defaults */
+.enterprise-metric-title {
+  color: #64748b;
+}
+
+.enterprise-metric-value {
+  color: #0f172a;
+}
+
+/* Enterprise Metric Dark Mode Overrides */
+body.theme-dark .enterprise-metric-title {
+  color: #94a3b8;
+}
+
+body.theme-dark .enterprise-metric-value {
+  color: #ffffff;
+}
+
+body.theme-dark .enterprise-meter-bg {
+  background: #334155 !important;
+}
+
 /* Patient booking (search + pick doctor) */
 .nav-link.nav-link-patient {
   background: rgba(94, 196, 164, 0.16);
