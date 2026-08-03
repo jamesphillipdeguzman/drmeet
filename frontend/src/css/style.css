@@ -1632,6 +1632,23 @@ body.theme-dark #users-unified-search::placeholder {
   color: #94a3b8 !important;
 }
 
+body.theme-dark select,
+body.theme-dark option,
+body.theme-dark select option,
+body.theme-dark .modal-sheet select,
+body.theme-dark .modal-sheet option,
+body.theme-dark .enterprise-modal-overlay select,
+body.theme-dark .enterprise-modal-overlay option {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+body.theme-dark .modal-sheet label,
+body.theme-dark .enterprise-modal-overlay label {
+  color: #cbd5e1 !important;
+}
+
 body.theme-dark .search-clear-btn {
   color: #cbd5e1 !important;
 }
