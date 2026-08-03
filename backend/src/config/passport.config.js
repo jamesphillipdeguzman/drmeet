@@ -7,14 +7,17 @@ import { syncRoleProfilesForUser } from '../services/userRoleProfileSync.service
 dotenv.config();
 
 if (!process.env.GOOGLE_CLIENT_ID) {
-  throw new Error('Missing required env: GOOGLE_CLIENT_ID');
-}
-if (!process.env.GOOGLE_CALLBACK_URL) {
-  throw new Error('Missing required env: GOOGLE_CALLBACK_URL');
+  console.warn('[Passport] GOOGLE_CLIENT_ID not set');
 }
 if (!process.env.GOOGLE_CLIENT_SECRET) {
-  throw new Error('Missing required env: GOOGLE_CLIENT_SECRET');
+  console.warn('[Passport] GOOGLE_CLIENT_SECRET not set');
 }
+
+const googleClientId = process.env.GOOGLE_CLIENT_ID || 'dummy_client_id';
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || 'dummy_client_secret';
+const googleCallbackUrl = process.env.GOOGLE_CALLBACK_URL || (process.env.NODE_ENV === 'production'
+  ? 'https://drmeet-wqws.onrender.com/auth/google/callback'
+  : 'http://localhost:3001/auth/google/callback');
 
 // ==========================
 // ROLE CONFIGURATION
@@ -70,9 +73,9 @@ async function resolveRole(email, req) {
 passport.use(
   new GoogleStrategy(
     {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL,
+      clientID: googleClientId,
+      clientSecret: googleClientSecret,
+      callbackURL: googleCallbackUrl,
       passReqToCallback: true,
     },
     async (req, accessToken, refreshToken, profile, done) => {
