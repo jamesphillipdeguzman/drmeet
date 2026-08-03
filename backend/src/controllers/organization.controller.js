@@ -554,3 +554,35 @@ export async function assignDoctorRoom(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+/**
+ * GET /api/organization/by-slug/:slug
+ * Fetch organization details by slug
+ */
+export async function getOrganizationBySlug(req, res) {
+  try {
+    const { slug } = req.params;
+    if (!slug) return res.status(400).json({ error: "Slug parameter is required." });
+
+    const normalizedSlug = slug.toLowerCase().trim();
+    let org = await Organization.findOne({ slug: normalizedSlug });
+    if (!org) {
+      const allOrgs = await Organization.find();
+      org = allOrgs.find((o) => {
+        const generatedSlug = (o.slug || o.name || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "");
+        return generatedSlug === normalizedSlug;
+      });
+    }
+
+    if (!org) {
+      return res.status(404).json({ error: `Organization with slug '${slug}' not found.` });
+    }
+
+    return res.status(200).json(org);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
