@@ -121,6 +121,12 @@ const patientSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    organizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );

@@ -215,12 +215,12 @@ async function notifyDoctorOfPatientDocumentUpload({
 async function getScopedPatients(req) {
   const role = authRole(req);
   const uid = authUserId(req);
+  const orgId = req.user?.organizationId ? String(req.user.organizationId) : null;
 
+  let patients = [];
   if (role === 'admin') {
-    return findAllPatients();
-  }
-
-  if (role === 'receptionist' && uid) {
+    patients = await findAllPatients();
+  } else if (role === 'receptionist' && uid) {
     const receptionist = await User.findById(uid).select('linkedDoctorId').lean();
     const linkedDoctorId = receptionist?.linkedDoctorId
       ? String(receptionist.linkedDoctorId)
@@ -236,25 +236,21 @@ async function getScopedPatients(req) {
     ])]
       .map((id) => String(id))
       .filter((id) => mongoose.Types.ObjectId.isValid(id));
-    return findPatientsByIds(patientIds);
-  }
-
-  if (role === 'patient' && uid) {
+    patients = await findPatientsByIds(patientIds);
+  } else if (role === 'patient' && uid) {
     const [primary, dependents] = await Promise.all([
       findPatientsByUserId(uid),
       findPatientsByAccountOwnerId(uid),
     ]);
     const merged = [...primary, ...dependents];
     const seen = new Set();
-    return merged.filter((p) => {
+    patients = merged.filter((p) => {
       const id = String(p._id);
       if (seen.has(id)) return false;
       seen.add(id);
       return true;
     });
-  }
-
-  if (role === 'doctor' && uid) {
+  } else if (role === 'doctor' && uid) {
     const doctor = await findDoctorByUserId(uid);
     if (!doctor) return [];
     const [appts, linkedPatients] = await Promise.all([
@@ -268,10 +264,16 @@ async function getScopedPatients(req) {
       .map((id) => String(id))
       .filter((id) => mongoose.Types.ObjectId.isValid(id));
     if (!patientIds.length) return [];
-    return findPatientsByIds(patientIds);
+    patients = await findPatientsByIds(patientIds);
   }
 
-  return [];
+  if (orgId) {
+    patients = patients.filter(
+      (p) => !p.organizationId || String(p.organizationId) === orgId
+    );
+  }
+
+  return patients;
 }
 
 async function patientVisibleToRequester(req, patientDoc) {

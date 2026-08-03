@@ -472,6 +472,7 @@ window.addEventListener("DOMContentLoaded", () => {
     applyTheme,
     renderers: {
       renderDoctorDashboard,
+      renderEnterpriseView,
       renderSettings,
       renderPrivacy,
       renderPatients,
@@ -2000,6 +2001,14 @@ async function renderSettings() {
         </select>
       </label>
     </section>
+    <section class="card settings-enterprise-card">
+      <h3>Enterprise / Hospital Management View</h3>
+      <p class="signup-lead">Toggle multi-doctor hospital workspace, organizational tree hierarchy, and room management.</p>
+      <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; margin-top: 0.75rem;">
+        <input type="checkbox" id="settings-enterprise-toggle" ${localStorage.getItem("drmeet_enterprise_mode") === "true" ? "checked" : ""} />
+        <span style="font-weight: 600;">⚙️ Enable Hospital / Enterprise Mode View</span>
+      </label>
+    </section>
     <section class="card">
       <h3>Notifications</h3>
       <p class="signup-lead">Appointment and message alerts can be expanded here in a future update.</p>
@@ -2035,6 +2044,7 @@ async function renderSettings() {
     </section>`
       : ""
     }
+    <div id="settings-admin-subscriptions-container"></div>
   `;
   const profCard = mainContent.querySelector(".settings-profile-card");
   const settingsFileInput = document.getElementById("settings-profile-photo-file");
@@ -2195,6 +2205,546 @@ async function renderSettings() {
         });
       });
   }
+
+  const entToggle = document.getElementById("settings-enterprise-toggle");
+  if (entToggle) {
+    entToggle.addEventListener("change", (e) => {
+      const enabled = e.target.checked;
+      localStorage.setItem("drmeet_enterprise_mode", enabled ? "true" : "false");
+      showToast(enabled ? "Hospital / Enterprise Mode View enabled." : "Enterprise Mode View disabled.");
+      renderTopbarBreadcrumbs();
+      if (enabled) {
+        window.location.hash = "#enterprise";
+      }
+    });
+  }
+
+  if (role === "admin") {
+    void renderAdminSubscriptionsTable("settings-admin-subscriptions-container");
+  }
+}
+
+async function renderEnterpriseView() {
+  if (!mainContent) return;
+  setPageTone("enterprise");
+  if (!isLoggedIn()) {
+    mainContent.innerHTML = `<div class="feedback error">Please log in to view the Hospital Tree.</div>`;
+    return;
+  }
+
+  const userRole = getCurrentUserRole();
+
+  mainContent.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <h2 class="page-title" style="margin-bottom: 0.25rem;">🏥 Enterprise Hospital Hierarchy</h2>
+        <p class="signup-lead" style="margin-bottom:0;">Interactive organizational tree, department capacity, and consultation room roster.</p>
+      </div>
+      <div style="display:flex; gap:0.5rem;">
+        <button type="button" class="btn btn-secondary" id="enterprise-refresh-btn">Refresh Tree</button>
+        <button type="button" class="cta-primary" id="enterprise-add-dept-top-btn">+ Add Department</button>
+      </div>
+    </div>
+    <div id="enterprise-tree-container"><div class="feedback">Loading hospital tree...</div></div>
+    <div id="enterprise-admin-subscriptions-container" style="margin-top:2rem;"></div>
+    <div id="enterprise-modal-container" style="display:none;"></div>
+  `;
+
+  document.getElementById("enterprise-refresh-btn")?.addEventListener("click", () => void loadEnterpriseTree());
+  document.getElementById("enterprise-add-dept-top-btn")?.addEventListener("click", () => showAddDepartmentModal());
+
+  await loadEnterpriseTree();
+
+  if (userRole === "admin") {
+    await renderAdminSubscriptionsTable("enterprise-admin-subscriptions-container");
+  }
+}
+
+async function loadEnterpriseTree() {
+  const container = document.getElementById("enterprise-tree-container");
+  if (!container) return;
+  try {
+    const res = await apiRequest(`${API_BASE}/organization/tree`);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || "Unable to fetch hospital tree.");
+    }
+    const tree = await res.json();
+    window._lastOrgTree = tree;
+
+    const doctorMeterPercent = Math.min(100, Math.round((tree.activeDoctors / (tree.maxDoctorSeats || 150)) * 100));
+    const roomMeterPercent = Math.min(100, Math.round((tree.activeRooms / (tree.maxRooms || 50)) * 100));
+
+    container.innerHTML = `
+      <section class="card" style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%); border: 1px solid rgba(14, 165, 233, 0.2); margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h3 style="margin-bottom: 0.25rem; font-size: 1.35rem; color: #0284c7;">🏥 ${escapeHtml(tree.name || "Hospital Facility")}</h3>
+            <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">Enterprise Tier</span>
+          </div>
+          <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+            <div style="min-width: 140px;">
+              <div style="font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 4px;">Doctor Seats</div>
+              <strong style="font-size: 1.1rem; color: #0f172a;">${tree.activeDoctors} / ${tree.maxDoctorSeats}</strong>
+              <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;">
+                <div style="width: ${doctorMeterPercent}%; background: #0284c7; height: 100%;"></div>
+              </div>
+            </div>
+            <div style="min-width: 140px;">
+              <div style="font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 4px;">Consultation Rooms</div>
+              <strong style="font-size: 1.1rem; color: #0f172a;">${tree.activeRooms} / ${tree.maxRooms}</strong>
+              <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;">
+                <div style="width: ${roomMeterPercent}%; background: #6366f1; height: 100%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="departments-tree-grid" style="display: flex; flex-direction: column; gap: 1.25rem;">
+        ${(tree.departments || []).map((dept) => buildDepartmentCardHtml(dept)).join("")}
+      </div>
+    `;
+
+    wireEnterpriseTreeEvents(container);
+  } catch (err) {
+    container.innerHTML = `<div class="feedback error">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function buildDepartmentCardHtml(dept) {
+  const deptName = dept.name || "Department";
+  const rooms = dept.rooms || [];
+  const doctors = dept.doctors || [];
+  const isGeneral = deptName === "General / Unassigned";
+
+  return `
+    <div class="card department-tree-card" style="border-left: 4px solid #0284c7; position: relative;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 1.3rem;">📂</span>
+          <h3 style="margin: 0; font-size: 1.15rem;">${escapeHtml(deptName)}</h3>
+          ${dept.headDoctor ? `<span class="badge" style="background: #e0e7ff; color: #4338ca; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600;">👑 Head: ${escapeHtml(dept.headDoctor.name)}</span>` : ""}
+        </div>
+        ${!isGeneral ? `
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" class="btn btn-secondary btn-sm" data-action="add-doctor-to-dept" data-dept="${escapeHtml(deptName)}">+ Doctor</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-action="add-room-to-dept" data-dept="${escapeHtml(deptName)}">+ Room</button>
+            <button type="button" class="btn btn-secondary btn-action-delete btn-sm" data-action="delete-dept" data-dept="${escapeHtml(deptName)}">Delete Dept</button>
+          </div>
+        ` : ""}
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 0.75rem;">
+        <!-- Rooms Column -->
+        <div style="background: rgba(241, 245, 249, 0.6); padding: 0.75rem; border-radius: 8px;">
+          <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
+            <span>🚪 Consultation Rooms (${rooms.length})</span>
+          </div>
+          ${rooms.length === 0 ? `<div style="font-size: 0.85rem; color: #94a3b8; font-style: italic;">No rooms assigned</div>` : `
+            <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+              ${rooms.map((r) => `
+                <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.85rem;">
+                  <div>
+                    <strong>${escapeHtml(r.name)}</strong>
+                    <span style="font-size: 0.75rem; color: #64748b; display: block;">Cap: ${r.dailyCap} pts/day</span>
+                  </div>
+                  <button type="button" class="btn btn-sm text-red-600 hover:text-red-800" data-action="delete-room" data-room-id="${r.id}" title="Delete room" style="background:none; border:none; cursor:pointer;">🗑️</button>
+                </div>
+              `).join("")}
+            </div>
+          `}
+        </div>
+
+        <!-- Doctors Column -->
+        <div style="background: rgba(241, 245, 249, 0.6); padding: 0.75rem; border-radius: 8px;">
+          <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 0.5rem;">
+            👨‍⚕️ Provider Roster (${doctors.length})
+          </div>
+          ${doctors.length === 0 ? `<div style="font-size: 0.85rem; color: #94a3b8; font-style: italic;">No doctors assigned</div>` : `
+            <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+              ${doctors.map((d) => `
+                <div class="enterprise-doctor-node" data-doctor-id="${d.id}" style="display: flex; align-items: center; gap: 0.5rem; background: #ffffff; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid #cbd5e1; cursor: pointer; transition: background 0.15s;" title="Click to manage doctor assignment">
+                  <img src="${d.photoUrl || '/images/default-avatar.png'}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;" alt="" onerror="this.src='/images/default-avatar.png'" />
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 600; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(d.name)}</div>
+                    <div style="font-size: 0.75rem; color: #64748b;">${escapeHtml(d.specialty || "General")}${d.assignedRoom ? ` • 🚪 ${escapeHtml(d.assignedRoom.name)}` : ""}</div>
+                  </div>
+                  <span style="font-size: 0.8rem; color: #0284c7;">⚙️</span>
+                </div>
+              `).join("")}
+            </div>
+          `}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function wireEnterpriseTreeEvents(container) {
+  container.querySelectorAll('[data-action="add-doctor-to-dept"]').forEach((btn) => {
+    btn.addEventListener("click", () => showAddDoctorModal(btn.dataset.dept));
+  });
+
+  container.querySelectorAll('[data-action="add-room-to-dept"]').forEach((btn) => {
+    btn.addEventListener("click", () => showAddRoomModal(btn.dataset.dept));
+  });
+
+  container.querySelectorAll('[data-action="delete-dept"]').forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const deptName = btn.dataset.dept;
+      if (!confirm(`Delete department "${deptName}"? Doctors will be reset to General/Unassigned safely.`)) return;
+      try {
+        const res = await apiRequest(`${API_BASE}/organization/departments/${encodeURIComponent(deptName)}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to delete department."));
+        showToast(`Department "${deptName}" deleted.`);
+        await loadEnterpriseTree();
+      } catch (e) {
+        showToast(e.message, "error");
+      }
+    });
+  });
+
+  container.querySelectorAll('[data-action="delete-room"]').forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const roomId = btn.dataset.roomId;
+      if (!confirm("Delete this consultation room? Doctor assignments will be safely updated.")) return;
+      try {
+        const res = await apiRequest(`${API_BASE}/organization/rooms/${roomId}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to delete room."));
+        showToast("Room deleted.");
+        await loadEnterpriseTree();
+      } catch (e) {
+        showToast(e.message, "error");
+      }
+    });
+  });
+
+  container.querySelectorAll('.enterprise-doctor-node').forEach((node) => {
+    node.addEventListener("click", () => showDoctorNodePopover(node.dataset.doctorId));
+  });
+}
+
+async function renderAdminSubscriptionsTable(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+
+  el.innerHTML = `<section class="card"><h3>📊 Super-Admin Subscriptions Overview</h3><div class="feedback">Loading subscriptions data...</div></section>`;
+  try {
+    const res = await apiRequest(`${API_BASE}/admin/subscriptions-overview`);
+    if (!res.ok) throw new Error(await getApiErrorMessage(res, "Unable to load subscriptions overview."));
+    const data = await res.json();
+    const summary = data.summary || {};
+    const users = Array.isArray(data.users) ? data.users : [];
+
+    el.innerHTML = `
+      <section class="card" style="margin-top: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+          <h3 style="margin: 0;">📊 Super-Admin Subscriptions Master Overview</h3>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <span style="font-size: 0.8rem; background: #f1f5f9; padding: 4px 10px; border-radius: 12px; font-weight: 600;">Total Users: ${summary.totalUsers || users.length}</span>
+            <span style="font-size: 0.8rem; background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 12px; font-weight: 600;">Enterprise: ${summary.enterpriseCount || 0}</span>
+            <span style="font-size: 0.8rem; background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 12px; font-weight: 600;">Pro: ${summary.proCount || 0}</span>
+            <span style="font-size: 0.8rem; background: #f3f4f6; color: #4b5563; padding: 4px 10px; border-radius: 12px; font-weight: 600;">Starter: ${summary.starterCount || 0}</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <input type="search" id="admin-sub-search-input" placeholder="Search users by name, email, or tier..." style="max-width: 350px;" />
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; font-size: 0.88rem;">
+            <thead>
+              <tr>
+                <th>User Name</th>
+                <th>Email</th>
+                <th>Current Tier</th>
+                <th>Active Patients</th>
+                <th>Joined Date</th>
+                <th>Organization</th>
+              </tr>
+            </thead>
+            <tbody id="admin-sub-table-body">
+              ${users.map((u) => `
+                <tr>
+                  <td><strong>${escapeHtml(u.name || "—")}</strong> <span style="font-size:0.75rem; color:#64748b;">(${u.role})</span></td>
+                  <td>${escapeHtml(u.email || "—")}</td>
+                  <td>
+                    <span class="badge" style="font-size:0.75rem; font-weight:600; padding:2px 8px; border-radius:12px; ${u.currentTier === 'Enterprise' ? 'background:#e0f2fe; color:#0369a1;' : u.currentTier === 'Pro' ? 'background:#fef3c7; color:#92400e;' : 'background:#f3f4f6; color:#4b5563;'}">
+                      ${escapeHtml(u.currentTier)}
+                    </span>
+                  </td>
+                  <td><strong>${u.activePatients || 0}</strong> pts</td>
+                  <td>${u.joinedDate ? new Date(u.joinedDate).toLocaleDateString() : "—"}</td>
+                  <td>${escapeHtml(u.organizationName || "—")}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    `;
+
+    const searchInput = document.getElementById("admin-sub-search-input");
+    const tbody = document.getElementById("admin-sub-table-body");
+    if (searchInput && tbody) {
+      searchInput.addEventListener("input", () => {
+        const q = searchInput.value.toLowerCase().trim();
+        const filtered = users.filter(
+          (u) =>
+            (u.name && u.name.toLowerCase().includes(q)) ||
+            (u.email && u.email.toLowerCase().includes(q)) ||
+            (u.currentTier && u.currentTier.toLowerCase().includes(q)) ||
+            (u.organizationName && u.organizationName.toLowerCase().includes(q))
+        );
+        tbody.innerHTML = filtered
+          .map(
+            (u) => `
+            <tr>
+              <td><strong>${escapeHtml(u.name || "—")}</strong> <span style="font-size:0.75rem; color:#64748b;">(${u.role})</span></td>
+              <td>${escapeHtml(u.email || "—")}</td>
+              <td>
+                <span class="badge" style="font-size:0.75rem; font-weight:600; padding:2px 8px; border-radius:12px; ${u.currentTier === 'Enterprise' ? 'background:#e0f2fe; color:#0369a1;' : u.currentTier === 'Pro' ? 'background:#fef3c7; color:#92400e;' : 'background:#f3f4f6; color:#4b5563;'}">
+                  ${escapeHtml(u.currentTier)}
+                </span>
+              </td>
+              <td><strong>${u.activePatients || 0}</strong> pts</td>
+              <td>${u.joinedDate ? new Date(u.joinedDate).toLocaleDateString() : "—"}</td>
+              <td>${escapeHtml(u.organizationName || "—")}</td>
+            </tr>
+          `
+          )
+          .join("");
+      });
+    }
+  } catch (err) {
+    el.innerHTML = `<section class="card"><div class="feedback error">${escapeHtml(err.message)}</div></section>`;
+  }
+}
+
+function showAddDepartmentModal() {
+  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const modalHtml = `
+    <div class="modal-sheet card" style="display:block; max-width: 420px; margin: 2rem auto; position: relative;">
+      <button type="button" class="modal-close-x" onclick="document.getElementById('enterprise-modal-container').style.display='none'">&times;</button>
+      <h3>➕ Add Department Category</h3>
+      <form id="add-dept-form">
+        <label>Department Name <input name="name" placeholder="e.g. Cardiology, Radiology" required /></label>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+          <button type="submit" class="btn btn-primary">Add Department</button>
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('enterprise-modal-container').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  `;
+  container.innerHTML = modalHtml;
+  container.style.display = "block";
+
+  const form = document.getElementById("add-dept-form");
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form));
+    try {
+      const res = await apiRequest(`${API_BASE}/organization/departments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to add department."));
+      showToast("Department added.");
+      container.style.display = "none";
+      await loadEnterpriseTree();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+}
+
+async function showAddDoctorModal(deptName) {
+  const container = document.getElementById("enterprise-modal-container") || document.body;
+  let doctorsList = [];
+  try {
+    const res = await apiRequest(`${API_BASE}/doctors`);
+    if (res.ok) doctorsList = await res.json();
+  } catch (e) {}
+
+  const modalHtml = `
+    <div class="modal-sheet card" style="display:block; max-width: 480px; margin: 2rem auto; position: relative;">
+      <button type="button" class="modal-close-x" onclick="document.getElementById('enterprise-modal-container').style.display='none'">&times;</button>
+      <h3>👨‍⚕️ Attach Doctor to ${escapeHtml(deptName || "Department")}</h3>
+      <form id="add-doctor-to-dept-form">
+        <input type="hidden" name="department" value="${escapeHtml(deptName || "")}" />
+        <label>Select Existing Doctor
+          <select name="doctorId">
+            <option value="">-- Choose Doctor --</option>
+            ${doctorsList.map((d) => `<option value="${d._id}">${d.title ? d.title + " " : ""}${d.firstName} ${d.lastName} (${d.specialty || "General"})</option>`).join("")}
+          </select>
+        </label>
+        <p style="text-align: center; margin: 0.5rem 0; font-size: 0.85rem; color: #64748b;">OR Enter Email</p>
+        <label>Doctor Email <input type="email" name="email" placeholder="doctor@clinic.com" /></label>
+        <label>Organization Role
+          <select name="orgRole">
+            <option value="doctor">Doctor</option>
+            <option value="department_head">Department Head</option>
+            <option value="org_admin">Organization Admin</option>
+            <option value="staff">Staff</option>
+          </select>
+        </label>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+          <button type="submit" class="btn btn-primary">Attach Doctor</button>
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('enterprise-modal-container').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  `;
+  container.innerHTML = modalHtml;
+  container.style.display = "block";
+
+  const form = document.getElementById("add-doctor-to-dept-form");
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form));
+    try {
+      const res = await apiRequest(`${API_BASE}/organization/doctors`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to attach doctor."));
+      showToast("Doctor attached to department.");
+      container.style.display = "none";
+      await loadEnterpriseTree();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+}
+
+function showAddRoomModal(deptName) {
+  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const modalHtml = `
+    <div class="modal-sheet card" style="display:block; max-width: 420px; margin: 2rem auto; position: relative;">
+      <button type="button" class="modal-close-x" onclick="document.getElementById('enterprise-modal-container').style.display='none'">&times;</button>
+      <h3>🚪 Add Consultation Room to ${escapeHtml(deptName || "Department")}</h3>
+      <form id="add-room-form">
+        <input type="hidden" name="department" value="${escapeHtml(deptName || "")}" />
+        <label>Room Name <input name="roomName" placeholder="e.g. Room 101, OPD Suite A" required /></label>
+        <label>Daily Patient Load Cap <input type="number" name="dailyPatientCap" value="30" min="1" max="200" required /></label>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
+          <button type="submit" class="btn btn-primary">Create Room</button>
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('enterprise-modal-container').style.display='none'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  `;
+  container.innerHTML = modalHtml;
+  container.style.display = "block";
+
+  const form = document.getElementById("add-room-form");
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form));
+    try {
+      const res = await apiRequest(`${API_BASE}/organization/rooms`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to create room."));
+      showToast("Consultation room created.");
+      container.style.display = "none";
+      await loadEnterpriseTree();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+}
+
+async function showDoctorNodePopover(doctorId) {
+  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const tree = window._lastOrgTree || {};
+  const depts = (tree.departments || []).map((d) => d.name);
+
+  let roomsList = [];
+  try {
+    const res = await apiRequest(`${API_BASE}/organization/rooms`);
+    if (res.ok) roomsList = await res.json();
+  } catch (e) {}
+
+  const modalHtml = `
+    <div class="modal-sheet card" style="display:block; max-width: 480px; margin: 2rem auto; position: relative;">
+      <button type="button" class="modal-close-x" onclick="document.getElementById('enterprise-modal-container').style.display='none'">&times;</button>
+      <h3>⚙️ Doctor Assignment & Room Management</h3>
+      <form id="edit-doctor-node-form">
+        <label>Reassign Department
+          <select name="department">
+            <option value="">-- Unassigned / General --</option>
+            ${depts.map((d) => `<option value="${d}">${d}</option>`).join("")}
+          </select>
+        </label>
+        <label>Assigned Consultation Room
+          <select name="assignedRoom">
+            <option value="">-- No Room Assigned --</option>
+            ${roomsList.map((r) => `<option value="${r._id}">${r.roomName} (${r.department || "General"})</option>`).join("")}
+          </select>
+        </label>
+        <label>Organization Role
+          <select name="orgRole">
+            <option value="doctor">Doctor</option>
+            <option value="department_head">Department Head</option>
+            <option value="org_admin">Organization Admin</option>
+            <option value="staff">Staff</option>
+          </select>
+        </label>
+        <div style="display: flex; gap: 0.5rem; justify-content: space-between; align-items: center; margin-top: 1.5rem;">
+          <button type="button" id="detach-doctor-btn" class="btn btn-action-delete btn-sm">Detach from Hospital</button>
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="submit" class="btn btn-primary">Save Assignment</button>
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('enterprise-modal-container').style.display='none'">Cancel</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  `;
+  container.innerHTML = modalHtml;
+  container.style.display = "block";
+
+  const form = document.getElementById("edit-doctor-node-form");
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form));
+    try {
+      const res = await apiRequest(`${API_BASE}/organization/doctors/${doctorId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to update doctor assignment."));
+      showToast("Doctor assignment updated.");
+      container.style.display = "none";
+      await loadEnterpriseTree();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  };
+
+  document.getElementById("detach-doctor-btn")?.addEventListener("click", async () => {
+    if (!confirm("Detach this doctor from the hospital organization?")) return;
+    try {
+      const res = await apiRequest(`${API_BASE}/organization/doctors/${doctorId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ detach: true }),
+      });
+      if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to detach doctor."));
+      showToast("Doctor detached from organization.");
+      container.style.display = "none";
+      await loadEnterpriseTree();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  });
 }
 
 function renderPrivacy() {
