@@ -2562,12 +2562,23 @@ async function renderEnterpriseView() {
   }
 }
 
-async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._selectedOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : null)) {
+async function loadEnterpriseTree(
+  targetOrgId = window.activeOrgId || window._selectedOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : null),
+  preserveSelector = null,
+) {
   const container = document.getElementById("enterprise-tree-container");
   if (!container) return;
 
-  // Clear DOM completely before fetching new hospital facility data
-  container.innerHTML = `<div class="feedback">Loading hospital tree...</div>`;
+  // Capture current scroll positions before loading
+  const savedWindowY = window.scrollY || document.documentElement.scrollTop || 0;
+  const mainContentEl = document.getElementById("main-content");
+  const savedMainY = mainContentEl ? mainContentEl.scrollTop : 0;
+
+  // Lock minimum height on container during fetch so page layout does not collapse/jump
+  const prevHeight = container.offsetHeight;
+  if (prevHeight > 100) {
+    container.style.minHeight = `${prevHeight}px`;
+  }
 
   try {
     const hashMatch = (typeof window !== "undefined" && window.location.hash) ? window.location.hash.match(/#?\/?hospital\/([^/?#]+)/i) : null;
@@ -2799,12 +2810,11 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
         const selectedOrgId = e.target.value;
         if (!selectedOrgId) return;
 
-        const selectedOrgName = e.target.options[e.target.selectedIndex]?.text || "";
-
-        // 1. Instantly update the main facility title on screen
-        const titleEl = document.querySelector("#enterprise-header-facility-name");
-        if (titleEl && selectedOrgName) {
-          titleEl.textContent = `🏥 ${selectedOrgName.trim()}`;
+        // 1. Instantly update UI header title to match chosen hospital
+        const chosenOptionText = e.target.options[e.target.selectedIndex]?.text || "";
+        const titleDisplayEl = document.querySelector("#hospital-title-display") || document.querySelector("#enterprise-header-facility-name");
+        if (titleDisplayEl && chosenOptionText) {
+          titleDisplayEl.textContent = `🏥 ${chosenOptionText.trim()}`;
         }
 
         // 2. Clear current tree container & show loading state
@@ -2824,6 +2834,20 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
     wireEnterpriseTreeEvents(container);
   } catch (err) {
     container.innerHTML = `<div class="feedback error">${escapeHtml(err.message)}</div>`;
+  } finally {
+    container.style.minHeight = "";
+    if (preserveSelector && typeof preserveSelector === "string") {
+      const targetEl = container.querySelector(preserveSelector);
+      if (targetEl) {
+        targetEl.scrollIntoView({ block: "nearest", behavior: "instant" });
+      } else {
+        window.scrollTo({ top: savedWindowY, behavior: "instant" });
+        if (mainContentEl) mainContentEl.scrollTop = savedMainY;
+      }
+    } else {
+      window.scrollTo({ top: savedWindowY, behavior: "instant" });
+      if (mainContentEl) mainContentEl.scrollTop = savedMainY;
+    }
   }
 }
 
@@ -3117,7 +3141,8 @@ function wireEnterpriseTreeEvents(container) {
         if (!fallbackRes.ok) throw new Error(await getApiErrorMessage(fallbackRes, "Failed to assign room to doctor."));
       }
       showToast("Doctor assigned to consultation room successfully.");
-      await loadEnterpriseTree(window.activeOrgId);
+      const roomTargetSelector = `.room-drop-target[data-room-id="${roomId}"]`;
+      await loadEnterpriseTree(window.activeOrgId, roomTargetSelector);
     } catch (err) {
       showToast(err.message, "error");
     } finally {
@@ -3472,7 +3497,8 @@ async function showAddDoctorModal(deptName) {
       if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to attach doctor."));
       showToast("Doctor attached to department.");
       closeEnterpriseModal();
-      await loadEnterpriseTree(currentOrgId);
+      const deptTargetSelector = selectedDept ? `.department-card[data-dept-name="${escapeHtml(selectedDept)}"]` : null;
+      await loadEnterpriseTree(currentOrgId, deptTargetSelector);
       if (typeof renderAdminSubscriptionsTable === "function" && document.querySelector("#admin-user-search")) {
         await renderAdminSubscriptionsTable();
       }
@@ -3540,7 +3566,8 @@ function showAddRoomModal(deptName) {
       if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to create room."));
       showToast("Consultation room created.");
       closeEnterpriseModal();
-      await loadEnterpriseTree(currentOrgId);
+      const deptTargetSelector = selectedDept ? `.department-card[data-dept-name="${escapeHtml(selectedDept)}"]` : null;
+      await loadEnterpriseTree(currentOrgId, deptTargetSelector);
     } catch (err) {
       showToast(err.message, "error");
     }
