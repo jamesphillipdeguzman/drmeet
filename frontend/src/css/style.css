@@ -1617,7 +1617,8 @@ body.theme-dark #superadmin-search-input,
 body.theme-dark #admin-user-search,
 body.theme-dark #doctors-unified-search,
 body.theme-dark #patients-unified-search,
-body.theme-dark #users-unified-search {
+body.theme-dark #users-unified-search,
+body.theme-dark #patient-existing-search {
   background: #0f172a !important;
   color: #f8fafc !important;
   border-color: #334155 !important;
@@ -1628,7 +1629,8 @@ body.theme-dark #superadmin-search-input::placeholder,
 body.theme-dark #admin-user-search::placeholder,
 body.theme-dark #doctors-unified-search::placeholder,
 body.theme-dark #patients-unified-search::placeholder,
-body.theme-dark #users-unified-search::placeholder {
+body.theme-dark #users-unified-search::placeholder,
+body.theme-dark #patient-existing-search::placeholder {
   color: #94a3b8 !important;
 }
 

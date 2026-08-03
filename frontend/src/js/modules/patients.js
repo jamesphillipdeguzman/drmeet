@@ -577,9 +577,26 @@ export async function showPatientForm(editId = null, familyMode = false) {
       ? `
       <section class="card" style="padding:0.75rem;">
         <h4 style="margin:0 0 0.45rem;">Search Existing Patient</h4>
-        <label>Search by name, email, or phone
-          <input type="search" id="patient-existing-search" placeholder="Type at least 2 characters" />
-        </label>
+        <label>Search by name, email, or phone</label>
+        <div class="relative w-full" style="position: relative; width: 100%; margin-top: 0.25rem;">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400 pointer-events-none" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">🔍</span>
+          <input 
+            type="text" 
+            id="patient-existing-search" 
+            placeholder="Type at least 2 characters..." 
+            class="w-full pl-9 pr-9 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 dark:text-white"
+            style="width: 100%; padding: 8px 32px 8px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
+          />
+          <button 
+            type="button" 
+            id="patient-existing-search-clear"
+            class="search-clear-btn hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; display: none;"
+            title="Clear search"
+          >
+            ✕
+          </button>
+        </div>
         <div id="patient-existing-results" class="feedback" style="display:none"></div>
       </section>
       `
@@ -684,11 +701,15 @@ export async function showPatientForm(editId = null, familyMode = false) {
 
   if (canAttachExisting) {
     const searchInput = document.getElementById("patient-existing-search");
+    const searchClear = document.getElementById("patient-existing-search-clear");
     const resultEl = document.getElementById("patient-existing-results");
     let pickedExistingPatientId = "";
-    searchInput?.addEventListener("input", async () => {
-      const q = String(searchInput.value || "").trim();
-      resultEl.style.display = "none";
+    const performSearch = async () => {
+      const q = String(searchInput?.value || "").trim();
+      if (searchClear) {
+        searchClear.style.display = q.length > 0 ? "block" : "none";
+      }
+      if (resultEl) resultEl.style.display = "none";
       if (q.length < 2) return;
       try {
         const res = await apiRequest(
@@ -750,6 +771,14 @@ export async function showPatientForm(editId = null, familyMode = false) {
         resultEl.style.display = "block";
         resultEl.className = "feedback error";
         resultEl.textContent = "Unable to search duplicates right now.";
+      }
+    };
+    searchInput?.addEventListener("input", performSearch);
+    searchClear?.addEventListener("click", () => {
+      if (searchInput) {
+        searchInput.value = "";
+        performSearch();
+        searchInput.focus();
       }
     });
   }
