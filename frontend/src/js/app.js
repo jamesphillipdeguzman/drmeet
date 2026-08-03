@@ -2004,10 +2004,16 @@ async function renderSettings() {
     <section class="card settings-enterprise-card">
       <h3>Enterprise / Hospital Management View</h3>
       <p class="signup-lead">Toggle multi-doctor hospital workspace, organizational tree hierarchy, and room management.</p>
-      <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; margin-top: 0.75rem;">
-        <input type="checkbox" id="settings-enterprise-toggle" ${localStorage.getItem("drmeet_enterprise_mode") === "true" ? "checked" : ""} />
-        <span style="font-weight: 600;">⚙️ Enable Hospital / Enterprise Mode View</span>
-      </label>
+      <div class="mt-2" style="margin-top: 0.75rem;">
+        <button 
+          type="button"
+          id="btn-toggle-enterprise-view" 
+          class="${localStorage.getItem("drmeet_enterprise_mode") === "true" ? "btn btn-secondary btn-action-delete" : "btn btn-primary"}"
+          style="${localStorage.getItem("drmeet_enterprise_mode") === "true" ? "padding: 8px 16px; font-size: 0.875rem; font-weight: 600; border-radius: 8px; cursor: pointer;" : "padding: 8px 16px; font-size: 0.875rem; font-weight: 600; border-radius: 8px; cursor: pointer;"}"
+        >
+          ${localStorage.getItem("drmeet_enterprise_mode") === "true" ? "Disable Hospital View" : "Enable Hospital / Enterprise View"}
+        </button>
+      </div>
     </section>
     <section class="card">
       <h3>Notifications</h3>
@@ -2206,15 +2212,24 @@ async function renderSettings() {
       });
   }
 
-  const entToggle = document.getElementById("settings-enterprise-toggle");
-  if (entToggle) {
-    entToggle.addEventListener("change", (e) => {
-      const enabled = e.target.checked;
-      localStorage.setItem("drmeet_enterprise_mode", enabled ? "true" : "false");
-      showToast(enabled ? "Hospital / Enterprise Mode View enabled." : "Enterprise Mode View disabled.");
-      renderTopbarBreadcrumbs();
-      if (enabled) {
+  const entBtn = document.getElementById("btn-toggle-enterprise-view");
+  if (entBtn) {
+    entBtn.addEventListener("click", () => {
+      const isCurrentlyEnabled = localStorage.getItem("drmeet_enterprise_mode") === "true";
+      const newEnabledState = !isCurrentlyEnabled;
+      localStorage.setItem("drmeet_enterprise_mode", newEnabledState ? "true" : "false");
+
+      if (newEnabledState) {
+        entBtn.textContent = "Disable Hospital View";
+        entBtn.className = "btn btn-secondary btn-action-delete";
+        showToast("Hospital / Enterprise Mode View enabled.");
+        renderTopbarBreadcrumbs();
         window.location.hash = "#enterprise";
+      } else {
+        entBtn.textContent = "Enable Hospital / Enterprise View";
+        entBtn.className = "btn btn-primary";
+        showToast("Enterprise Mode View disabled.");
+        renderTopbarBreadcrumbs();
       }
     });
   }
