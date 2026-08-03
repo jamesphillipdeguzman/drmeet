@@ -241,7 +241,7 @@ export function createNavigation({
     if (!container) return;
     const route = getHashRoute();
     const staffRoles = new Set(["doctor", "receptionist", "admin"]);
-    const userRole = String(getCurrentUserRole() || "");
+    const userRole = String(getCurrentUserRole() || "").toLowerCase();
     const pages = [
       { hash: "#home", label: "Home" },
       { hash: "#doctor-dashboard", label: "Clinical" },
@@ -249,7 +249,7 @@ export function createNavigation({
       { hash: "#patients", label: "Patients" },
       { hash: "#doctors", label: "Doctors" },
       { hash: "#appointments", label: "Appointments" },
-      { hash: "#pricing", label: "Pricing" },
+      ...(userRole !== "patient" ? [{ hash: "#pricing", label: "Pricing" }] : []),
       ...(staffRoles.has(userRole)
         ? [
             { hash: "#calendar", label: "Calendar" },
@@ -261,6 +261,15 @@ export function createNavigation({
         : []),
       { hash: "#settings", label: "Settings" },
     ];
+
+    // Hide sidebar links to #pricing and #enterprise for patient role
+    document.querySelectorAll('a[href="#pricing"]').forEach((el) => {
+      el.style.display = userRole === "patient" ? "none" : "";
+    });
+    document.querySelectorAll('a[href="#enterprise"]').forEach((el) => {
+      el.style.display = userRole === "patient" ? "none" : "";
+    });
+
     const crumbs = pages
       .map((page) => {
         const isActive = page.hash === route;
@@ -353,6 +362,11 @@ export function createNavigation({
         void renderers.renderSettings();
         break;
       case "#pricing":
+        if (String(getCurrentUserRole() || "").toLowerCase() === "patient") {
+          window.location.hash = "#book";
+          renderPage();
+          return;
+        }
         renderers.renderPricing();
         break;
       case "#privacy":

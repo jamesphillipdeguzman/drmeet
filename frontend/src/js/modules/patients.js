@@ -320,11 +320,11 @@ export async function renderPatients() {
                     ? `<span class="patient-type-badge patient-type-badge-family" style="font-size:0.65rem; margin-left:4px;">Patient</span>`
                     : `<span class="patient-type-badge patient-type-badge-primary" style="font-size:0.65rem; margin-left:4px;">Doctor</span>`;
 
-                  if (docId) {
-                    return `<div style="display:inline-block; margin-right:6px; margin-bottom:4px;"><a href="#" class="patient-doc-link text-blue-600 hover:underline" data-doc-id="${docId}">${docName}</a>${senderBadge}</div>`;
+                  const fileUrl = d.fileUrl || d.url || "";
+                  if (fileUrl) {
+                    return `<div style="display:inline-block; margin-right:6px; margin-bottom:4px;"><a href="${escapeHtml(fileUrl)}" target="_blank" rel="noopener noreferrer" download class="patient-doc-link text-blue-600 hover:underline" data-doc-id="${docId || ""}">${docName}</a>${senderBadge}</div>`;
                   }
-                  const fileUrl = escapeHtml(d.fileUrl || d.url || "#");
-                  return `<div style="display:inline-block; margin-right:6px; margin-bottom:4px;"><a href="${fileUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">${docName}</a>${senderBadge}</div>`;
+                  return `<div style="display:inline-block; margin-right:6px; margin-bottom:4px;"><a href="javascript:void(0);" class="patient-doc-link text-blue-600 hover:underline" data-doc-id="${docId || ""}">${docName}</a>${senderBadge}</div>`;
                 })
                 .join("")
               : "—"
@@ -339,6 +339,15 @@ export async function renderPatients() {
           `,
         )
         .join("");
+
+      bodyEl.querySelectorAll(".patient-doc-link").forEach((link) => {
+        link.addEventListener("click", (e) => {
+          const href = link.getAttribute("href");
+          if (!href || href === "#" || href.startsWith("javascript:")) {
+            e.preventDefault();
+          }
+        });
+      });
     };
     const applyPatientFilters = () => {
       const q = String(

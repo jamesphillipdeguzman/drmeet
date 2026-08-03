@@ -2019,7 +2019,8 @@ async function renderSettings() {
         </select>
       </label>
     </section>
-    <section class="card settings-enterprise-card">
+    ${role !== "patient"
+      ? `<section class="card settings-enterprise-card">
       <h3>Enterprise / Hospital Management View</h3>
       <p class="signup-lead">Toggle multi-doctor hospital workspace, organizational tree hierarchy, and room management.</p>
       <div class="mt-2" style="margin-top: 0.75rem;">
@@ -2032,7 +2033,9 @@ async function renderSettings() {
           ${localStorage.getItem("drmeet_enterprise_mode") === "true" ? "Disable Hospital View" : "Enable Hospital / Enterprise View"}
         </button>
       </div>
-    </section>
+    </section>`
+      : ""
+    }
     <section class="card">
       <h3>Notifications</h3>
       <p class="signup-lead">Appointment and message alerts can be expanded here in a future update.</p>
