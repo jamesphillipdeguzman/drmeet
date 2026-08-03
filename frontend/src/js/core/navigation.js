@@ -256,6 +256,9 @@ export function createNavigation({
             { hash: "#users", label: "Users" },
           ]
         : []),
+      ...(localStorage.getItem("drmeet_enterprise_mode") === "true" || userRole === "admin"
+        ? [{ hash: "#enterprise", label: "Hospital Tree" }]
+        : []),
       { hash: "#settings", label: "Settings" },
     ];
     const crumbs = pages
@@ -292,6 +295,11 @@ export function createNavigation({
     switch (route) {
       case "#doctor-dashboard":
         renderers.renderDoctorDashboard();
+        break;
+      case "#enterprise":
+        if (typeof renderers.renderEnterpriseView === "function") {
+          renderers.renderEnterpriseView();
+        }
         break;
       case "#settings":
         void renderers.renderSettings();

@@ -31,19 +31,22 @@ const doctorSchema = new mongoose.Schema(
 
     department: {
       type: String,
-      enum: [
-        "Outpatient",
-        "Inpatient",
-        "Emergency",
-        "Surgery",
-        "Diagnostics",
-        "Telemedicine",
-        "Pediatrics",
-        "Internal Medicine",
-        "Mental Health",
-        "Rehabilitation",
-        "Specialty Clinics",
-      ],
+      default: null,
+    },
+    organizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      default: null,
+    },
+    orgRole: {
+      type: String,
+      enum: ["org_admin", "department_head", "doctor", "staff"],
+      default: null,
+    },
+    assignedRoom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Room",
+      default: null,
     },
 
     bio: {

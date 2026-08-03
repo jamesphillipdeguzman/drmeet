@@ -76,6 +76,25 @@ const userSchema = new mongoose.Schema(
       enum: ["starter", "pro", "enterprise"],
       default: "starter",
     },
+    organizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      default: null,
+    },
+    orgRole: {
+      type: String,
+      enum: ["org_admin", "department_head", "doctor", "staff"],
+      default: null,
+    },
+    department: {
+      type: String,
+      default: null,
+    },
+    assignedRoom: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Room",
+      default: null,
+    },
     is_deleted: {
       type: Boolean,
       default: false,
