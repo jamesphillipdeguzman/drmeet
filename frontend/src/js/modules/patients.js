@@ -276,6 +276,23 @@ export async function renderPatients() {
       if (!uploaderId) return "doctor";
       return userRoleById.get(uploaderId) || "doctor";
     };
+    const formatCreatedDateHelper = (dateVal) => {
+      if (typeof formatCreatedDate === "function") {
+        return formatCreatedDate(dateVal);
+      }
+      if (window.formatCreatedDate) {
+        return window.formatCreatedDate(dateVal);
+      }
+      if (!dateVal) return "—";
+      const date = new Date(dateVal);
+      if (isNaN(date.getTime())) return "—";
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    };
+
     const renderRows = (list) => {
       bodyEl.innerHTML = list
         .map(
@@ -291,7 +308,7 @@ export async function renderPatients() {
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
               <td>${formatDateForInput(p.birthdate)}</td>
-              <td>${formatCreatedDate(p.createdAt)}</td>
+              <td>${formatCreatedDateHelper(p.createdAt || p.added)}</td>
               <td>
                 ${Array.isArray(p.documents) && p.documents.length
               ? p.documents
