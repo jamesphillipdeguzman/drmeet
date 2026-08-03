@@ -117,7 +117,7 @@ export async function getOrganizationTree(req, res) {
       "roomName department dailyPatientCap"
     );
 
-    const deptList = Array.isArray(org.departments) ? org.departments : [];
+    const deptList = Array.isArray(org.departments) ? [...org.departments].sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0)) : [];
 
     // Map departments to nested structure
     const departmentsTree = await Promise.all(
@@ -165,7 +165,9 @@ export async function getOrganizationTree(req, res) {
           }));
 
         return {
+          _id: typeof deptObj === "object" && deptObj._id ? String(deptObj._id) : null,
           name: deptName,
+          orderIndex: typeof deptObj === "object" && typeof deptObj.orderIndex === "number" ? deptObj.orderIndex : 0,
           type: "department",
           headDoctor: headDoctor
             ? {
@@ -582,6 +584,49 @@ export async function getOrganizationBySlug(req, res) {
     }
 
     return res.status(200).json(org);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+/**
+ * PUT /api/organization/departments/reorder
+ * Reorder departments by updating their orderIndex field
+ */
+export async function reorderDepartments(req, res) {
+  try {
+    const org = await resolveOrganizationForUser(req);
+    if (!org) return res.status(404).json({ error: "Organization not found." });
+
+    const { departmentOrders } = req.body;
+    if (!Array.isArray(departmentOrders)) {
+      return res.status(400).json({ error: "departmentOrders array is required." });
+    }
+
+    const orderMap = new Map();
+    departmentOrders.forEach((item, index) => {
+      const targetPos = typeof item.position === "number" ? item.position : typeof item.orderIndex === "number" ? item.orderIndex : index;
+      if (item.id) orderMap.set(String(item.id), targetPos);
+      if (item.name) orderMap.set(String(item.name).toLowerCase(), targetPos);
+    });
+
+    org.departments.forEach((deptObj, idx) => {
+      const deptIdStr = deptObj._id ? String(deptObj._id) : null;
+      const deptNameStr = (typeof deptObj === "string" ? deptObj : deptObj.name || "").toLowerCase();
+
+      if (deptIdStr && orderMap.has(deptIdStr)) {
+        deptObj.orderIndex = orderMap.get(deptIdStr);
+      } else if (orderMap.has(deptNameStr)) {
+        deptObj.orderIndex = orderMap.get(deptNameStr);
+      } else {
+        deptObj.orderIndex = idx;
+      }
+    });
+
+    org.departments.sort((a, b) => (a.orderIndex || 0) - (b.orderIndex || 0));
+    await org.save();
+
+    return res.status(200).json({ message: "Department order updated successfully.", organization: org });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
