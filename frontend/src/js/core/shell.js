@@ -26,6 +26,7 @@ export function initShell(config = {}) {
 export function applyTheme(theme) {
   const resolved = theme === "dark" ? "dark" : "light";
   document.body.classList.toggle("theme-dark", resolved === "dark");
+  document.documentElement.classList.toggle("dark", resolved === "dark");
   localStorage.setItem(THEME_KEY, resolved);
   window.dispatchEvent(new CustomEvent("themechanged", { detail: { theme: resolved } }));
 }

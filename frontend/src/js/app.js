@@ -2643,32 +2643,24 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
     `;
 
     const searchBarHtml = `
-      <div class="mb-6 flex gap-3 items-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm" style="margin-bottom: 1.25rem; display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem 1rem; border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
-        <div class="relative flex-1" style="position: relative; flex: 1;">
-          <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">🔍</span>
-          <input 
-            type="text" 
-            id="hierarchy-search-input" 
-            placeholder="Search by department name, consultation room, doctor name, or specialty..." 
-            class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            style="width: 100%; padding: 8px 36px 8px 44px; border-radius: 8px; font-size: 0.875rem;"
-          />
-          <button 
-            type="button" 
-            id="hierarchy-search-clear"
-            class="search-clear-btn hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-            style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; display: none;"
-            title="Clear search"
-          >
-            ✕
-          </button>
-        </div>
-        <select id="hierarchy-search-category" class="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none" style="padding: 8px 12px; border-radius: 8px; font-size: 0.875rem; cursor: pointer;">
-          <option value="all">All Categories</option>
-          <option value="department">Departments</option>
-          <option value="room">Rooms</option>
-          <option value="doctor">Doctors</option>
-        </select>
+      <div class="relative w-full max-w-xl mb-4" style="position: relative; width: 100%; max-width: 36rem; margin-bottom: 1rem;">
+        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">🔍</span>
+        <input 
+          type="text" 
+          id="hierarchy-search-input" 
+          placeholder="Search by department name, consultation room, doctor name, or specialty..." 
+          class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 dark:text-white"
+          style="width: 100%; padding: 8px 36px 8px 44px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
+        />
+        <button 
+          type="button" 
+          id="hierarchy-search-clear"
+          class="search-clear-btn hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+          style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; display: none;"
+          title="Clear search"
+        >
+          ✕
+        </button>
       </div>
     `;
 
@@ -2716,15 +2708,13 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
     container.querySelector("#add-first-dept-btn")?.addEventListener("click", () => showAddDepartmentModal());
 
     const searchInput = container.querySelector("#hierarchy-search-input");
-    const searchCat = container.querySelector("#hierarchy-search-category");
     const searchClearBtn = container.querySelector("#hierarchy-search-clear");
 
     function applyHierarchyFilter() {
       const q = (searchInput?.value || "").trim().toLowerCase();
       if (searchClearBtn) {
-        searchClearBtn.style.display = (searchInput?.value || "").trim().length > 0 ? "block" : "none";
+        searchClearBtn.style.display = q.length > 0 ? "block" : "none";
       }
-      const cat = searchCat?.value || "all";
       const deptCards = Array.from(container.querySelectorAll(".department-card"));
 
       let matchCount = 0;
@@ -2734,28 +2724,25 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
         const roomCards = Array.from(card.querySelectorAll(".room-card"));
         const doctorCards = Array.from(card.querySelectorAll(".doctor-draggable-card"));
 
-        let deptMatches = false;
-        if (cat === "all" || cat === "department") {
-          deptMatches = deptName.includes(q);
-        }
+        const deptMatches = deptName.includes(q);
 
         let matchingRooms = 0;
         roomCards.forEach((rc) => {
           const text = (rc.textContent || "").toLowerCase();
-          const matches = cat === "all" || cat === "room" ? text.includes(q) : false;
-          rc.style.display = (!q || matches || (cat === "department" && deptMatches)) ? "" : "none";
+          const matches = text.includes(q);
+          rc.style.display = (!q || matches || deptMatches) ? "" : "none";
           if (matches) matchingRooms++;
         });
 
         let matchingDoctors = 0;
         doctorCards.forEach((dc) => {
           const text = (dc.textContent || "").toLowerCase();
-          const matches = cat === "all" || cat === "doctor" ? text.includes(q) : false;
-          dc.style.display = (!q || matches || (cat === "department" && deptMatches)) ? "" : "none";
+          const matches = text.includes(q);
+          dc.style.display = (!q || matches || deptMatches) ? "" : "none";
           if (matches) matchingDoctors++;
         });
 
-        const cardMatches = !q || (cat === "department" ? deptMatches : cat === "room" ? (matchingRooms > 0 || deptMatches) : cat === "doctor" ? (matchingDoctors > 0 || deptMatches) : (deptMatches || matchingRooms > 0 || matchingDoctors > 0));
+        const cardMatches = !q || deptMatches || matchingRooms > 0 || matchingDoctors > 0;
 
         card.style.display = cardMatches ? "" : "none";
         if (cardMatches) matchCount++;
@@ -2767,8 +2754,8 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
         if (!noMatchEl && grid) {
           noMatchEl = document.createElement("div");
           noMatchEl.id = "hierarchy-no-match-feedback";
-          noMatchEl.className = "card text-center p-6 text-gray-500 mt-4";
-          noMatchEl.style.cssText = "padding: 2rem; text-align: center; color: #64748b; margin-top: 1rem;";
+          noMatchEl.className = "card text-center p-6 text-gray-500 dark:text-slate-400 mt-4";
+          noMatchEl.style.cssText = "padding: 2rem; text-align: center; margin-top: 1rem;";
           grid.appendChild(noMatchEl);
         }
         if (noMatchEl) {
@@ -2781,8 +2768,6 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
     }
 
     searchInput?.addEventListener("input", applyHierarchyFilter);
-    searchCat?.addEventListener("change", applyHierarchyFilter);
-
     searchClearBtn?.addEventListener("click", () => {
       if (searchInput) {
         searchInput.value = "";
@@ -3360,8 +3345,8 @@ async function showAddDoctorModal(deptName) {
         <h3 style="margin-top:0;">👨‍⚕️ Attach Doctor to Facility</h3>
         <form id="add-doctor-to-dept-form">
           <div class="mb-4" style="margin-bottom: 0.75rem;">
-            <label class="block text-sm font-medium text-gray-700 mb-1" style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Target Department</label>
-            <select id="modal-doctor-dept-select" name="department" class="w-full px-3 py-2 border rounded-md text-sm" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem; background: #ffffff;">
+            <label class="block text-sm font-medium mb-1" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px;">Target Department</label>
+            <select id="modal-doctor-dept-select" name="department" class="w-full px-3 py-2 border rounded-md text-sm dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700" style="width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 0.875rem;">
               ${deptList.length === 0 ? `<option value="${escapeHtml(deptName || "General / Unassigned")}">${escapeHtml(deptName || "General / Unassigned")}</option>` : `
                 ${deptList.map((d) => {
                   const dName = typeof d === "string" ? d : d.name;
@@ -3442,8 +3427,8 @@ function showAddRoomModal(deptName) {
         <h3 style="margin-top:0;">🚪 Add Consultation Room</h3>
         <form id="add-room-form">
           <div class="mb-4" style="margin-bottom: 0.75rem;">
-            <label class="block text-sm font-medium text-gray-700 mb-1" style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Target Department</label>
-            <select id="modal-room-dept-select" name="department" class="w-full px-3 py-2 border rounded-md text-sm" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem; background: #ffffff;">
+            <label class="block text-sm font-medium mb-1" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px;">Target Department</label>
+            <select id="modal-room-dept-select" name="department" class="w-full px-3 py-2 border rounded-md text-sm dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700" style="width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 0.875rem;">
               ${deptList.length === 0 ? `<option value="${escapeHtml(deptName || "General / Unassigned")}">${escapeHtml(deptName || "General / Unassigned")}</option>` : `
                 ${deptList.map((d) => {
                   const dName = typeof d === "string" ? d : d.name;
