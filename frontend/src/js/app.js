@@ -2534,11 +2534,27 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof
       ${departmentsContentHtml}
     `;
 
-    const hospitalSelect = document.getElementById("hospital-facility-switcher");
+    const hospitalSelect = document.getElementById("hospital-facility-switcher") || document.getElementById("hospital-switcher");
     if (hospitalSelect) {
       hospitalSelect.addEventListener("change", async (e) => {
         const selectedOrgId = e.target.value;
         if (!selectedOrgId) return;
+
+        const selectedOrgName = e.target.options[e.target.selectedIndex]?.text || "";
+
+        // 1. Instantly update the main facility title on screen
+        const titleEl = document.querySelector("#enterprise-header-facility-name") || document.querySelector(".hospital-title-display") || document.querySelector(".hospital-name-display");
+        if (titleEl && selectedOrgName) {
+          titleEl.textContent = `🏥 ${selectedOrgName.trim()}`;
+        }
+
+        // 2. Clear current tree container & show loading state
+        const treeContainer = document.querySelector("#enterprise-tree-container") || document.querySelector("#hospital-tree-container");
+        if (treeContainer) {
+          treeContainer.innerHTML = '<div class="feedback" style="padding: 2rem; text-align: center; color: #64748b;">Loading facility hierarchy...</div>';
+        }
+
+        // 3. Store active org ID & fetch data specifically for this orgId and re-render
         localStorage.setItem("drmeet_active_org_id", selectedOrgId);
         window._selectedOrgId = selectedOrgId;
         await loadEnterpriseTree(selectedOrgId);
@@ -2549,6 +2565,10 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof
   } catch (err) {
     container.innerHTML = `<div class="feedback error">${escapeHtml(err.message)}</div>`;
   }
+}
+
+if (typeof window !== "undefined") {
+  window.fetchAndRenderOrgTree = loadEnterpriseTree;
 }
 
 function buildDepartmentCardHtml(dept) {
@@ -2638,35 +2658,91 @@ function wireEnterpriseTreeEvents(container) {
     } else if (action === "add-room-to-dept") {
       showAddRoomModal(btn.dataset.dept);
     } else if (action === "delete-dept") {
-      const deptName = btn.dataset.dept;
-      if (!confirm(`Delete department '${deptName}'? Doctors and rooms in this department will be moved to General.`)) return;
-      void (async () => {
-        try {
-          const res = await apiRequest(`${API_BASE}/organization/departments/${encodeURIComponent(deptName)}`, { method: "DELETE" });
-          if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to delete department."));
-          showToast("Department deleted.");
-          await loadEnterpriseTree();
-        } catch (err) {
-          showToast(err.message, "error");
-        }
-      })();
+      showDeleteDepartmentModal(btn.dataset.dept);
     } else if (action === "delete-room") {
-      const roomId = btn.dataset.roomId;
-      if (!confirm("Delete this consultation room?")) return;
-      void (async () => {
-        try {
-          const res = await apiRequest(`${API_BASE}/organization/rooms/${roomId}`, { method: "DELETE" });
-          if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to delete room."));
-          showToast("Room deleted.");
-          await loadEnterpriseTree();
-        } catch (err) {
-          showToast(err.message, "error");
-        }
-      })();
+      showDeleteRoomModal(btn.dataset.roomId);
     } else if (action === "edit-doctor-node") {
       void showDoctorNodePopover(btn.dataset.docId);
     }
   });
+}
+
+function showDeleteDepartmentModal(deptName) {
+  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const modalHtml = `
+    <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
+      <div class="modal-sheet card" style="display:block; max-width: 440px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
+        <button type="button" class="modal-close-x" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">&times;</button>
+        <h3 style="margin-top:0; color: #dc2626; display: flex; align-items: center; gap: 0.5rem;">
+          <span>⚠️</span> Delete Department Confirmation
+        </h3>
+        <p style="color: #475569; font-size: 0.95rem; line-height: 1.5; margin-bottom: 1.25rem;">
+          Are you sure you want to delete the <strong>'${escapeHtml(deptName)}'</strong> department? Doctors and rooms in this department will be moved to General.
+        </p>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">Cancel</button>
+          <button type="button" class="btn btn-action-delete" id="confirm-delete-dept-btn">🗑️ Delete Department</button>
+        </div>
+      </div>
+    </div>
+  `;
+  container.innerHTML = modalHtml;
+  container.style.display = "block";
+  wireModalEscAndBackdrop(container);
+
+  const confirmBtn = document.getElementById("confirm-delete-dept-btn");
+  if (confirmBtn) {
+    confirmBtn.onclick = async () => {
+      try {
+        const res = await apiRequest(`${API_BASE}/organization/departments/${encodeURIComponent(deptName)}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to delete department."));
+        showToast(`Department '${deptName}' deleted successfully.`);
+        closeEnterpriseModal();
+        await loadEnterpriseTree();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    };
+  }
+}
+
+function showDeleteRoomModal(roomId) {
+  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const modalHtml = `
+    <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
+      <div class="modal-sheet card" style="display:block; max-width: 440px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
+        <button type="button" class="modal-close-x" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">&times;</button>
+        <h3 style="margin-top:0; color: #dc2626; display: flex; align-items: center; gap: 0.5rem;">
+          <span>⚠️</span> Delete Consultation Room
+        </h3>
+        <p style="color: #475569; font-size: 0.95rem; line-height: 1.5; margin-bottom: 1.25rem;">
+          Are you sure you want to delete this consultation room? Assigned doctors will be unassigned without breaking their profiles.
+        </p>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">Cancel</button>
+          <button type="button" class="btn btn-action-delete" id="confirm-delete-room-btn">🗑️ Delete Room</button>
+        </div>
+      </div>
+    </div>
+  `;
+  container.innerHTML = modalHtml;
+  container.style.display = "block";
+  wireModalEscAndBackdrop(container);
+
+  const confirmBtn = document.getElementById("confirm-delete-room-btn");
+  if (confirmBtn) {
+    confirmBtn.onclick = async () => {
+      try {
+        const res = await apiRequest(`${API_BASE}/organization/rooms/${roomId}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to delete room."));
+        showToast("Consultation room deleted.");
+        closeEnterpriseModal();
+        await loadEnterpriseTree();
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    };
+  }
 }
 
 export function closeEnterpriseModal() {
