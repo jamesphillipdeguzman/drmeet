@@ -75,6 +75,13 @@ export function requireRoles(roles = []) {
     const allowed = new Set(roles.map((r) => String(r).toLowerCase()));
     return (req, res, next) => {
         const role = String(req.user?.role || '').toLowerCase();
+        const orgRole = String(req.user?.orgRole || '').toLowerCase();
+        const isSuperAdmin = req.user?.isSuperAdmin === true || role === 'superadmin' || orgRole === 'org_admin';
+
+        if (allowed.has('admin') && (role === 'admin' || isSuperAdmin)) {
+            return next();
+        }
+
         if (!allowed.has(role)) {
             return res.status(403).json({ error: 'Forbidden.' });
         }

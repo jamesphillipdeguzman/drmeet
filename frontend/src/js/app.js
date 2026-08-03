@@ -2219,15 +2219,141 @@ async function renderSettings() {
     });
   }
 
-  if (role === "admin") {
+  if (isSuperAdminUser()) {
     void renderAdminSubscriptionsTable("settings-admin-subscriptions-container");
   }
 }
 
-function isEnterpriseAdminUser() {
+function isSuperAdminUser() {
+  let cache = {};
+  try {
+    cache = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
+  } catch (e) {}
+
   const userRole = getCurrentUserRole();
+  const orgRole = localStorage.getItem("org_role") || cache.orgRole || "";
+
+  return (
+    userRole === "admin" ||
+    userRole === "superadmin" ||
+    cache.role === "admin" ||
+    cache.role === "superadmin" ||
+    cache.isSuperAdmin === true ||
+    orgRole === "org_admin"
+  );
+}
+
+function isEnterpriseAdminUser() {
   const orgRole = localStorage.getItem("org_role") || "";
-  return userRole === "admin" || orgRole === "org_admin" || orgRole === "department_head";
+  return isSuperAdminUser() || orgRole === "department_head";
+}
+
+async function renderAdminSubscriptionsTable(containerId = "settings-admin-subscriptions-container") {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!isSuperAdminUser()) {
+    container.innerHTML = "";
+    return;
+  }
+
+  container.innerHTML = `<div class="card" style="margin-top: 1.5rem;"><p class="feedback">Loading Super-Admin overview...</p></div>`;
+
+  try {
+    const res = await apiRequest(`${API_BASE}/admin/subscriptions-overview`);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || errData.message || "Failed to load admin subscription overview.");
+    }
+    const data = await res.json();
+    const summary = data.summary || { totalUsers: 0, starterCount: 0, proCount: 0, enterpriseCount: 0 };
+    const users = Array.isArray(data.users) ? data.users : [];
+
+    container.innerHTML = `
+      <section class="card settings-super-admin-card" style="margin-top: 1.5rem; border: 1px solid rgba(2, 132, 199, 0.25);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <h3 style="margin: 0; font-size: 1.2rem; color: #0284c7;">👑 Super-Admin User & Subscription Management</h3>
+            <p class="signup-lead" style="margin: 0;">System-wide overview of active accounts, subscription tiers, and tenant isolation metrics.</p>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="${containerId}-refresh-btn">🔄 Refresh Overview</button>
+        </div>
+
+        <!-- Summary Metric Badges -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
+          <div style="background: #f8fafc; padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <span style="font-size: 0.75rem; color: #64748b; font-weight: 600; display: block;">TOTAL USERS</span>
+            <strong style="font-size: 1.25rem; color: #0f172a;">${summary.totalUsers}</strong>
+          </div>
+          <div style="background: #f0fdf4; padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid #bbf7d0;">
+            <span style="font-size: 0.75rem; color: #166534; font-weight: 600; display: block;">STARTER TIER</span>
+            <strong style="font-size: 1.25rem; color: #15803d;">${summary.starterCount}</strong>
+          </div>
+          <div style="background: #f0f9ff; padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid #bae6fd;">
+            <span style="font-size: 0.75rem; color: #0369a1; font-weight: 600; display: block;">PRO TIER</span>
+            <strong style="font-size: 1.25rem; color: #0284c7;">${summary.proCount}</strong>
+          </div>
+          <div style="background: #faf5ff; padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid #e9d5ff;">
+            <span style="font-size: 0.75rem; color: #6b21a8; font-weight: 600; display: block;">ENTERPRISE TIER</span>
+            <strong style="font-size: 1.25rem; color: #7e22ce;">${summary.enterpriseCount}</strong>
+          </div>
+        </div>
+
+        <!-- User Management Table -->
+        <div style="overflow-x: auto;">
+          <table class="table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+            <thead>
+              <tr style="border-bottom: 2px solid #e2e8f0; text-align: left; background: rgba(241, 245, 249, 0.5);">
+                <th style="padding: 8px 10px;">User / Account</th>
+                <th style="padding: 8px 10px;">Role</th>
+                <th style="padding: 8px 10px;">Subscription Plan</th>
+                <th style="padding: 8px 10px;">Hospital / Organization</th>
+                <th style="padding: 8px 10px;">Active Patients</th>
+                <th style="padding: 8px 10px;">Joined</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${users.length === 0 ? `<tr><td colspan="6" style="padding: 1rem; text-align: center; color: #94a3b8;">No registered users found.</td></tr>` : `
+                ${users.map((u) => {
+                  const tierBadgeColor = u.currentTier === "Enterprise" ? "background:#f3e8ff; color:#6b21a8; border:1px solid #d8b4fe;" : u.currentTier === "Pro" ? "background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;" : "background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;";
+                  const roleBadgeColor = u.role === "admin" || u.role === "superadmin" ? "background:#fee2e2; color:#991b1b;" : u.role === "doctor" ? "background:#dcfce7; color:#166534;" : "background:#f3f4f6; color:#374151;";
+                  const formattedDate = u.joinedDate ? new Date(u.joinedDate).toLocaleDateString() : "—";
+                  return `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                      <td style="padding: 8px 10px;">
+                        <strong>${escapeHtml(u.name)}</strong>
+                        <span style="display: block; font-size: 0.75rem; color: #64748b;">${escapeHtml(u.email)}</span>
+                      </td>
+                      <td style="padding: 8px 10px;">
+                        <span class="badge" style="${roleBadgeColor} font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;">${escapeHtml(u.role)}</span>
+                      </td>
+                      <td style="padding: 8px 10px;">
+                        <span class="badge" style="${tierBadgeColor} font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600;">${escapeHtml(u.currentTier)}</span>
+                      </td>
+                      <td style="padding: 8px 10px; color: #334155;">${escapeHtml(u.organizationName)}</td>
+                      <td style="padding: 8px 10px; font-weight: 600; color: #0f172a;">${u.activePatients}</td>
+                      <td style="padding: 8px 10px; color: #64748b; font-size: 0.8rem;">${formattedDate}</td>
+                    </tr>
+                  `;
+                }).join("")}
+              `}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    `;
+
+    document.getElementById(`${containerId}-refresh-btn`)?.addEventListener("click", () => {
+      void renderAdminSubscriptionsTable(containerId);
+    });
+  } catch (err) {
+    container.innerHTML = `
+      <div class="card" style="margin-top: 1.5rem; border-left: 4px solid #ef4444;">
+        <h4 style="margin: 0 0 0.25rem 0; color: #ef4444;">Unable to load Super-Admin overview</h4>
+        <p style="margin: 0; font-size: 0.85rem; color: #64748b;">${escapeHtml(err.message)}</p>
+      </div>
+    `;
+  }
 }
 
 async function renderEnterpriseView() {
@@ -2260,7 +2386,7 @@ async function renderEnterpriseView() {
   const isEnterpriseMode = localStorage.getItem("drmeet_enterprise_mode") === "true";
   const userOrgId = localStorage.getItem("drmeet_active_org_id") || "";
 
-  if (userRole === "doctor" && userPlan !== "enterprise" && !isEnterpriseMode && !userOrgId && userRole !== "admin") {
+  if (userRole === "doctor" && userPlan !== "enterprise" && !isEnterpriseMode && !userOrgId && !isSuperAdminUser()) {
     mainContent.innerHTML = `
       <section class="card" style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%); border: 1px solid rgba(14, 165, 233, 0.2); padding: 3rem 1.5rem; text-align: center; margin: 2rem auto; max-width: 640px;">
         <span style="font-size: 3.5rem; display: block; margin-bottom: 0.75rem;">🏢</span>
@@ -2306,7 +2432,7 @@ async function renderEnterpriseView() {
 
   await loadEnterpriseTree();
 
-  if (userRole === "admin") {
+  if (isSuperAdminUser()) {
     await renderAdminSubscriptionsTable("enterprise-admin-subscriptions-container");
   }
 }
@@ -2314,6 +2440,10 @@ async function renderEnterpriseView() {
 async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : null)) {
   const container = document.getElementById("enterprise-tree-container");
   if (!container) return;
+
+  // Clear DOM completely before fetching new hospital facility data
+  container.innerHTML = `<div class="feedback">Loading hospital tree...</div>`;
+
   try {
     const activeOrgId = targetOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || window._selectedOrgId || "";
     const orgIdQuery = activeOrgId ? `?orgId=${encodeURIComponent(activeOrgId)}` : "";
@@ -2346,8 +2476,23 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof
     }
 
     const facilityName = tree.name || tree.organization?.name || "Hospital Facility";
-    const doctorMeterPercent = Math.min(100, Math.round((tree.activeDoctors / (tree.maxDoctorSeats || 150)) * 100));
-    const roomMeterPercent = Math.min(100, Math.round((tree.activeRooms / (tree.maxRooms || 50)) * 100));
+    const doctorMeterPercent = Math.min(100, Math.round(((tree.activeDoctors || 0) / (tree.maxDoctorSeats || 150)) * 100));
+    const roomMeterPercent = Math.min(100, Math.round(((tree.activeRooms || 0) / (tree.maxRooms || 50)) * 100));
+    const depts = Array.isArray(tree.departments) ? tree.departments : [];
+
+    const departmentsContentHtml = depts.length === 0 ? `
+      <div class="card" style="padding: 2.5rem 1.5rem; text-align: center; margin-top: 1rem; border: 1px dashed #cbd5e1;">
+        <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;">🏥</span>
+        <h4 style="margin-bottom: 0.5rem; color: #0284c7; font-size: 1.1rem;">No departments found for this facility</h4>
+        <p style="color: #64748b; max-width: 480px; margin: 0 auto 1.25rem auto; font-size: 0.9rem; line-height: 1.5;">
+          No departments have been added to <strong>${escapeHtml(facilityName)}</strong> yet. Click <strong>'+ Add Department'</strong> above to create your first department.
+        </p>
+      </div>
+    ` : `
+      <div class="departments-tree-grid" style="display: flex; flex-direction: column; gap: 1.25rem;">
+        ${depts.map((dept) => buildDepartmentCardHtml(dept)).join("")}
+      </div>
+    `;
 
     container.innerHTML = `
       <section class="card" style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%); border: 1px solid rgba(14, 165, 233, 0.2); margin-bottom: 1.5rem;">
@@ -2370,14 +2515,14 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof
           <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
             <div style="min-width: 140px;">
               <div style="font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 4px;">Doctor Seats</div>
-              <strong style="font-size: 1.1rem; color: #0f172a;">${tree.activeDoctors} / ${tree.maxDoctorSeats}</strong>
+              <strong style="font-size: 1.1rem; color: #0f172a;">${tree.activeDoctors || 0} / ${tree.maxDoctorSeats || 150}</strong>
               <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;">
                 <div style="width: ${doctorMeterPercent}%; background: #0284c7; height: 100%;"></div>
               </div>
             </div>
             <div style="min-width: 140px;">
               <div style="font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 4px;">Consultation Rooms</div>
-              <strong style="font-size: 1.1rem; color: #0f172a;">${tree.activeRooms} / ${tree.maxRooms}</strong>
+              <strong style="font-size: 1.1rem; color: #0f172a;">${tree.activeRooms || 0} / ${tree.maxRooms || 50}</strong>
               <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;">
                 <div style="width: ${roomMeterPercent}%; background: #6366f1; height: 100%;"></div>
               </div>
@@ -2386,9 +2531,7 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof
         </div>
       </section>
 
-      <div class="departments-tree-grid" style="display: flex; flex-direction: column; gap: 1.25rem;">
-        ${(tree.departments || []).map((dept) => buildDepartmentCardHtml(dept)).join("")}
-      </div>
+      ${departmentsContentHtml}
     `;
 
     const hospitalSelect = document.getElementById("hospital-facility-switcher");
