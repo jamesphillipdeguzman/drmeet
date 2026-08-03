@@ -2314,27 +2314,26 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
           <button type="button" class="btn btn-secondary btn-sm" id="${containerId}-refresh-btn">🔄 Refresh Overview</button>
         </div>
 
-        <!-- Search Bar UI -->
-        <div class="mb-4 flex justify-between items-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem 1rem; border-radius: 8px;">
-          <div class="relative w-full max-w-xl" style="position: relative; flex: 1; min-width: 280px; max-width: 36rem;">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">🔍</span>
-            <input 
-              type="text" 
-              id="superadmin-search-input" 
-              placeholder="Search users by name, email, role, or plan..." 
-              class="search-input-unified"
-              style="width: 100%; padding: 8px 36px 8px 44px; border-radius: 8px; font-size: 0.875rem;"
-            />
-            <button 
-              type="button" 
-              id="superadmin-search-clear"
-              class="search-clear-btn hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-              style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; display: none;"
-              title="Clear search"
-            >
-              ✕
-            </button>
-          </div>
+        <!-- Standalone Search Bar (No Outer Card Wrapping) -->
+        <div class="relative w-full max-w-xl" style="position: relative; max-width: 36rem;">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">🔍</span>
+          <input 
+            type="text" 
+            id="superadmin-search-input" 
+            placeholder="Search users by name, email, role, or plan..." 
+            class="search-input-unified"
+            style="width: 100%; padding: 8px 36px 8px 44px; border-radius: 8px; font-size: 0.875rem;"
+          />
+          <button 
+            type="button" 
+            id="superadmin-search-clear"
+            class="search-clear-btn hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; display: none;"
+            title="Clear search"
+          >
+            ✕
+          </button>
+        </div>
           <span id="search-result-count" class="text-xs text-gray-500 dark:text-slate-400 font-medium" style="font-size: 0.8rem; font-weight: 600;">
             Showing ${users.length} of ${users.length} accounts
           </span>

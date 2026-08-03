@@ -57,7 +57,7 @@ export async function renderUsers() {
             type="text" 
             id="users-unified-search" 
             placeholder="Search users by name, email, role, phone, or plan..." 
-            class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 dark:text-white"
+            class="search-input-unified"
             style="width: 100%; padding: 8px 36px 8px 44px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
           />
           <button 
