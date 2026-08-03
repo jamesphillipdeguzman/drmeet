@@ -58,6 +58,59 @@ router.get('/google', (req, res, next) => {
   return passport.authenticate('google', options)(req, res, next);
 });
 
+function sendAuthPopupResponse(res, clientOrigin, { success, token, reason = 'failed', message = 'Google sign-in failed.' }) {
+  if (success && token) {
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head><title>Google Authentication</title></head>
+        <body>
+          <script>
+            const tokenValue = ${JSON.stringify(token)};
+            const clientOriginValue = ${JSON.stringify(clientOrigin)};
+            if (window.opener) {
+              try {
+                window.opener.postMessage(
+                  { type: 'GOOGLE_AUTH_SUCCESS', token: tokenValue },
+                  '*'
+                );
+              } catch (e) {}
+              window.close();
+            } else {
+              window.location.href = clientOriginValue + '/#login?oauth=success&token=' + encodeURIComponent(tokenValue);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+  } else {
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head><title>Google Authentication</title></head>
+        <body>
+          <script>
+            const reasonValue = ${JSON.stringify(reason)};
+            const messageValue = ${JSON.stringify(message)};
+            const clientOriginValue = ${JSON.stringify(clientOrigin)};
+            if (window.opener) {
+              try {
+                window.opener.postMessage(
+                  { type: 'GOOGLE_AUTH_FAILURE', code: reasonValue, message: messageValue },
+                  '*'
+                );
+              } catch (e) {}
+              window.close();
+            } else {
+              window.location.href = clientOriginValue + '/#login?oauth=' + encodeURIComponent(reasonValue);
+            }
+          </script>
+        </body>
+      </html>
+    `);
+  }
+}
+
 /**
  * @swagger
  * /api/auth/google/callback:
@@ -70,17 +123,37 @@ router.get('/google/callback', (req, res, next) => {
   const SESSION_SAVE_RETRY_DELAY_MS = 350;
 
   if (!req.query || (!req.query.code && !req.query.error)) {
-    return res.redirect(`${clientOrigin}/#login?oauth=missing_code`);
+    return sendAuthPopupResponse(res, clientOrigin, {
+      success: false,
+      reason: 'missing_code',
+      message: 'Google login could not be completed. Missing code.',
+    });
+  }
+
+  if (req.query.error) {
+    return sendAuthPopupResponse(res, clientOrigin, {
+      success: false,
+      reason: 'denied',
+      message: 'Google sign-in was cancelled or denied.',
+    });
   }
 
   passport.authenticate('google', { session: true }, (err, user) => {
     if (err || !user) {
-      return res.redirect(`${clientOrigin}/#login?oauth=failed`);
+      return sendAuthPopupResponse(res, clientOrigin, {
+        success: false,
+        reason: 'failed',
+        message: err?.message || 'Google sign-in failed. Please try again.',
+      });
     }
 
     req.logIn(user, (loginErr) => {
       if (loginErr) {
-        return res.redirect(`${clientOrigin}/#login?oauth=session_error`);
+        return sendAuthPopupResponse(res, clientOrigin, {
+          success: false,
+          reason: 'session_error',
+          message: 'Failed to establish session after Google sign-in.',
+        });
       }
 
       const payload = {
@@ -100,7 +173,11 @@ router.get('/google/callback', (req, res, next) => {
       const callbackTimeout = setTimeout(() => {
         if (responded) return;
         responded = true;
-        return res.redirect(`${clientOrigin}/#login?oauth=callback_timeout`);
+        return sendAuthPopupResponse(res, clientOrigin, {
+          success: false,
+          reason: 'callback_timeout',
+          message: 'Google login timed out. Please try again.',
+        });
       }, GOOGLE_CALLBACK_TIMEOUT_MS);
 
       const finishSuccess = () => {
@@ -115,34 +192,21 @@ router.get('/google/callback', (req, res, next) => {
           path: '/',
         });
 
-        return res.send(`
-          <html>
-            <body>
-              <script>
-                const tokenValue = ${JSON.stringify(token)};
-                const clientOriginValue = ${JSON.stringify(clientOrigin)};
-                if (window.opener) {
-                  try {
-                    window.opener.postMessage(
-                      { type: 'GOOGLE_AUTH_SUCCESS', token: tokenValue },
-                      '*'
-                    );
-                  } catch (e) {}
-                  window.close();
-                } else {
-                  window.location.href = clientOriginValue + '/#login?oauth=success&token=' + encodeURIComponent(tokenValue);
-                }
-              </script>
-            </body>
-          </html>
-        `);
+        return sendAuthPopupResponse(res, clientOrigin, {
+          success: true,
+          token,
+        });
       };
 
-      const finishFailure = (reason = 'session_error') => {
+      const finishFailure = (reason = 'session_error', message = 'Session error.') => {
         if (responded) return;
         responded = true;
         clearTimeout(callbackTimeout);
-        return res.redirect(`${clientOrigin}/#login?oauth=${reason}`);
+        return sendAuthPopupResponse(res, clientOrigin, {
+          success: false,
+          reason,
+          message,
+        });
       };
 
       const saveSessionWithRetry = (attempt = 0) => {
@@ -152,7 +216,7 @@ router.get('/google/callback', (req, res, next) => {
             return;
           }
           if (attempt >= SESSION_SAVE_RETRIES) {
-            finishFailure('session_error');
+            finishFailure('session_error', 'Failed to save session.');
             return;
           }
           setTimeout(
