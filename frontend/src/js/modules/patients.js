@@ -236,9 +236,18 @@ export async function renderPatients() {
             type="text" 
             id="patients-unified-search" 
             placeholder="Search patients by name, email, phone, DOB, records, or profile type..." 
-            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            style="width: 100%; padding: 8px 16px 8px 44px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; background: #ffffff;"
+            class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 dark:text-white"
+            style="width: 100%; padding: 8px 36px 8px 44px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
           />
+          <button 
+            type="button" 
+            id="patients-search-clear"
+            class="search-clear-btn hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; display: none;"
+            title="Clear search"
+          >
+            ✕
+          </button>
         </div>
         <label style="display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">Sort by date added
           <select id="patient-sort-order" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem;">
@@ -349,12 +358,15 @@ export async function renderPatients() {
         });
       });
     };
+    const patientSearchInput = document.getElementById("patients-unified-search");
+    const patientSearchClear = document.getElementById("patients-search-clear");
     const applyPatientFilters = () => {
-      const q = String(
-        document.getElementById("patients-unified-search")?.value || "",
-      )
+      const q = String(patientSearchInput?.value || "")
         .toLowerCase()
         .trim();
+      if (patientSearchClear) {
+        patientSearchClear.style.display = q.length > 0 ? "block" : "none";
+      }
       const order =
         document.getElementById("patient-sort-order")?.value || "newest";
       const sorted = sortPatientsByCreated(patients, order);
@@ -386,9 +398,14 @@ export async function renderPatients() {
       });
       renderRows(filtered);
     };
-    document
-      .getElementById("patients-unified-search")
-      ?.addEventListener("input", applyPatientFilters);
+    patientSearchInput?.addEventListener("input", applyPatientFilters);
+    patientSearchClear?.addEventListener("click", () => {
+      if (patientSearchInput) {
+        patientSearchInput.value = "";
+        applyPatientFilters();
+        patientSearchInput.focus();
+      }
+    });
     document
       .getElementById("patient-sort-order")
       ?.addEventListener("change", applyPatientFilters);

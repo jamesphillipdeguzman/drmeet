@@ -1550,18 +1550,103 @@ body.theme-dark textarea {
 }
 body.theme-dark .list-filters input,
 body.theme-dark .list-filters select {
-  background: #fff;
-  color: #000;
+  background: #0f172a;
+  color: #f8fafc;
+  border-color: #334155;
 }
 body.theme-dark .list-filters input::placeholder {
-  color: #56607a;
+  color: #94a3b8;
 }
+
+body.theme-dark #hospital-facility-switcher,
+body.theme-dark #hospital-switcher,
+body.theme-dark #hierarchy-search-category {
+  background: #0f172a !important;
+  color: #38bdf8 !important;
+  border-color: #0284c7 !important;
+}
+
+body.theme-dark .department-tree-card,
+body.theme-dark .department-card {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+body.theme-dark .department-tree-card h3,
+body.theme-dark .department-card h3 {
+  color: #f8fafc !important;
+}
+
+body.theme-dark .room-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+body.theme-dark .room-card strong {
+  color: #f8fafc !important;
+}
+
+body.theme-dark .room-card span {
+  color: #cbd5e1 !important;
+}
+
+body.theme-dark .doctor-draggable-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+body.theme-dark .doctor-draggable-card strong {
+  color: #f8fafc !important;
+}
+
+body.theme-dark .doctor-draggable-card span {
+  color: #cbd5e1 !important;
+}
+
+body.theme-dark .assigned-doctor-badge {
+  background: #1e3a8a !important;
+  border-color: #1d4ed8 !important;
+  color: #93c5fd !important;
+}
+
+body.theme-dark #hierarchy-search-input,
+body.theme-dark #doctors-unified-search,
+body.theme-dark #patients-unified-search,
+body.theme-dark #users-unified-search {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+body.theme-dark #hierarchy-search-input::placeholder,
+body.theme-dark #doctors-unified-search::placeholder,
+body.theme-dark #patients-unified-search::placeholder,
+body.theme-dark #users-unified-search::placeholder {
+  color: #94a3b8 !important;
+}
+
+body.theme-dark .search-clear-btn {
+  color: #cbd5e1 !important;
+}
+body.theme-dark .search-clear-btn:hover {
+  color: #ffffff !important;
+}
+
+body.theme-dark .empty-workspace {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
 body.theme-dark .card-header h3,
 body.theme-dark .message-preview,
 body.theme-dark .thread-item,
 body.theme-dark .status-row,
 body.theme-dark [data-messenger-peer-name] {
-  color: #000;
+  color: #e2e8f0;
 }
 body.theme-dark .inbox-live-row .live-status-text {
   color: #000;
