@@ -2322,7 +2322,7 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
               id="superadmin-search-input" 
               placeholder="Search users by name, email, role, or plan..." 
               class="search-input-unified"
-              style="width: 100%; padding: 8px 36px 8px 44px; border-radius: 8px; font-size: 0.875rem;"
+              style="width: 100%; padding: 8px 36px 8px 48px; border-radius: 8px; font-size: 0.875rem;"
             />
             <button 
               type="button" 
@@ -2649,7 +2649,7 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
           id="hierarchy-search-input" 
           placeholder="Search by department name, consultation room, doctor name, or specialty..." 
           class="search-input-unified"
-          style="width: 100%; padding: 8px 36px 8px 44px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
+          style="width: 100%; padding: 8px 36px 8px 48px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
         />
         <button 
           type="button" 
