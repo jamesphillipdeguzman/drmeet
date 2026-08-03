@@ -50,12 +50,18 @@ export async function renderUsers() {
         ${isReceptionist ? "" : '<button class="cta-primary" onclick="window.showUserForm()">Add User</button>'}
       </div>
       <hr class="section-divider" />
-      <div class="list-filters">
-        <input type="search" id="user-filter-name" placeholder="Filter by name" />
-        <input type="search" id="user-filter-email" placeholder="Filter by email" />
-        <input type="search" id="user-filter-role" placeholder="Filter by role" />
-        <input type="search" id="user-filter-phone" placeholder="Filter by phone" />
-        <select id="user-sort-name">
+      <div class="list-filters" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
+        <div class="relative w-full max-w-xl" style="position: relative; flex: 1; min-width: 280px; max-width: 36rem;">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">🔍</span>
+          <input 
+            type="text" 
+            id="users-unified-search" 
+            placeholder="Search users by name, email, role, phone, or plan..." 
+            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            style="width: 100%; padding: 8px 16px 8px 44px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; background: #ffffff;"
+          />
+        </div>
+        <select id="user-sort-name" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem;">
           <option value="az">Sort Name A-Z</option>
           <option value="za">Sort Name Z-A</option>
         </select>
@@ -113,10 +119,7 @@ export async function renderUsers() {
         .join("");
     };
     const applyUserFilters = () => {
-      const nameQ = String(document.getElementById("user-filter-name")?.value || "").toLowerCase().trim();
-      const emailQ = String(document.getElementById("user-filter-email")?.value || "").toLowerCase().trim();
-      const roleQ = String(document.getElementById("user-filter-role")?.value || "").toLowerCase().trim();
-      const phoneQ = String(document.getElementById("user-filter-phone")?.value || "").toLowerCase().trim();
+      const q = String(document.getElementById("users-unified-search")?.value || "").toLowerCase().trim();
       const sortQ = String(document.getElementById("user-sort-name")?.value || "az");
       const filtered = users
         .filter((u) => {
@@ -124,11 +127,14 @@ export async function renderUsers() {
           const email = String(u.email || "").toLowerCase();
           const roleStr = String(u.role || "").toLowerCase();
           const phone = String(u.phone || "").toLowerCase();
+          const plan = String(u.subscriptionPlan || "").toLowerCase();
           return (
-            (!nameQ || name.includes(nameQ)) &&
-            (!emailQ || email.includes(emailQ)) &&
-            (!roleQ || roleStr.includes(roleQ)) &&
-            (!phoneQ || phone.includes(phoneQ))
+            !q ||
+            name.includes(q) ||
+            email.includes(q) ||
+            roleStr.includes(q) ||
+            phone.includes(q) ||
+            plan.includes(q)
           );
         })
         .sort((a, b) => {
@@ -138,10 +144,8 @@ export async function renderUsers() {
         });
       renderUserRows(filtered);
     };
-    ["user-filter-name", "user-filter-email", "user-filter-role", "user-filter-phone", "user-sort-name"].forEach((id) => {
-      document.getElementById(id)?.addEventListener("input", applyUserFilters);
-      document.getElementById(id)?.addEventListener("change", applyUserFilters);
-    });
+    document.getElementById("users-unified-search")?.addEventListener("input", applyUserFilters);
+    document.getElementById("user-sort-name")?.addEventListener("change", applyUserFilters);
     document.getElementById("users-refresh-btn")?.addEventListener("click", () => {
       void renderUsers();
     });

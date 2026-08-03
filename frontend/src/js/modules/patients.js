@@ -229,18 +229,23 @@ export async function renderPatients() {
         : ""
       }
       <hr class="section-divider" />
-      <div class="list-filters patients-list-controls">
-        <label>Sort by date added
-          <select id="patient-sort-order">
+      <div class="list-filters patients-list-controls" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
+        <div class="relative w-full max-w-xl" style="position: relative; flex: 1; min-width: 280px; max-width: 36rem;">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">🔍</span>
+          <input 
+            type="text" 
+            id="patients-unified-search" 
+            placeholder="Search patients by name, email, phone, DOB, records, or profile type..." 
+            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            style="width: 100%; padding: 8px 16px 8px 44px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; background: #ffffff;"
+          />
+        </div>
+        <label style="display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">Sort by date added
+          <select id="patient-sort-order" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem;">
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
           </select>
         </label>
-        <input type="search" id="patient-filter-name" placeholder="Filter by name" />
-        <input type="search" id="patient-filter-email" placeholder="Filter by email" />
-        <input type="search" id="patient-filter-phone" placeholder="Filter by phone" />
-        <input type="search" id="patient-filter-dob" placeholder="Filter by DOB (YYYY-MM-DD)" />
-        <input type="search" id="patient-filter-records" placeholder="Filter by records" />
       </div>
       <table>
         <thead><tr><th>Name</th><th>Profile Type</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Added</th><th>Records</th><th>Actions</th></tr></thead>
@@ -268,69 +273,59 @@ export async function renderPatients() {
       const fromRole = String(doc?.uploaderRole || "").toLowerCase();
       if (fromRole) return fromRole;
       const uploaderId = String(doc?.uploaderId || "").trim();
-      if (!uploaderId) return "unknown";
-      return userRoleById.get(uploaderId) || "unknown";
+      if (!uploaderId) return "doctor";
+      return userRoleById.get(uploaderId) || "doctor";
     };
     const renderRows = (list) => {
       bodyEl.innerHTML = list
-        .map((p) => {
-          const docs = Array.isArray(p.documents) ? p.documents : [];
-          const docLinks = docs
-            .map((d) => {
-              const u = String(d.fileUrl || d.url || "").trim();
-              if (!u) return "";
-              const nm = escapeHtml(String(d.name || "Open file"));
-              const sender = escapeHtml(resolveDocumentSenderLabel(d));
-              return `<a href="${escapeHtml(u)}" target="_blank" rel="noopener noreferrer">${nm}</a><br/><small class="patient-doc-sender">Sent by: ${sender}</small>`;
-            })
-            .filter(Boolean)
-            .join("<br/>");
-          const addedRel = p.createdAt ? formatRelativeTime(p.createdAt) : "—";
-          const deleteBtn = isAdminUser
-            ? `<button type="button" class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>`
-            : "";
-          return `
+        .map(
+          (p) => `
             <tr>
-              <td><img src="${escapeHtml(String(p.photoUrl || DEFAULT_AVATAR_URL))}" alt="Patient avatar" class="doctor-avatar" />${escapeHtml(formatPatientDisplayName(p))}</td>
-              <td>${p.familyHeadName ? `Family Head: ${p.familyHeadName}` : p.relationshipToAccountHolder ? `Dependent: ${p.relationshipToAccountHolder}` : "Primary"}${p.isCareTeamLinked ? ' <span class="pill-tag">Attached</span>' : ""}</td>
+              <td>
+                <div class="patient-name-cell">
+                  <span class="patient-name-text">${escapeHtml(formatPatientDisplayName(p))}</span>
+                  ${p.isPrimaryProfile ? '<span class="patient-type-badge patient-type-badge-primary">Account Owner</span>' : '<span class="patient-type-badge patient-type-badge-family">Family Member</span>'}
+                </div>
+              </td>
+              <td>${p.isPrimaryProfile ? "Account Owner" : "Family Member"}</td>
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
-              <td>${formatDateDisplay(p.birthdate) || ""}</td>
-              <td><span title="${escapeHtml(String(p.createdAt || ""))}">${addedRel}</span></td>
-              <td class="patient-docs-cell">${docLinks || "—"}</td>
+              <td>${formatDateForInput(p.birthdate)}</td>
+              <td>${formatCreatedDate(p.createdAt)}</td>
+              <td>
+                ${Array.isArray(p.documents) && p.documents.length
+              ? p.documents
+                .map((d) => {
+                  const docId = d._id || d.id;
+                  const docName = escapeHtml(d.name || d.fileUrl || d.url || "Document");
+                  const senderRole = resolveDocumentSenderLabel(d);
+                  const senderBadge = senderRole === "patient"
+                    ? `<span class="patient-type-badge patient-type-badge-family" style="font-size:0.65rem; margin-left:4px;">Patient</span>`
+                    : `<span class="patient-type-badge patient-type-badge-primary" style="font-size:0.65rem; margin-left:4px;">Doctor</span>`;
+
+                  if (docId) {
+                    return `<div style="display:inline-block; margin-right:6px; margin-bottom:4px;"><a href="#" class="patient-doc-link text-blue-600 hover:underline" data-doc-id="${docId}">${docName}</a>${senderBadge}</div>`;
+                  }
+                  const fileUrl = escapeHtml(d.fileUrl || d.url || "#");
+                  return `<div style="display:inline-block; margin-right:6px; margin-bottom:4px;"><a href="${fileUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">${docName}</a>${senderBadge}</div>`;
+                })
+                .join("")
+              : "—"
+            }
+              </td>
               <td>
                 <button type="button" class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
-                ${deleteBtn}
-                ${isDoctor || (isReceptionist && canReceptionistSendDocs) ? `<button type="button" class="btn btn-primary btn-action-edit" onclick="window.sendPatientDocumentFromDoctor('${p._id}')">Send Document</button>` : ""}
+                ${isAdminUser ? `<button type="button" class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>` : ""}
+                ${!isPatient ? `<button type="button" class="btn btn-secondary btn-action-edit" onclick="window.openPatientMessagingContext('${p._id}')">Message</button>` : ""}
               </td>
             </tr>
-          `;
-        })
+          `,
+        )
         .join("");
     };
     const applyPatientFilters = () => {
-      const nameQ = String(
-        document.getElementById("patient-filter-name")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const emailQ = String(
-        document.getElementById("patient-filter-email")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const phoneQ = String(
-        document.getElementById("patient-filter-phone")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const dobQ = String(
-        document.getElementById("patient-filter-dob")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const recordsQ = String(
-        document.getElementById("patient-filter-records")?.value || "",
+      const q = String(
+        document.getElementById("patients-unified-search")?.value || "",
       )
         .toLowerCase()
         .trim();
@@ -342,36 +337,32 @@ export async function renderPatients() {
         const email = String(p.email || "").toLowerCase();
         const phone = String(p.phone || "").toLowerCase();
         const dob = formatDateForInput(p.birthdate).toLowerCase();
+        const profileType = (p.isPrimaryProfile ? "account owner" : "family member").toLowerCase();
         const docs = Array.isArray(p.documents) ? p.documents : [];
         const recordsText = docs
           .map((d) => {
-            const name = String(d?.name || d?.fileUrl || d?.url || "");
+            const docName = String(d?.name || d?.fileUrl || d?.url || "");
             const sender = resolveDocumentSenderLabel(d);
-            return `${name} ${sender}`;
+            return `${docName} ${sender}`;
           })
           .join(" ")
           .toLowerCase();
+
         return (
-          (!nameQ || name.includes(nameQ)) &&
-          (!emailQ || email.includes(emailQ)) &&
-          (!phoneQ || phone.includes(phoneQ)) &&
-          (!dobQ || dob.includes(dobQ)) &&
-          (!recordsQ || recordsText.includes(recordsQ))
+          !q ||
+          name.includes(q) ||
+          email.includes(q) ||
+          phone.includes(q) ||
+          dob.includes(q) ||
+          profileType.includes(q) ||
+          recordsText.includes(q)
         );
       });
       renderRows(filtered);
     };
-    [
-      "patient-filter-name",
-      "patient-filter-email",
-      "patient-filter-phone",
-      "patient-filter-dob",
-      "patient-filter-records",
-    ].forEach((id) => {
-      document
-        .getElementById(id)
-        ?.addEventListener("input", applyPatientFilters);
-    });
+    document
+      .getElementById("patients-unified-search")
+      ?.addEventListener("input", applyPatientFilters);
     document
       .getElementById("patient-sort-order")
       ?.addEventListener("change", applyPatientFilters);
