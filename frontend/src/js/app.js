@@ -190,7 +190,7 @@ function updateSidebarAccountInfoAndPlan() {
           <div class="mt-1">${planBadge}</div>
         `;
       }
-      
+
       const pricingBadge = document.getElementById("nav-pricing-badge");
       if (pricingBadge) {
         if (plan === "pro") {
@@ -420,7 +420,7 @@ window.addEventListener("DOMContentLoaded", () => {
   let _showPatientForm = null;
   Object.defineProperty(window, "showPatientForm", {
     get() {
-      return async function(editId = null, familyMode = false) {
+      return async function (editId = null, familyMode = false) {
         if (!editId) {
           const plan = localStorage.getItem("subscription_plan") || "starter";
           if (plan === "starter") {
@@ -1203,44 +1203,43 @@ async function showClinicalTab(tab) {
 
         const groupedHtml = Object.keys(groupedDocs).length
           ? Object.entries(groupedDocs)
-              .map(
-                ([groupKey, groupItems], index) => {
-                  const divider = index > 0 ? `<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0;" />` : "";
-                  return `
+            .map(
+              ([groupKey, groupItems], index) => {
+                const divider = index > 0 ? `<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0;" />` : "";
+                return `
                   ${divider}
                   <div class="clinical-doc-group">
                     <h5 class="clinical-doc-group-heading" style="font-weight: 600; color: #1e3a8a; font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem;">${escapeHtml(groupKey)}</h5>
                     <ul class="clinical-doc-list">
                       ${groupItems
-                        .map(
-                          (d) => `
+                    .map(
+                      (d) => `
                         <li class="card clinical-doc-row">
                           <div>
                             <span style="font-weight: normal;">${escapeHtml(d.name || "Document")}</span>
                             <p class="clinical-muted">${escapeHtml(
-                              d.source === "patient"
-                                ? "Patient chart"
-                                : d.source === "clinic"
-                                  ? "Clinic library"
-                                  : d.source || "—",
-                            )}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
-                            <p class="clinical-muted">${
-                              d.uploadedAt
-                                ? escapeHtml(new Date(d.uploadedAt).toLocaleString())
-                                : ""
-                            }</p>
+                        d.source === "patient"
+                          ? "Patient chart"
+                          : d.source === "clinic"
+                            ? "Clinic library"
+                            : d.source || "—",
+                      )}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
+                            <p class="clinical-muted">${d.uploadedAt
+                          ? escapeHtml(new Date(d.uploadedAt).toLocaleString())
+                          : ""
+                        }</p>
                           </div>
                           <a class="btn btn-secondary btn-sm" href="${escapeHtml(
-                            d.fileUrl || d.url || "#",
-                          )}" target="_blank" rel="noopener noreferrer">Open</a>
+                          d.fileUrl || d.url || "#",
+                        )}" target="_blank" rel="noopener noreferrer">Open</a>
                         </li>`,
-                        )
-                        .join("")}
+                    )
+                    .join("")}
                     </ul>
                   </div>`;
-                }
-              )
-              .join("")
+              }
+            )
+            .join("")
           : `<ul class="clinical-doc-list"><li class="feedback">No documents yet.</li></ul>`;
 
         const container = panel.querySelector(".clinical-docs-grouped-container");
@@ -2051,12 +2050,12 @@ async function renderSettings() {
           <strong style="font-size: 1.15rem;" class="text-slate-800 dark:text-slate-200" id="settings-current-plan-name">${planName}</strong>
         </div>
         <div>
-          ${plan === "starter" 
-            ? `<button type="button" class="btn btn-primary" onclick="window.location.hash = '#pricing';">Upgrade Plan</button>`
-            : plan === "pro"
-              ? `<button type="button" class="btn btn-secondary btn-action-delete" id="settings-cancel-sub-btn">Cancel Subscription</button>`
-              : `<button type="button" class="btn btn-secondary" onclick="window.location.hash = '#pricing';">Change Plan</button>`
-          }
+          ${plan === "starter"
+        ? `<button type="button" class="btn btn-primary" onclick="window.location.hash = '#pricing';">Upgrade Plan</button>`
+        : plan === "pro"
+          ? `<button type="button" class="btn btn-secondary btn-action-delete" id="settings-cancel-sub-btn">Cancel Subscription</button>`
+          : `<button type="button" class="btn btn-secondary" onclick="window.location.hash = '#pricing';">Change Plan</button>`
+      }
         </div>
       </div>
     </section>
@@ -2216,9 +2215,9 @@ async function renderSettings() {
             </div>
           </div>`
         );
-        
+
         const dialog = document.getElementById("pricing-interaction-dialog");
-        
+
         document.getElementById("confirm-cancel-sub")?.addEventListener("click", () => {
           localStorage.setItem("subscription_plan", "starter");
           showToast("Subscription cancelled. Downgraded to Starter plan.", "success");
@@ -2226,7 +2225,7 @@ async function renderSettings() {
           updateSidebarAccountInfoAndPlan();
           void renderSettings();
         });
-        
+
         document.getElementById("keep-cancel-sub")?.addEventListener("click", () => {
           dialog?.close();
         });
@@ -2264,7 +2263,7 @@ function isSuperAdminUser() {
   let cache = {};
   try {
     cache = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
-  } catch (e) {}
+  } catch (e) { }
 
   const userRole = getCurrentUserRole();
   const orgRole = localStorage.getItem("org_role") || cache.orgRole || "";
@@ -2323,7 +2322,7 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
               type="text" 
               id="superadmin-search-input" 
               placeholder="Search users by name, email, role, or plan..." 
-              class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              class="search-input-unified"
               style="width: 100%; padding: 8px 36px 8px 44px; border-radius: 8px; font-size: 0.875rem;"
             />
             <button 
@@ -2377,10 +2376,10 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
             <tbody>
               ${users.length === 0 ? `<tr><td colspan="6" style="padding: 1rem; text-align: center; color: #94a3b8;">No registered users found.</td></tr>` : `
                 ${users.map((u) => {
-                  const tierBadgeColor = u.currentTier === "Enterprise" ? "background:#f3e8ff; color:#6b21a8; border:1px solid #d8b4fe;" : u.currentTier === "Pro" ? "background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;" : "background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;";
-                  const roleBadgeColor = u.role === "admin" || u.role === "superadmin" ? "background:#fee2e2; color:#991b1b;" : u.role === "doctor" ? "background:#dcfce7; color:#166534;" : "background:#f3f4f6; color:#374151;";
-                  const formattedDate = u.joinedDate ? new Date(u.joinedDate).toLocaleDateString() : "—";
-                  return `
+      const tierBadgeColor = u.currentTier === "Enterprise" ? "background:#f3e8ff; color:#6b21a8; border:1px solid #d8b4fe;" : u.currentTier === "Pro" ? "background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;" : "background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;";
+      const roleBadgeColor = u.role === "admin" || u.role === "superadmin" ? "background:#fee2e2; color:#991b1b;" : u.role === "doctor" ? "background:#dcfce7; color:#166534;" : "background:#f3f4f6; color:#374151;";
+      const formattedDate = u.joinedDate ? new Date(u.joinedDate).toLocaleDateString() : "—";
+      return `
                     <tr style="border-bottom: 1px solid #f1f5f9;">
                       <td style="padding: 8px 10px;">
                         <strong>${escapeHtml(u.name)}</strong>
@@ -2397,7 +2396,7 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
                       <td style="padding: 8px 10px; color: #64748b; font-size: 0.8rem;">${formattedDate}</td>
                     </tr>
                   `;
-                }).join("")}
+    }).join("")}
               `}
             </tbody>
           </table>
@@ -2649,7 +2648,7 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
           type="text" 
           id="hierarchy-search-input" 
           placeholder="Search by department name, consultation room, doctor name, or specialty..." 
-          class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 dark:text-white"
+          class="search-input-unified"
           style="width: 100%; padding: 8px 36px 8px 44px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
         />
         <button 
@@ -2852,8 +2851,8 @@ function buildDepartmentCardHtml(dept) {
           ${rooms.length === 0 ? `<div style="font-size: 0.85rem; color: #94a3b8; font-style: italic;">No rooms assigned</div>` : `
             <div style="display: flex; flex-direction: column; gap: 0.4rem;">
               ${rooms.map((r) => {
-                const roomDoctors = doctors.filter((doc) => doc.assignedRoom && String(doc.assignedRoom.id || doc.assignedRoom._id || doc.assignedRoom) === String(r.id));
-                return `
+    const roomDoctors = doctors.filter((doc) => doc.assignedRoom && String(doc.assignedRoom.id || doc.assignedRoom._id || doc.assignedRoom) === String(r.id));
+    return `
                   <div class="room-card room-drop-target" data-room-id="${r.id}" style="display: flex; flex-direction: column; background: #ffffff; padding: 0.5rem 0.6rem; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.85rem; transition: all 0.2s ease;">
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                       <div>
@@ -2874,7 +2873,7 @@ function buildDepartmentCardHtml(dept) {
                     `).join("")}
                   </div>
                 `;
-              }).join("")}
+  }).join("")}
             </div>
           `}
         </div>
@@ -3333,7 +3332,7 @@ async function showAddDoctorModal(deptName) {
   try {
     const res = await apiRequest(`${API_BASE}/doctors`);
     if (res.ok) doctorsList = await res.json();
-  } catch (e) {}
+  } catch (e) { }
 
   const tree = window._lastOrgTree || {};
   const deptList = Array.isArray(tree.departments) ? tree.departments : [];
@@ -3349,9 +3348,9 @@ async function showAddDoctorModal(deptName) {
             <select id="modal-doctor-dept-select" name="department" class="w-full px-3 py-2 border rounded-md text-sm dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700" style="width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 0.875rem;">
               ${deptList.length === 0 ? `<option value="${escapeHtml(deptName || "General / Unassigned")}">${escapeHtml(deptName || "General / Unassigned")}</option>` : `
                 ${deptList.map((d) => {
-                  const dName = typeof d === "string" ? d : d.name;
-                  return `<option value="${escapeHtml(dName)}" ${dName === deptName ? "selected" : ""}>${escapeHtml(dName)}</option>`;
-                }).join("")}
+    const dName = typeof d === "string" ? d : d.name;
+    return `<option value="${escapeHtml(dName)}" ${dName === deptName ? "selected" : ""}>${escapeHtml(dName)}</option>`;
+  }).join("")}
               `}
             </select>
           </div>
@@ -3431,9 +3430,9 @@ function showAddRoomModal(deptName) {
             <select id="modal-room-dept-select" name="department" class="w-full px-3 py-2 border rounded-md text-sm dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700" style="width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 0.875rem;">
               ${deptList.length === 0 ? `<option value="${escapeHtml(deptName || "General / Unassigned")}">${escapeHtml(deptName || "General / Unassigned")}</option>` : `
                 ${deptList.map((d) => {
-                  const dName = typeof d === "string" ? d : d.name;
-                  return `<option value="${escapeHtml(dName)}" ${dName === deptName ? "selected" : ""}>${escapeHtml(dName)}</option>`;
-                }).join("")}
+    const dName = typeof d === "string" ? d : d.name;
+    return `<option value="${escapeHtml(dName)}" ${dName === deptName ? "selected" : ""}>${escapeHtml(dName)}</option>`;
+  }).join("")}
               `}
             </select>
           </div>
@@ -3506,7 +3505,7 @@ async function showDoctorNodePopover(doctorId) {
     const url = currentOrgId ? `${API_BASE}/organization/rooms?orgId=${encodeURIComponent(currentOrgId)}` : `${API_BASE}/organization/rooms`;
     const res = await apiRequest(url);
     if (res.ok) roomsList = await res.json();
-  } catch (e) {}
+  } catch (e) { }
 
   // Consolidate rooms from API response and current tree state
   const allRoomsMap = new Map();
@@ -3706,7 +3705,7 @@ async function initiatePayMongoCheckout(btnElement) {
         if (fallbackRes.ok) {
           response = fallbackRes;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (!response.ok) {
@@ -3719,7 +3718,7 @@ async function initiatePayMongoCheckout(btnElement) {
         if (fallbackRes2.ok) {
           response = fallbackRes2;
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const data = await response.json();
@@ -3907,7 +3906,7 @@ function renderPricing() {
       void renderSignup();
       return;
     }
-    
+
     if (plan === "starter") {
       showPricingModal(
         "Starter Active",

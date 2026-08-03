@@ -168,7 +168,7 @@ export async function renderPatients() {
     }
     const clearDoctorDropdown =
       localStorage.getItem(CLEAR_SEND_DOC_DOCTOR_KEY) === "1";
-    
+
     // Formatting helper locally mapped
     const formatDoctorDisplayName = (d) => {
       if (!d) return "";
@@ -236,7 +236,7 @@ export async function renderPatients() {
             type="text" 
             id="patients-unified-search" 
             placeholder="Search patients by name, email, phone, DOB, records, or profile type..." 
-            class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-900 dark:text-white"
+            class="search-input-unified"
             style="width: 100%; padding: 8px 36px 8px 44px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
           />
           <button 
@@ -558,7 +558,7 @@ export async function showPatientForm(editId = null, familyMode = false) {
           return;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const modal = document.getElementById("patient-form-modal");
