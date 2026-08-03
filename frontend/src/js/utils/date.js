@@ -35,10 +35,22 @@
     return `${days} day${days === 1 ? "" : "s"} ago`;
   }
 
+  function formatCreatedDate(value) {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
   window.DrMeetUtils = {
     ...(window.DrMeetUtils || {}),
     formatDateForInput,
     formatDateDisplay,
     formatRelativeTime,
+    formatCreatedDate,
   };
 })();

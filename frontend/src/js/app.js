@@ -342,6 +342,24 @@ function formatDateDisplay(value) {
   return String(value || "");
 }
 
+function formatCreatedDate(value) {
+  if (window.DrMeetUtils?.formatCreatedDate) {
+    return window.DrMeetUtils.formatCreatedDate(value);
+  }
+  if (!value) return "—";
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+if (typeof window !== "undefined") {
+  window.formatCreatedDate = formatCreatedDate;
+}
+
 function buildDoctorAvailabilityLabel(doctor) {
   const slots = Array.isArray(doctor.availability) ? doctor.availability : [];
   if (doctor.availabilityText) return doctor.availabilityText;
