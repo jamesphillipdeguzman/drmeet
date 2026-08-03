@@ -2626,8 +2626,11 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
 
     container.querySelector("#add-first-dept-btn")?.addEventListener("click", () => showAddDepartmentModal());
 
-    const hospitalSelect = document.getElementById("hospital-facility-switcher") || document.getElementById("hospital-switcher");
+    const hospitalSelect = document.getElementById("hospital-facility-switcher");
     if (hospitalSelect) {
+      if (window.activeOrgId || currentOrgId) {
+        hospitalSelect.value = window.activeOrgId || currentOrgId;
+      }
       hospitalSelect.addEventListener("change", async (e) => {
         const selectedOrgId = e.target.value;
         if (!selectedOrgId) return;
@@ -2635,13 +2638,13 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
         const selectedOrgName = e.target.options[e.target.selectedIndex]?.text || "";
 
         // 1. Instantly update the main facility title on screen
-        const titleEl = document.querySelector("#enterprise-header-facility-name") || document.querySelector("#hospital-title-display") || document.querySelector(".hospital-title-display") || document.querySelector(".hospital-name-display");
+        const titleEl = document.querySelector("#enterprise-header-facility-name");
         if (titleEl && selectedOrgName) {
           titleEl.textContent = `🏥 ${selectedOrgName.trim()}`;
         }
 
         // 2. Clear current tree container & show loading state
-        const treeContainer = document.querySelector("#enterprise-tree-container") || document.querySelector("#hospital-tree-container");
+        const treeContainer = document.querySelector("#enterprise-tree-container");
         if (treeContainer) {
           treeContainer.innerHTML = '<div class="feedback" style="padding: 2rem; text-align: center; color: #64748b;">Loading facility hierarchy...</div>';
         }
@@ -3177,13 +3180,26 @@ async function showAddDoctorModal(deptName) {
     if (res.ok) doctorsList = await res.json();
   } catch (e) {}
 
+  const tree = window._lastOrgTree || {};
+  const deptList = Array.isArray(tree.departments) ? tree.departments : [];
+
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
       <div class="modal-sheet card" style="display:block; max-width: 480px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
         <button type="button" class="modal-close-x" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">&times;</button>
-        <h3 style="margin-top:0;">👨‍⚕️ Attach Doctor to ${escapeHtml(deptName || "Department")}</h3>
+        <h3 style="margin-top:0;">👨‍⚕️ Attach Doctor to Facility</h3>
         <form id="add-doctor-to-dept-form">
-          <input type="hidden" name="department" value="${escapeHtml(deptName || "")}" />
+          <div class="mb-4" style="margin-bottom: 0.75rem;">
+            <label class="block text-sm font-medium text-gray-700 mb-1" style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Target Department</label>
+            <select id="modal-doctor-dept-select" name="department" class="w-full px-3 py-2 border rounded-md text-sm" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem; background: #ffffff;">
+              ${deptList.length === 0 ? `<option value="${escapeHtml(deptName || "General / Unassigned")}">${escapeHtml(deptName || "General / Unassigned")}</option>` : `
+                ${deptList.map((d) => {
+                  const dName = typeof d === "string" ? d : d.name;
+                  return `<option value="${escapeHtml(dName)}" ${dName === deptName ? "selected" : ""}>${escapeHtml(dName)}</option>`;
+                }).join("")}
+              `}
+            </select>
+          </div>
           <label>Select Existing Doctor
             <select name="doctorId">
               <option value="">-- Choose Doctor --</option>
@@ -3216,6 +3232,8 @@ async function showAddDoctorModal(deptName) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form));
+    const selectedDept = document.getElementById("modal-doctor-dept-select")?.value;
+    if (selectedDept) data.department = selectedDept;
     try {
       const res = await apiRequest(`${API_BASE}/organization/doctors`, {
         method: "POST",
@@ -3234,13 +3252,26 @@ async function showAddDoctorModal(deptName) {
 
 function showAddRoomModal(deptName) {
   const container = document.getElementById("enterprise-modal-container") || document.body;
+  const tree = window._lastOrgTree || {};
+  const deptList = Array.isArray(tree.departments) ? tree.departments : [];
+
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
       <div class="modal-sheet card" style="display:block; max-width: 420px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
         <button type="button" class="modal-close-x" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">&times;</button>
-        <h3 style="margin-top:0;">🚪 Add Consultation Room to ${escapeHtml(deptName || "Department")}</h3>
+        <h3 style="margin-top:0;">🚪 Add Consultation Room</h3>
         <form id="add-room-form">
-          <input type="hidden" name="department" value="${escapeHtml(deptName || "")}" />
+          <div class="mb-4" style="margin-bottom: 0.75rem;">
+            <label class="block text-sm font-medium text-gray-700 mb-1" style="display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 4px;">Target Department</label>
+            <select id="modal-room-dept-select" name="department" class="w-full px-3 py-2 border rounded-md text-sm" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem; background: #ffffff;">
+              ${deptList.length === 0 ? `<option value="${escapeHtml(deptName || "General / Unassigned")}">${escapeHtml(deptName || "General / Unassigned")}</option>` : `
+                ${deptList.map((d) => {
+                  const dName = typeof d === "string" ? d : d.name;
+                  return `<option value="${escapeHtml(dName)}" ${dName === deptName ? "selected" : ""}>${escapeHtml(dName)}</option>`;
+                }).join("")}
+              `}
+            </select>
+          </div>
           <label>Room Name <input name="roomName" placeholder="e.g. Room 101, OPD Suite A" required /></label>
           <label>Daily Patient Load Cap <input type="number" name="dailyPatientCap" value="30" min="1" max="200" required /></label>
           <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
@@ -3259,6 +3290,8 @@ function showAddRoomModal(deptName) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form));
+    const selectedDept = document.getElementById("modal-room-dept-select")?.value;
+    if (selectedDept) data.department = selectedDept;
     try {
       const res = await apiRequest(`${API_BASE}/organization/rooms`, {
         method: "POST",
