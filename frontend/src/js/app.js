@@ -2316,29 +2316,28 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
 
         <!-- Standalone Search Bar (No Outer Card Wrapping) -->
         <div class="relative w-full max-w-xl" style="position: relative; max-width: 36rem; display: flex; align-items: center;">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; display: flex; align-items: center;">🔍</span>
-            <input 
-              type="text" 
-              id="superadmin-search-input" 
-              placeholder="Search users by name, email, role, or plan..." 
-              class="search-input-unified"
-              style="width: 100%; padding: 8px 36px 8px 48px; border-radius: 8px; font-size: 0.875rem;"
-            />
-            <button 
-              type="button" 
-              id="superadmin-search-clear"
-              class="search-clear-btn hidden"
-              
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
-                <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-              </svg>
-            </button>
-          </div>
-          <span id="search-result-count" class="text-xs text-gray-500 dark:text-slate-400 font-medium" style="font-size: 0.8rem; font-weight: 600;">
-            Showing ${users.length} of ${users.length} accounts
-          </span>
+          <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; display: flex; align-items: center;">🔍</span>
+          <input 
+            type="text" 
+            id="superadmin-search-input" 
+            placeholder="Search users by name, email, role, or plan..." 
+            class="search-input-unified"
+            style="width: 100%; padding: 8px 36px 8px 48px; border-radius: 8px; font-size: 0.875rem;"
+          />
+          <button 
+            type="button" 
+            id="superadmin-search-clear"
+            class="search-clear-btn hidden"
+            aria-label="Clear search"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+              <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
         </div>
+        <span id="search-result-count" class="text-xs text-gray-500 dark:text-slate-400 font-medium" style="font-size: 0.8rem; font-weight: 600;">
+          Showing ${users.length} of ${users.length} accounts
+        </span>
 
         <!-- Summary Metric Badges -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
@@ -2643,7 +2642,7 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
 
     const searchBarHtml = `
       <div class="relative w-full max-w-xl mb-4" style="position: relative; width: 100%; max-width: 36rem; margin-bottom: 1rem; display: flex; align-items: center;">
-        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; display: flex; align-items: center;">🔍</span>
+        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; display: flex; align-items: center;">🔍</span>
         <input 
           type="text" 
           id="hierarchy-search-input" 
@@ -2655,7 +2654,7 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
           type="button" 
           id="hierarchy-search-clear"
           class="search-clear-btn hidden"
-          
+          aria-label="Clear search"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
             <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
