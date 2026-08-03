@@ -83,8 +83,9 @@ const userSchema = new mongoose.Schema(
     },
     orgRole: {
       type: String,
-      enum: ["org_admin", "department_head", "doctor", "staff"],
+      enum: ["org_admin", "department_head", "doctor", "staff", null],
       default: null,
+      required: false,
     },
     department: {
       type: String,
