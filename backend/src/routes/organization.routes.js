@@ -16,6 +16,7 @@ import {
   assignDoctorRoom,
   getOrganizationBySlug,
   reorderDepartments,
+  deleteOrganization,
 } from "../controllers/organization.controller.js";
 
 const router = express.Router();
@@ -28,6 +29,8 @@ router.post("/", createOrganization);
 router.get("/tree", getOrganizationTree);
 router.get("/my-org", getMyOrganization);
 router.get("/by-slug/:slug", getOrganizationBySlug);
+router.delete("/:id", deleteOrganization);
+router.delete("/", deleteOrganization);
 
 router.post("/departments", addDepartment);
 router.put("/departments/reorder", reorderDepartments);

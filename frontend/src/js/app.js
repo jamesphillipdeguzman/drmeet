@@ -2678,6 +2678,17 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
                   `).join("")}
                 </select>
               ` : ""}
+              ${(tree.organization?._id || currentOrgId) ? `
+                <button 
+                  type="button" 
+                  id="btn-delete-hospital" 
+                  class="btn btn-sm btn-delete-hospital" 
+                  style="font-size: 0.8rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #fca5a5; background: transparent; color: #ef4444; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                  title="Delete selected hospital facility"
+                >
+                  🗑️ Delete Hospital
+                </button>
+              ` : ""}
             </div>
             <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">Enterprise Tier</span>
           </div>
@@ -2706,6 +2717,11 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
     `;
 
     container.querySelector("#add-first-dept-btn")?.addEventListener("click", () => showAddDepartmentModal());
+    container.querySelector("#btn-delete-hospital")?.addEventListener("click", () => {
+      const activeId = tree.organization?._id || window.activeOrgId || currentOrgId;
+      const activeName = facilityName || "Selected Hospital";
+      showDeleteHospitalModal(activeName, activeId);
+    });
 
     const searchInput = container.querySelector("#hierarchy-search-input");
     const searchClearBtn = container.querySelector("#hierarchy-search-clear");
@@ -3110,6 +3126,59 @@ function wireEnterpriseTreeEvents(container) {
       window._isAssigningDoctorRoom = false;
     }
   });
+}
+
+function showDeleteHospitalModal(hospitalName, hospitalId) {
+  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const modalHtml = `
+    <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
+      <div class="modal-sheet card" style="display:block; max-width: 460px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
+        <button type="button" class="modal-close-x" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">&times;</button>
+        <h3 style="margin-top:0; color: #dc2626; display: flex; align-items: center; gap: 0.5rem;">
+          <span>⚠️</span> Delete Hospital Confirmation
+        </h3>
+        <p style="color: #475569; font-size: 0.95rem; line-height: 1.5; margin-bottom: 1.25rem;" class="dark:text-slate-300">
+          Are you sure you want to delete <strong>'${escapeHtml(hospitalName)}'</strong>? This action will remove all associated departments, rooms, and doctor assignments under this hospital.
+        </p>
+        <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">Cancel</button>
+          <button type="button" class="btn btn-action-delete" id="confirm-delete-hospital-btn" style="background: #dc2626; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">
+            🗑️ Delete Hospital
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  container.innerHTML = modalHtml;
+  container.style.display = "block";
+  wireModalEscAndBackdrop(container);
+
+  const confirmBtn = document.getElementById("confirm-delete-hospital-btn");
+  if (confirmBtn) {
+    confirmBtn.onclick = async () => {
+      try {
+        const res = await apiRequest(`${API_BASE}/organization/${hospitalId}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to delete hospital."));
+        const data = await res.json();
+        closeEnterpriseModal();
+        showToast(data.message || `Hospital '${hospitalName}' deleted successfully.`);
+
+        if (data.nextOrgId) {
+          window.activeOrgId = String(data.nextOrgId);
+          window._selectedOrgId = String(data.nextOrgId);
+          localStorage.setItem("drmeet_active_org_id", String(data.nextOrgId));
+          await loadEnterpriseTree(data.nextOrgId);
+        } else {
+          delete window.activeOrgId;
+          delete window._selectedOrgId;
+          localStorage.removeItem("drmeet_active_org_id");
+          await loadEnterpriseTree();
+        }
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    };
+  }
 }
 
 function showDeleteDepartmentModal(deptName) {

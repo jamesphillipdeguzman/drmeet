@@ -1792,6 +1792,23 @@ body.theme-dark .search-clear-btn:hover {
   background-color: transparent !important;
 }
 
+.btn-delete-hospital:hover {
+  background: #fef2f2 !important;
+  border-color: #ef4444 !important;
+  color: #dc2626 !important;
+}
+
+body.theme-dark .btn-delete-hospital {
+  border-color: #991b1b !important;
+  color: #fca5a5 !important;
+}
+
+body.theme-dark .btn-delete-hospital:hover {
+  background: rgba(153, 27, 27, 0.25) !important;
+  border-color: #ef4444 !important;
+  color: #f8fafc !important;
+}
+
 body.theme-dark .empty-workspace {
   background: #0f172a !important;
   border-color: #334155 !important;

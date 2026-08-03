@@ -637,3 +637,58 @@ export async function reorderDepartments(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+/**
+ * DELETE /api/organization/:id
+ * Delete a hospital organization along with its associated rooms and unassigning doctors/users
+ */
+export async function deleteOrganization(req, res) {
+  try {
+    const { id } = req.params;
+    let targetOrgId = id;
+
+    if (!targetOrgId || targetOrgId === "active") {
+      const org = await resolveOrganizationForUser(req);
+      if (org) targetOrgId = org._id;
+    }
+
+    if (!targetOrgId || !mongoose.Types.ObjectId.isValid(targetOrgId)) {
+      return res.status(400).json({ error: "Invalid organization ID provided." });
+    }
+
+    const org = await Organization.findById(targetOrgId);
+    if (!org) {
+      return res.status(404).json({ error: "Organization facility not found." });
+    }
+
+    // Delete associated rooms
+    await Room.deleteMany({ organizationId: org._id });
+
+    // Unassign doctors associated with this org
+    await Doctor.updateMany(
+      { organizationId: org._id },
+      { $unset: { organizationId: "", assignedRoom: "", department: "" } }
+    );
+
+    // Unassign users associated with this org
+    await User.updateMany(
+      { organizationId: org._id },
+      { $unset: { organizationId: "" } }
+    );
+
+    // Delete the organization
+    await Organization.findByIdAndDelete(org._id);
+
+    // Find remaining organizations
+    const remainingOrgs = await Organization.find().sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      message: `Hospital facility '${org.name}' deleted successfully.`,
+      deletedOrgId: org._id,
+      remainingCount: remainingOrgs.length,
+      nextOrgId: remainingOrgs.length > 0 ? remainingOrgs[0]._id : null
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
