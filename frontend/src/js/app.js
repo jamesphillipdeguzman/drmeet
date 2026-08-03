@@ -2621,18 +2621,27 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
     `;
 
     const searchBarHtml = `
-      <div class="mb-6 flex gap-3 items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm" style="margin-bottom: 1.25rem; display: flex; gap: 0.75rem; align-items: center; background: #ffffff; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+      <div class="mb-6 flex gap-3 items-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm" style="margin-bottom: 1.25rem; display: flex; gap: 0.75rem; align-items: center; padding: 0.75rem 1rem; border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
         <div class="relative flex-1" style="position: relative; flex: 1;">
-          <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8;">🔍</span>
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">🔍</span>
           <input 
             type="text" 
             id="hierarchy-search-input" 
             placeholder="Search by department name, consultation room, doctor name, or specialty..." 
-            class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            style="width: 100%; padding: 8px 12px 8px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
+            class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:text-white"
+            style="width: 100%; padding: 8px 36px 8px 44px; border-radius: 8px; font-size: 0.875rem;"
           />
+          <button 
+            type="button" 
+            id="hierarchy-search-clear"
+            class="search-clear-btn hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; display: none;"
+            title="Clear search"
+          >
+            ✕
+          </button>
         </div>
-        <select id="hierarchy-search-category" class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:outline-none" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; background: #f8fafc; cursor: pointer;">
+        <select id="hierarchy-search-category" class="px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-gray-50 dark:bg-slate-800 dark:text-white focus:outline-none" style="padding: 8px 12px; border-radius: 8px; font-size: 0.875rem; cursor: pointer;">
           <option value="all">All Categories</option>
           <option value="department">Departments</option>
           <option value="room">Rooms</option>
@@ -2661,15 +2670,15 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
           </div>
           <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
             <div style="min-width: 140px;">
-              <div style="font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 4px;">Doctor Seats</div>
-              <strong style="font-size: 1.1rem; color: #0f172a;">${tree.activeDoctors || 0} / ${tree.maxDoctorSeats || 150}</strong>
+              <div style="font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 4px;" class="enterprise-metric-title">Doctor Seats</div>
+              <strong style="font-size: 1.1rem; color: #0f172a;" class="enterprise-metric-value">${tree.activeDoctors || 0} / ${tree.maxDoctorSeats || 150}</strong>
               <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;">
                 <div style="width: ${doctorMeterPercent}%; background: #0284c7; height: 100%;"></div>
               </div>
             </div>
             <div style="min-width: 140px;">
-              <div style="font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 4px;">Consultation Rooms</div>
-              <strong style="font-size: 1.1rem; color: #0f172a;">${tree.activeRooms || 0} / ${tree.maxRooms || 50}</strong>
+              <div style="font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 4px;" class="enterprise-metric-title">Consultation Rooms</div>
+              <strong style="font-size: 1.1rem; color: #0f172a;" class="enterprise-metric-value">${tree.activeRooms || 0} / ${tree.maxRooms || 50}</strong>
               <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;">
                 <div style="width: ${roomMeterPercent}%; background: #6366f1; height: 100%;"></div>
               </div>
@@ -2686,9 +2695,13 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
 
     const searchInput = container.querySelector("#hierarchy-search-input");
     const searchCat = container.querySelector("#hierarchy-search-category");
+    const searchClearBtn = container.querySelector("#hierarchy-search-clear");
 
     function applyHierarchyFilter() {
       const q = (searchInput?.value || "").trim().toLowerCase();
+      if (searchClearBtn) {
+        searchClearBtn.style.display = (searchInput?.value || "").trim().length > 0 ? "block" : "none";
+      }
       const cat = searchCat?.value || "all";
       const deptCards = Array.from(container.querySelectorAll(".department-card"));
 
@@ -2747,6 +2760,14 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
 
     searchInput?.addEventListener("input", applyHierarchyFilter);
     searchCat?.addEventListener("change", applyHierarchyFilter);
+
+    searchClearBtn?.addEventListener("click", () => {
+      if (searchInput) {
+        searchInput.value = "";
+        applyHierarchyFilter();
+        searchInput.focus();
+      }
+    });
 
     const hospitalSelect = document.getElementById("hospital-facility-switcher");
     if (hospitalSelect) {
