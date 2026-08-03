@@ -377,7 +377,7 @@ export async function attachDoctorToOrg(req, res) {
     }
 
     doctor.organizationId = org._id;
-    doctor.subscriptionPlan = "enterprise";
+    doctor.subscriptionPlan = org.tier || "enterprise";
     if (department !== undefined) doctor.department = department || null;
     if (assignedRoom !== undefined) doctor.assignedRoom = assignedRoom || null;
     if (orgRole !== undefined) doctor.orgRole = orgRole || "doctor";
@@ -387,7 +387,7 @@ export async function attachDoctorToOrg(req, res) {
     if (doctor.userId) {
       await User.findByIdAndUpdate(doctor.userId, {
         organizationId: org._id,
-        subscriptionPlan: "enterprise",
+        subscriptionPlan: org.tier || "enterprise",
         department: doctor.department,
         assignedRoom: doctor.assignedRoom,
         orgRole: doctor.orgRole,
@@ -415,6 +415,7 @@ export async function updateDoctorAssignment(req, res) {
 
     if (detach) {
       doctor.organizationId = null;
+      doctor.subscriptionPlan = "starter";
       doctor.department = null;
       doctor.assignedRoom = null;
       doctor.orgRole = null;
@@ -423,6 +424,7 @@ export async function updateDoctorAssignment(req, res) {
       if (doctor.userId) {
         await User.findByIdAndUpdate(doctor.userId, {
           organizationId: null,
+          subscriptionPlan: "starter",
           department: null,
           assignedRoom: null,
           orgRole: null,
@@ -435,7 +437,10 @@ export async function updateDoctorAssignment(req, res) {
     if (department !== undefined) doctor.department = department || null;
     if (assignedRoom !== undefined) doctor.assignedRoom = assignedRoom || null;
     if (orgRole !== undefined) doctor.orgRole = orgRole || doctor.orgRole;
-    if (org && !doctor.organizationId) doctor.organizationId = org._id;
+    if (org) {
+      doctor.organizationId = org._id;
+      doctor.subscriptionPlan = org.tier || "enterprise";
+    }
 
     await doctor.save();
 
@@ -445,6 +450,7 @@ export async function updateDoctorAssignment(req, res) {
         assignedRoom: doctor.assignedRoom,
         orgRole: doctor.orgRole,
         organizationId: doctor.organizationId,
+        subscriptionPlan: doctor.subscriptionPlan || (org?.tier || "enterprise"),
       });
     }
 

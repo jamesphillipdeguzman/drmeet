@@ -2584,6 +2584,27 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
       </div>
     `;
 
+    const searchBarHtml = `
+      <div class="mb-6 flex gap-3 items-center bg-white p-3 rounded-xl border border-gray-200 shadow-sm" style="margin-bottom: 1.25rem; display: flex; gap: 0.75rem; align-items: center; background: #ffffff; padding: 0.75rem 1rem; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+        <div class="relative flex-1" style="position: relative; flex: 1;">
+          <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #94a3b8;">🔍</span>
+          <input 
+            type="text" 
+            id="hierarchy-search-input" 
+            placeholder="Search by department name, consultation room, doctor name, or specialty..." 
+            class="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            style="width: 100%; padding: 8px 12px 8px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
+          />
+        </div>
+        <select id="hierarchy-search-category" class="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 focus:outline-none" style="padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; background: #f8fafc; cursor: pointer;">
+          <option value="all">All Categories</option>
+          <option value="department">Departments</option>
+          <option value="room">Rooms</option>
+          <option value="doctor">Doctors</option>
+        </select>
+      </div>
+    `;
+
     container.innerHTML = `
       <section class="card" style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%); border: 1px solid rgba(14, 165, 233, 0.2); margin-bottom: 1.5rem;">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
@@ -2621,10 +2642,75 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
         </div>
       </section>
 
+      ${depts.length > 0 ? searchBarHtml : ""}
       ${departmentsContentHtml}
     `;
 
     container.querySelector("#add-first-dept-btn")?.addEventListener("click", () => showAddDepartmentModal());
+
+    const searchInput = container.querySelector("#hierarchy-search-input");
+    const searchCat = container.querySelector("#hierarchy-search-category");
+
+    function applyHierarchyFilter() {
+      const q = (searchInput?.value || "").trim().toLowerCase();
+      const cat = searchCat?.value || "all";
+      const deptCards = Array.from(container.querySelectorAll(".department-card"));
+
+      let matchCount = 0;
+
+      deptCards.forEach((card) => {
+        const deptName = (card.dataset.deptName || "").toLowerCase();
+        const roomCards = Array.from(card.querySelectorAll(".room-card"));
+        const doctorCards = Array.from(card.querySelectorAll(".doctor-draggable-card"));
+
+        let deptMatches = false;
+        if (cat === "all" || cat === "department") {
+          deptMatches = deptName.includes(q);
+        }
+
+        let matchingRooms = 0;
+        roomCards.forEach((rc) => {
+          const text = (rc.textContent || "").toLowerCase();
+          const matches = cat === "all" || cat === "room" ? text.includes(q) : false;
+          rc.style.display = (!q || matches || (cat === "department" && deptMatches)) ? "" : "none";
+          if (matches) matchingRooms++;
+        });
+
+        let matchingDoctors = 0;
+        doctorCards.forEach((dc) => {
+          const text = (dc.textContent || "").toLowerCase();
+          const matches = cat === "all" || cat === "doctor" ? text.includes(q) : false;
+          dc.style.display = (!q || matches || (cat === "department" && deptMatches)) ? "" : "none";
+          if (matches) matchingDoctors++;
+        });
+
+        const cardMatches = !q || (cat === "department" ? deptMatches : cat === "room" ? (matchingRooms > 0 || deptMatches) : cat === "doctor" ? (matchingDoctors > 0 || deptMatches) : (deptMatches || matchingRooms > 0 || matchingDoctors > 0));
+
+        card.style.display = cardMatches ? "" : "none";
+        if (cardMatches) matchCount++;
+      });
+
+      let noMatchEl = container.querySelector("#hierarchy-no-match-feedback");
+      const grid = container.querySelector(".departments-tree-grid");
+      if (matchCount === 0 && q) {
+        if (!noMatchEl && grid) {
+          noMatchEl = document.createElement("div");
+          noMatchEl.id = "hierarchy-no-match-feedback";
+          noMatchEl.className = "card text-center p-6 text-gray-500 mt-4";
+          noMatchEl.style.cssText = "padding: 2rem; text-align: center; color: #64748b; margin-top: 1rem;";
+          grid.appendChild(noMatchEl);
+        }
+        if (noMatchEl) {
+          noMatchEl.textContent = `No departments, rooms, or doctors match your search query: '${searchInput.value}'.`;
+          noMatchEl.style.display = "block";
+        }
+      } else if (noMatchEl) {
+        noMatchEl.style.display = "none";
+      }
+    }
+
+    searchInput?.addEventListener("input", applyHierarchyFilter);
+    searchCat?.addEventListener("change", applyHierarchyFilter);
 
     const hospitalSelect = document.getElementById("hospital-facility-switcher");
     if (hospitalSelect) {
@@ -3256,6 +3342,9 @@ async function showAddDoctorModal(deptName) {
       showToast("Doctor attached to department.");
       closeEnterpriseModal();
       await loadEnterpriseTree(currentOrgId);
+      if (typeof renderAdminSubscriptionsTable === "function" && document.querySelector("#admin-user-search")) {
+        await renderAdminSubscriptionsTable();
+      }
     } catch (err) {
       showToast(err.message, "error");
     }
@@ -3434,6 +3523,9 @@ async function showDoctorNodePopover(doctorId) {
       showToast("Doctor assignment updated.");
       closeEnterpriseModal();
       await loadEnterpriseTree(currentOrgId);
+      if (typeof renderAdminSubscriptionsTable === "function" && document.querySelector("#admin-user-search")) {
+        await renderAdminSubscriptionsTable();
+      }
     } catch (err) {
       showToast(err.message, "error");
     }
@@ -3451,6 +3543,9 @@ async function showDoctorNodePopover(doctorId) {
       showToast("Doctor detached from organization.");
       closeEnterpriseModal();
       await loadEnterpriseTree(currentOrgId);
+      if (typeof renderAdminSubscriptionsTable === "function" && document.querySelector("#admin-user-search")) {
+        await renderAdminSubscriptionsTable();
+      }
     } catch (err) {
       showToast(err.message, "error");
     }
