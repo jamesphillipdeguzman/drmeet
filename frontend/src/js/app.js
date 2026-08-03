@@ -3156,6 +3156,11 @@ function showAddDepartmentModal() {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form));
+    const currentOrgId = window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || document.querySelector("#hospital-facility-switcher")?.value || document.querySelector("#hospital-switcher")?.value;
+    if (currentOrgId) {
+      data.organizationId = currentOrgId;
+      data.orgId = currentOrgId;
+    }
     try {
       const res = await apiRequest(`${API_BASE}/organization/departments`, {
         method: "POST",
@@ -3165,7 +3170,7 @@ function showAddDepartmentModal() {
       if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to add department."));
       showToast("Department added.");
       closeEnterpriseModal();
-      await loadEnterpriseTree();
+      await loadEnterpriseTree(currentOrgId);
     } catch (err) {
       showToast(err.message, "error");
     }
@@ -3234,6 +3239,13 @@ async function showAddDoctorModal(deptName) {
     const data = Object.fromEntries(new FormData(form));
     const selectedDept = document.getElementById("modal-doctor-dept-select")?.value;
     if (selectedDept) data.department = selectedDept;
+
+    const currentOrgId = window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || document.querySelector("#hospital-facility-switcher")?.value || document.querySelector("#hospital-switcher")?.value;
+    if (currentOrgId) {
+      data.organizationId = currentOrgId;
+      data.orgId = currentOrgId;
+    }
+
     try {
       const res = await apiRequest(`${API_BASE}/organization/doctors`, {
         method: "POST",
@@ -3243,7 +3255,7 @@ async function showAddDoctorModal(deptName) {
       if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to attach doctor."));
       showToast("Doctor attached to department.");
       closeEnterpriseModal();
-      await loadEnterpriseTree();
+      await loadEnterpriseTree(currentOrgId);
     } catch (err) {
       showToast(err.message, "error");
     }
@@ -3292,6 +3304,13 @@ function showAddRoomModal(deptName) {
     const data = Object.fromEntries(new FormData(form));
     const selectedDept = document.getElementById("modal-room-dept-select")?.value;
     if (selectedDept) data.department = selectedDept;
+
+    const currentOrgId = window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || document.querySelector("#hospital-facility-switcher")?.value || document.querySelector("#hospital-switcher")?.value;
+    if (currentOrgId) {
+      data.organizationId = currentOrgId;
+      data.orgId = currentOrgId;
+    }
+
     try {
       const res = await apiRequest(`${API_BASE}/organization/rooms`, {
         method: "POST",
@@ -3301,7 +3320,7 @@ function showAddRoomModal(deptName) {
       if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to create room."));
       showToast("Consultation room created.");
       closeEnterpriseModal();
-      await loadEnterpriseTree();
+      await loadEnterpriseTree(currentOrgId);
     } catch (err) {
       showToast(err.message, "error");
     }
