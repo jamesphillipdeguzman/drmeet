@@ -2668,9 +2668,9 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div>
             <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.25rem;">
-              <h3 id="enterprise-header-facility-name" id="hospital-title-display" class="hospital-title-display hospital-name-display" style="margin: 0; font-size: 1.35rem; color: #0284c7;">🏥 ${escapeHtml(facilityName)}</h3>
+              <h3 id="enterprise-header-facility-name" class="hospital-title-display hospital-name-display" style="margin: 0; font-size: 1.35rem; color: #0284c7;">🏥 ${escapeHtml(facilityName)}</h3>
               ${allOrgs.length > 0 ? `
-                <select id="hospital-facility-switcher" id="hospital-switcher" class="hospital-switcher" style="font-size: 0.85rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #0284c7; background: #ffffff; color: #0284c7; font-weight: 600; cursor: pointer;">
+                <select id="hospital-facility-switcher" class="hospital-switcher" style="font-size: 0.85rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #0284c7; background: #ffffff; color: #0284c7; font-weight: 600; cursor: pointer;">
                   ${allOrgs.map((o) => `
                     <option value="${o._id}" ${String(o._id) === String(window.activeOrgId || currentOrgId) ? "selected" : ""}>
                       ${escapeHtml(o.name)}
@@ -2678,17 +2678,15 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
                   `).join("")}
                 </select>
               ` : ""}
-              ${(tree.organization?._id || currentOrgId) ? `
-                <button 
-                  type="button" 
-                  id="btn-delete-hospital" 
-                  class="btn btn-sm btn-delete-hospital" 
-                  style="font-size: 0.8rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #fca5a5; background: transparent; color: #ef4444; font-weight: 600; cursor: pointer; transition: all 0.2s;"
-                  title="Delete selected hospital facility"
-                >
-                  🗑️ Delete Hospital
-                </button>
-              ` : ""}
+              <button 
+                type="button" 
+                id="btn-delete-hospital" 
+                class="btn btn-sm btn-delete-hospital" 
+                style="font-size: 0.8rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #fca5a5; background: transparent; color: #ef4444; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                title="Delete selected hospital facility"
+              >
+                🗑️ Delete Hospital
+              </button>
             </div>
             <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">Enterprise Tier</span>
           </div>
