@@ -2262,11 +2262,12 @@ async function renderEnterpriseView() {
   }
 }
 
-async function loadEnterpriseTree(targetOrgId = window._selectedOrgId) {
+async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : null)) {
   const container = document.getElementById("enterprise-tree-container");
   if (!container) return;
   try {
-    const orgIdQuery = targetOrgId ? `?orgId=${encodeURIComponent(targetOrgId)}` : "";
+    const activeOrgId = targetOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || window._selectedOrgId || "";
+    const orgIdQuery = activeOrgId ? `?orgId=${encodeURIComponent(activeOrgId)}` : "";
     const [treeRes, allOrgsRes] = await Promise.all([
       apiRequest(`${API_BASE}/organization/tree${orgIdQuery}`),
       apiRequest(`${API_BASE}/organization/all`).catch(() => null),
@@ -2278,8 +2279,13 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId) {
     }
     const tree = await treeRes.json();
     window._lastOrgTree = tree;
-    if (tree.organization?._id) {
-      window._selectedOrgId = tree.organization._id;
+
+    const currentOrgId = String(tree.organization?._id || tree._id || "");
+    if (currentOrgId) {
+      window._selectedOrgId = currentOrgId;
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("drmeet_active_org_id", currentOrgId);
+      }
     }
 
     let allOrgs = [];
@@ -2290,7 +2296,7 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId) {
       if (tree.organization) allOrgs = [tree.organization];
     }
 
-    const currentOrgId = String(tree.organization?._id || "");
+    const facilityName = tree.name || tree.organization?.name || "Hospital Facility";
     const doctorMeterPercent = Math.min(100, Math.round((tree.activeDoctors / (tree.maxDoctorSeats || 150)) * 100));
     const roomMeterPercent = Math.min(100, Math.round((tree.activeRooms / (tree.maxRooms || 50)) * 100));
 
@@ -2299,7 +2305,7 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId) {
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div>
             <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.25rem;">
-              <h3 style="margin: 0; font-size: 1.35rem; color: #0284c7;">🏥 ${escapeHtml(tree.name || tree.organization?.name || "Hospital Facility")}</h3>
+              <h3 id="enterprise-header-facility-name" style="margin: 0; font-size: 1.35rem; color: #0284c7;">🏥 ${escapeHtml(facilityName)}</h3>
               ${allOrgs.length > 0 ? `
                 <select id="hospital-facility-switcher" style="font-size: 0.85rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #0284c7; background: #ffffff; color: #0284c7; font-weight: 600; cursor: pointer;">
                   ${allOrgs.map((o) => `
@@ -2336,10 +2342,16 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId) {
       </div>
     `;
 
-    document.getElementById("hospital-facility-switcher")?.addEventListener("change", (e) => {
-      window._selectedOrgId = e.target.value;
-      void loadEnterpriseTree(e.target.value);
-    });
+    const hospitalSelect = document.getElementById("hospital-facility-switcher");
+    if (hospitalSelect) {
+      hospitalSelect.addEventListener("change", async (e) => {
+        const selectedOrgId = e.target.value;
+        if (!selectedOrgId) return;
+        localStorage.setItem("drmeet_active_org_id", selectedOrgId);
+        window._selectedOrgId = selectedOrgId;
+        await loadEnterpriseTree(selectedOrgId);
+      });
+    }
 
     wireEnterpriseTreeEvents(container);
   } catch (err) {
@@ -2460,21 +2472,27 @@ function wireEnterpriseTreeEvents(container) {
   });
 }
 
-function closeEnterpriseModal() {
+export function closeEnterpriseModal() {
   const container = document.getElementById("enterprise-modal-container");
   if (container) {
     container.style.display = "none";
     container.innerHTML = "";
   }
 }
+if (typeof window !== "undefined") {
+  window.closeEnterpriseModal = closeEnterpriseModal;
+}
 
 function wireModalEscAndBackdrop(container) {
-  const overlay = container.querySelector("#enterprise-modal-overlay-bg");
-  if (overlay) {
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) closeEnterpriseModal();
-    });
-  }
+  if (!container) return;
+
+  container.onclick = (e) => {
+    const isOverlayBg = e.target.id === "enterprise-modal-overlay-bg" || e.target.classList.contains("enterprise-modal-overlay");
+    const isCloseBtn = e.target.closest("[data-action='close-enterprise-modal']") || e.target.closest(".modal-close-x");
+    if (isOverlayBg || isCloseBtn) {
+      closeEnterpriseModal();
+    }
+  };
 
   const handleEsc = (e) => {
     if (e.key === "Escape") {
@@ -2482,6 +2500,7 @@ function wireModalEscAndBackdrop(container) {
       window.removeEventListener("keydown", handleEsc);
     }
   };
+  window.removeEventListener("keydown", handleEsc);
   window.addEventListener("keydown", handleEsc);
 }
 
@@ -2490,7 +2509,7 @@ function showAddHospitalModal() {
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
       <div class="modal-sheet card" style="display:block; max-width: 460px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
-        <button type="button" class="modal-close-x" onclick="closeEnterpriseModal()">&times;</button>
+        <button type="button" class="modal-close-x" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">&times;</button>
         <h3 style="margin-top:0;">🏥 Add New Hospital / Facility</h3>
         <form id="add-hospital-form">
           <label>Hospital / Facility Name
@@ -2509,7 +2528,7 @@ function showAddHospitalModal() {
           </div>
           <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem;">
             <button type="submit" class="btn btn-primary">Create Facility</button>
-            <button type="button" class="btn btn-secondary" onclick="closeEnterpriseModal()">Cancel</button>
+            <button type="button" class="btn btn-secondary" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">Cancel</button>
           </div>
         </form>
       </div>
@@ -2534,6 +2553,7 @@ function showAddHospitalModal() {
       showToast("New hospital facility created successfully.");
       if (result.organization?._id) {
         window._selectedOrgId = result.organization._id;
+        localStorage.setItem("drmeet_active_org_id", result.organization._id);
       }
       closeEnterpriseModal();
       await loadEnterpriseTree();
@@ -2548,13 +2568,13 @@ function showAddDepartmentModal() {
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
       <div class="modal-sheet card" style="display:block; max-width: 420px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
-        <button type="button" class="modal-close-x" onclick="closeEnterpriseModal()">&times;</button>
+        <button type="button" class="modal-close-x" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">&times;</button>
         <h3 style="margin-top:0;">➕ Add Department Category</h3>
         <form id="add-dept-form">
           <label>Department Name <input name="name" placeholder="e.g. Cardiology, Radiology" required /></label>
           <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
             <button type="submit" class="btn btn-primary">Add Department</button>
-            <button type="button" class="btn btn-secondary" onclick="closeEnterpriseModal()">Cancel</button>
+            <button type="button" class="btn btn-secondary" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">Cancel</button>
           </div>
         </form>
       </div>
@@ -2595,7 +2615,7 @@ async function showAddDoctorModal(deptName) {
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
       <div class="modal-sheet card" style="display:block; max-width: 480px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
-        <button type="button" class="modal-close-x" onclick="closeEnterpriseModal()">&times;</button>
+        <button type="button" class="modal-close-x" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">&times;</button>
         <h3 style="margin-top:0;">👨‍⚕️ Attach Doctor to ${escapeHtml(deptName || "Department")}</h3>
         <form id="add-doctor-to-dept-form">
           <input type="hidden" name="department" value="${escapeHtml(deptName || "")}" />
@@ -2617,7 +2637,7 @@ async function showAddDoctorModal(deptName) {
           </label>
           <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
             <button type="submit" class="btn btn-primary">Attach Doctor</button>
-            <button type="button" class="btn btn-secondary" onclick="closeEnterpriseModal()">Cancel</button>
+            <button type="button" class="btn btn-secondary" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">Cancel</button>
           </div>
         </form>
       </div>
@@ -2652,7 +2672,7 @@ function showAddRoomModal(deptName) {
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
       <div class="modal-sheet card" style="display:block; max-width: 420px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
-        <button type="button" class="modal-close-x" onclick="closeEnterpriseModal()">&times;</button>
+        <button type="button" class="modal-close-x" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">&times;</button>
         <h3 style="margin-top:0;">🚪 Add Consultation Room to ${escapeHtml(deptName || "Department")}</h3>
         <form id="add-room-form">
           <input type="hidden" name="department" value="${escapeHtml(deptName || "")}" />
@@ -2660,7 +2680,7 @@ function showAddRoomModal(deptName) {
           <label>Daily Patient Load Cap <input type="number" name="dailyPatientCap" value="30" min="1" max="200" required /></label>
           <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;">
             <button type="submit" class="btn btn-primary">Create Room</button>
-            <button type="button" class="btn btn-secondary" onclick="closeEnterpriseModal()">Cancel</button>
+            <button type="button" class="btn btn-secondary" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">Cancel</button>
           </div>
         </form>
       </div>
@@ -2704,7 +2724,7 @@ async function showDoctorNodePopover(doctorId) {
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
       <div class="modal-sheet card" style="display:block; max-width: 480px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
-        <button type="button" class="modal-close-x" onclick="closeEnterpriseModal()">&times;</button>
+        <button type="button" class="modal-close-x" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">&times;</button>
         <h3 style="margin-top:0;">⚙️ Doctor Assignment & Room Management</h3>
         <form id="edit-doctor-node-form">
           <label>Reassign Department
@@ -2731,7 +2751,7 @@ async function showDoctorNodePopover(doctorId) {
             <button type="button" id="detach-doctor-btn" class="btn btn-action-delete btn-sm">Detach from Hospital</button>
             <div style="display: flex; gap: 0.5rem;">
               <button type="submit" class="btn btn-primary">Save Assignment</button>
-              <button type="button" class="btn btn-secondary" onclick="closeEnterpriseModal()">Cancel</button>
+              <button type="button" class="btn btn-secondary" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">Cancel</button>
             </div>
           </div>
         </form>

@@ -3712,3 +3712,40 @@ body.theme-dark .enterprise-modal-overlay {
   background-color: rgba(0, 0, 0, 0.75);
 }
 
+/* Modal Close Control & Sheet Overlay Fixes */
+.modal-close-x {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  font-size: 1.5rem;
+  line-height: 1;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  z-index: 10;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.modal-close-x:hover {
+  color: #0f172a;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+body.theme-dark .modal-close-x {
+  color: #94a3b8;
+}
+
+body.theme-dark .modal-close-x:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.enterprise-modal-overlay .modal-sheet {
+  pointer-events: auto;
+  z-index: 10000;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+}
+
