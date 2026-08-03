@@ -2681,21 +2681,22 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
             <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">Enterprise Tier</span>
           </div>
           <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
-            <div style="min-width: 140px;">
-              <div style="font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 4px;" class="enterprise-metric-title">Doctor Seats</div>
-              <strong style="font-size: 1.1rem; color: #0f172a;" class="enterprise-metric-value">${tree.activeDoctors || 0} / ${tree.maxDoctorSeats || 150}</strong>
-              <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;">
-                <div style="width: ${doctorMeterPercent}%; background: #0284c7; height: 100%;"></div>
-              </div>
-            </div>
-            <div style="min-width: 140px;">
-              <div style="font-size: 0.8rem; font-weight: 600; color: #64748b; margin-bottom: 4px;" class="enterprise-metric-title">Consultation Rooms</div>
-              <strong style="font-size: 1.1rem; color: #0f172a;" class="enterprise-metric-value">${tree.activeRooms || 0} / ${tree.maxRooms || 50}</strong>
-              <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;">
-                <div style="width: ${roomMeterPercent}%; background: #6366f1; height: 100%;"></div>
-              </div>
+          <div style="min-width: 140px;">
+            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;" class="enterprise-metric-title">Doctor Seats</div>
+            <strong style="font-size: 1.1rem;" class="enterprise-metric-value">${tree.activeDoctors || 0} / ${tree.maxDoctorSeats || 150}</strong>
+            <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;" class="enterprise-meter-bg">
+              <div style="width: ${doctorMeterPercent}%; background: #0284c7; height: 100%;"></div>
             </div>
           </div>
+          <div style="min-width: 140px;">
+            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;" class="enterprise-metric-title">Consultation Rooms</div>
+            <strong style="font-size: 1.1rem;" class="enterprise-metric-value">${tree.activeRooms || 0} / ${tree.maxRooms || 50}</strong>
+            <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;" class="enterprise-meter-bg">
+              <div style="width: ${roomMeterPercent}%; background: #6366f1; height: 100%;"></div>
+            </div>
+          </div>
+        </div>
+        </div>
         </div>
       </section>
 
