@@ -2279,6 +2279,20 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
           <button type="button" class="btn btn-secondary btn-sm" id="${containerId}-refresh-btn">🔄 Refresh Overview</button>
         </div>
 
+        <!-- Search Bar UI -->
+        <div class="mb-4 flex justify-between items-center" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+          <input 
+            type="text" 
+            id="admin-user-search" 
+            placeholder="🔍 Search users by name, email, role, or plan..." 
+            class="w-80 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            style="max-width: 340px; width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; background: #ffffff;"
+          />
+          <span id="search-result-count" class="text-xs text-gray-500 font-medium" style="font-size: 0.8rem; color: #64748b; font-weight: 600;">
+            Showing ${users.length} of ${users.length} accounts
+          </span>
+        </div>
+
         <!-- Summary Metric Badges -->
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
           <div style="background: #f8fafc; padding: 0.6rem 0.75rem; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -2342,6 +2356,61 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
         </div>
       </section>
     `;
+
+    const renderTableRows = (filteredUsers) => {
+      const tbody = container.querySelector("tbody");
+      const countEl = document.getElementById("search-result-count");
+      if (countEl) {
+        countEl.textContent = `Showing ${filteredUsers.length} of ${users.length} accounts`;
+      }
+      if (!tbody) return;
+      if (filteredUsers.length === 0) {
+        tbody.innerHTML = `<tr id="no-users-found-row"><td colspan="6" style="padding: 1.5rem; text-align: center; color: #64748b; font-weight: 500;" class="text-center py-6 text-gray-500">No accounts found matching your search.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = filteredUsers.map((u) => {
+        const tierBadgeColor = u.currentTier === "Enterprise" ? "background:#f3e8ff; color:#6b21a8; border:1px solid #d8b4fe;" : u.currentTier === "Pro" ? "background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;" : "background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;";
+        const roleBadgeColor = u.role === "admin" || u.role === "superadmin" ? "background:#fee2e2; color:#991b1b;" : u.role === "doctor" ? "background:#dcfce7; color:#166534;" : "background:#f3f4f6; color:#374151;";
+        const formattedDate = u.joinedDate ? new Date(u.joinedDate).toLocaleDateString() : "—";
+        return `
+          <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 8px 10px;">
+              <strong>${escapeHtml(u.name)}</strong>
+              <span style="display: block; font-size: 0.75rem; color: #64748b;">${escapeHtml(u.email)}</span>
+            </td>
+            <td style="padding: 8px 10px;">
+              <span class="badge" style="${roleBadgeColor} font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase;">${escapeHtml(u.role)}</span>
+            </td>
+            <td style="padding: 8px 10px;">
+              <span class="badge" style="${tierBadgeColor} font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600;">${escapeHtml(u.currentTier)}</span>
+            </td>
+            <td style="padding: 8px 10px; color: #334155;">${escapeHtml(u.organizationName)}</td>
+            <td style="padding: 8px 10px; font-weight: 600; color: #0f172a;">${u.activePatients}</td>
+            <td style="padding: 8px 10px; color: #64748b; font-size: 0.8rem;">${formattedDate}</td>
+          </tr>
+        `;
+      }).join("");
+    };
+
+    const searchInput = document.getElementById("admin-user-search");
+    if (searchInput) {
+      searchInput.addEventListener("input", (e) => {
+        const q = (e.target.value || "").trim().toLowerCase();
+        if (!q) {
+          renderTableRows(users);
+          return;
+        }
+        const filtered = users.filter((u) => {
+          const name = (u.name || "").toLowerCase();
+          const email = (u.email || "").toLowerCase();
+          const role = (u.role || "").toLowerCase();
+          const plan = (u.currentTier || u.subscriptionPlan || "").toLowerCase();
+          const orgName = (u.organizationName || "").toLowerCase();
+          return name.includes(q) || email.includes(q) || role.includes(q) || plan.includes(q) || orgName.includes(q);
+        });
+        renderTableRows(filtered);
+      });
+    }
 
     document.getElementById(`${containerId}-refresh-btn`)?.addEventListener("click", () => {
       void renderAdminSubscriptionsTable(containerId);
@@ -2445,7 +2514,29 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
   container.innerHTML = `<div class="feedback">Loading hospital tree...</div>`;
 
   try {
-    const activeOrgId = targetOrgId || window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || window._selectedOrgId || "";
+    const hashMatch = (typeof window !== "undefined" && window.location.hash) ? window.location.hash.match(/#?\/?hospital\/([^/?#]+)/i) : null;
+    let slugOrgId = "";
+    if (hashMatch && hashMatch[1]) {
+      const slug = hashMatch[1];
+      try {
+        const slugRes = await apiRequest(`${API_BASE}/organization/by-slug/${encodeURIComponent(slug)}`);
+        if (slugRes.ok) {
+          const orgData = await slugRes.json();
+          if (orgData && orgData._id) {
+            slugOrgId = String(orgData._id);
+            window.activeOrgId = slugOrgId;
+            window._selectedOrgId = slugOrgId;
+            if (typeof localStorage !== "undefined") {
+              localStorage.setItem("drmeet_active_org_id", slugOrgId);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to fetch org by slug in loadEnterpriseTree:", e);
+      }
+    }
+
+    const activeOrgId = targetOrgId || slugOrgId || window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || window._selectedOrgId || "";
     const orgIdQuery = activeOrgId ? `?orgId=${encodeURIComponent(activeOrgId)}` : "";
     const [treeRes, allOrgsRes] = await Promise.all([
       apiRequest(`${API_BASE}/organization/tree${orgIdQuery}`),

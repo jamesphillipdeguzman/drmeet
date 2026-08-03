@@ -288,8 +288,56 @@ export function createNavigation({
     }
   }
 
+  function getHashRoute() {
+    const hash = window.location.hash || "#home";
+    const route = hash.split("?")[0] || "#home";
+    if (route.startsWith("#hospital/") || route.startsWith("hospital/")) {
+      return "#enterprise";
+    }
+    return route;
+  }
+
+  async function handleHospitalSlugRoute() {
+    const raw = window.location.hash || "";
+    const match = raw.match(/#?\/?hospital\/([^/?#]+)/i);
+    if (match && match[1]) {
+      const slug = match[1];
+      try {
+        const token = localStorage.getItem("token") || "";
+        const res = await fetch(`/api/organization/by-slug/${encodeURIComponent(slug)}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const org = await res.json();
+          if (org && org._id) {
+            window.activeOrgId = String(org._id);
+            window._selectedOrgId = String(org._id);
+            if (typeof localStorage !== "undefined") {
+              localStorage.setItem("drmeet_active_org_id", String(org._id));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Error resolving hospital slug route:", err);
+      }
+    }
+  }
+
   function renderPage() {
+    const raw = window.location.hash || "";
     const route = getHashRoute();
+
+    if (raw.includes("hospital/")) {
+      setActiveNav("#enterprise");
+      renderTopbarBreadcrumbs();
+      void handleHospitalSlugRoute().then(() => {
+        if (typeof renderers.renderEnterpriseView === "function") {
+          renderers.renderEnterpriseView();
+        }
+      });
+      return;
+    }
+
     setActiveNav(route);
     renderTopbarBreadcrumbs();
     switch (route) {
