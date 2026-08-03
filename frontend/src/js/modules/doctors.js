@@ -192,26 +192,26 @@ export async function renderDoctors() {
       <hr class="section-divider" />
       ${hideDoctorFilters
         ? ""
-        : `<div class="relative w-full max-w-xl mb-4" style="position: relative; width: 100%; max-width: 36rem; margin-bottom: 1rem;">
-        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">🔍</span>
-        <input 
-          type="text" 
-          id="doctors-unified-search" 
-          placeholder="Search doctors by name, email, specialty, clinic, phone, or availability..." 
-          class="search-input-unified"
-          style="width: 100%; padding: 8px 36px 8px 48px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
-        />
-        <button 
-          type="button" 
-          id="doctors-search-clear"
-          class="search-clear-btn hidden"
-          
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-          </svg>
-        </button>
-      </div>`
+        : `<div class="relative w-full max-w-xl mb-4" style="position: relative; width: 100%; max-width: 36rem; margin-bottom: 1rem; display: flex; align-items: center;">
+          <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; display: flex; align-items: center;">🔍</span>
+          <input 
+            type="text" 
+            id="doctors-unified-search" 
+            placeholder="Search doctors by name, email, specialty, clinic, phone, or availability..." 
+            class="search-input-unified"
+            style="width: 100%; padding: 8px 36px 8px 48px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
+          />
+          <button 
+            type="button" 
+            id="doctors-search-clear"
+            class="search-clear-btn hidden"
+            aria-label="Clear search"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+              <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>`
       }
       <div id="doctors-specialty-groups" class="full-width-groups"></div>
       <div id="doctor-form-modal" style="display:none"></div>
