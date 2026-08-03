@@ -192,14 +192,15 @@ export async function renderDoctors() {
       <hr class="section-divider" />
       ${hideDoctorFilters
         ? ""
-        : `<div class="list-filters">
-        <input type="search" id="doctor-filter-name" placeholder="Filter by name" />
-        <input type="search" id="doctor-filter-email" placeholder="Filter by email" />
-        <input type="search" id="doctor-filter-specialty" placeholder="Filter by specialty" />
-        <input type="search" id="doctor-filter-availability" placeholder="Filter by availability" />
-        <input type="search" id="doctor-filter-phone" placeholder="Filter by phone" />
-        <input type="search" id="doctor-filter-receptionist" placeholder="Filter by receptionist" />
-        <input type="search" id="doctor-filter-clinic" placeholder="Filter by clinic" />
+        : `<div class="relative w-full max-w-xl mb-4" style="position: relative; width: 100%; max-width: 36rem; margin-bottom: 1rem;">
+        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">🔍</span>
+        <input 
+          type="text" 
+          id="doctors-unified-search" 
+          placeholder="Search doctors by name, email, specialty, clinic, phone, or availability..." 
+          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          style="width: 100%; padding: 8px 16px 8px 44px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; background: #ffffff;"
+        />
       </div>`
       }
       <div id="doctors-specialty-groups" class="full-width-groups"></div>
@@ -255,38 +256,8 @@ export async function renderDoctors() {
         .join("");
     };
     const applyDoctorFilters = () => {
-      const nameQ = String(
-        document.getElementById("doctor-filter-name")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const emailQ = String(
-        document.getElementById("doctor-filter-email")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const specialtyQ = String(
-        document.getElementById("doctor-filter-specialty")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const availabilityQ = String(
-        document.getElementById("doctor-filter-availability")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const phoneQ = String(
-        document.getElementById("doctor-filter-phone")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const receptionistQ = String(
-        document.getElementById("doctor-filter-receptionist")?.value || "",
-      )
-        .toLowerCase()
-        .trim();
-      const clinicQ = String(
-        document.getElementById("doctor-filter-clinic")?.value || "",
+      const q = String(
+        document.getElementById("doctors-unified-search")?.value || "",
       )
         .toLowerCase()
         .trim();
@@ -302,31 +273,22 @@ export async function renderDoctors() {
           `${d.receptionistName || ""} ${d.receptionistPhone || ""} ${d.receptionistEmail || ""}`.toLowerCase();
         const clinic = String(d.affiliatedClinics || "").toLowerCase();
         return (
-          (!nameQ || name.includes(nameQ)) &&
-          (!emailQ || email.includes(emailQ)) &&
-          (!specialtyQ || specialty.includes(specialtyQ)) &&
-          (!availabilityQ || availability.includes(availabilityQ)) &&
-          (!phoneQ || phone.includes(phoneQ)) &&
-          (!receptionistQ || receptionist.includes(receptionistQ)) &&
-          (!clinicQ || clinic.includes(clinicQ))
+          !q ||
+          name.includes(q) ||
+          email.includes(q) ||
+          specialty.includes(q) ||
+          availability.includes(q) ||
+          phone.includes(q) ||
+          receptionist.includes(q) ||
+          clinic.includes(q)
         );
       });
       renderRows(filtered);
     };
     if (!hideDoctorFilters) {
-      [
-        "doctor-filter-name",
-        "doctor-filter-email",
-        "doctor-filter-specialty",
-        "doctor-filter-availability",
-        "doctor-filter-phone",
-        "doctor-filter-receptionist",
-        "doctor-filter-clinic",
-      ].forEach((id) => {
-        document
-          .getElementById(id)
-          ?.addEventListener("input", applyDoctorFilters);
-      });
+      document
+        .getElementById("doctors-unified-search")
+        ?.addEventListener("input", applyDoctorFilters);
     }
     renderRows(doctors);
     document
