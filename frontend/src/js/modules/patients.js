@@ -237,7 +237,7 @@ export async function renderPatients() {
             id="patients-unified-search" 
             placeholder="Search patients by name, email, phone, DOB, records, or profile type..." 
             class="search-input-unified"
-            style="width: 100%; padding: 8px 36px 8px 44px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
+            style="width: 100%; padding: 8px 36px 8px 48px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
           />
           <button 
             type="button" 
