@@ -3329,14 +3329,51 @@ function showAddRoomModal(deptName) {
 
 async function showDoctorNodePopover(doctorId) {
   const container = document.getElementById("enterprise-modal-container") || document.body;
+  const currentOrgId = window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "");
   const tree = window._lastOrgTree || {};
-  const depts = (tree.departments || []).map((d) => d.name);
+  const depts = tree.departments || [];
+
+  // Find target doctor across tree departments to extract current selections
+  let targetDoc = null;
+  depts.forEach((d) => {
+    (d.doctors || []).forEach((doc) => {
+      if (String(doc.id || doc._id) === String(doctorId)) {
+        targetDoc = doc;
+      }
+    });
+  });
+
+  const activeDeptNames = depts.map((d) => d.name);
+  const currentDocRoomId = targetDoc?.assignedRoom?.id || targetDoc?.assignedRoom?._id || targetDoc?.assignedRoom || "";
+  const currentDocDept = targetDoc?.department || "";
+  const currentDocRole = targetDoc?.orgRole || "doctor";
 
   let roomsList = [];
   try {
-    const res = await apiRequest(`${API_BASE}/organization/rooms`);
+    const url = currentOrgId ? `${API_BASE}/organization/rooms?orgId=${encodeURIComponent(currentOrgId)}` : `${API_BASE}/organization/rooms`;
+    const res = await apiRequest(url);
     if (res.ok) roomsList = await res.json();
   } catch (e) {}
+
+  // Consolidate rooms from API response and current tree state
+  const allRoomsMap = new Map();
+  roomsList.forEach((r) => {
+    const rId = String(r._id || r.id);
+    if (rId) {
+      allRoomsMap.set(rId, { id: rId, name: r.roomName || r.name, dept: r.department || "General" });
+    }
+  });
+
+  depts.forEach((d) => {
+    (d.rooms || []).forEach((r) => {
+      const rId = String(r.id || r._id);
+      if (rId && !allRoomsMap.has(rId)) {
+        allRoomsMap.set(rId, { id: rId, name: r.name || r.roomName, dept: d.name || "General" });
+      }
+    });
+  });
+
+  const allRooms = Array.from(allRoomsMap.values());
 
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
@@ -3345,23 +3382,27 @@ async function showDoctorNodePopover(doctorId) {
         <h3 style="margin-top:0;">⚙️ Doctor Assignment & Room Management</h3>
         <form id="edit-doctor-node-form">
           <label>Reassign Department
-            <select name="department">
+            <select id="edit-doctor-dept-select" name="department" class="w-full px-3 py-2 border rounded-md text-sm" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem; background: #ffffff;">
               <option value="">-- Unassigned / General --</option>
-              ${depts.map((d) => `<option value="${d}">${d}</option>`).join("")}
+              ${activeDeptNames.map((d) => `<option value="${escapeHtml(d)}" ${d === currentDocDept ? "selected" : ""}>${escapeHtml(d)}</option>`).join("")}
             </select>
           </label>
-          <label>Assigned Consultation Room
-            <select name="assignedRoom">
+          <label style="margin-top: 0.75rem; display: block;">Assigned Consultation Room
+            <select id="edit-doctor-room-select" name="assignedRoom" class="w-full px-3 py-2 border rounded-md text-sm" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem; background: #ffffff;">
               <option value="">-- No Room Assigned --</option>
-              ${roomsList.map((r) => `<option value="${r._id}">${r.roomName} (${r.department || "General"})</option>`).join("")}
+              ${allRooms.map((r) => `
+                <option value="${escapeHtml(r.id)}" ${String(r.id) === String(currentDocRoomId) ? "selected" : ""}>
+                  ${escapeHtml(r.name)} (${escapeHtml(r.dept)})
+                </option>
+              `).join("")}
             </select>
           </label>
-          <label>Organization Role
-            <select name="orgRole">
-              <option value="doctor">Doctor</option>
-              <option value="department_head">Department Head</option>
-              <option value="org_admin">Organization Admin</option>
-              <option value="staff">Staff</option>
+          <label style="margin-top: 0.75rem; display: block;">Organization Role
+            <select name="orgRole" class="w-full px-3 py-2 border rounded-md text-sm" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem; background: #ffffff;">
+              <option value="doctor" ${currentDocRole === "doctor" ? "selected" : ""}>Doctor</option>
+              <option value="department_head" ${currentDocRole === "department_head" ? "selected" : ""}>Department Head</option>
+              <option value="org_admin" ${currentDocRole === "org_admin" ? "selected" : ""}>Organization Admin</option>
+              <option value="staff" ${currentDocRole === "staff" ? "selected" : ""}>Staff</option>
             </select>
           </label>
           <div style="display: flex; gap: 0.5rem; justify-content: space-between; align-items: center; margin-top: 1.5rem;">
@@ -3392,7 +3433,7 @@ async function showDoctorNodePopover(doctorId) {
       if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to update doctor assignment."));
       showToast("Doctor assignment updated.");
       closeEnterpriseModal();
-      await loadEnterpriseTree();
+      await loadEnterpriseTree(currentOrgId);
     } catch (err) {
       showToast(err.message, "error");
     }
@@ -3409,7 +3450,7 @@ async function showDoctorNodePopover(doctorId) {
       if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to detach doctor."));
       showToast("Doctor detached from organization.");
       closeEnterpriseModal();
-      await loadEnterpriseTree();
+      await loadEnterpriseTree(currentOrgId);
     } catch (err) {
       showToast(err.message, "error");
     }
