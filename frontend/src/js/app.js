@@ -2437,7 +2437,7 @@ async function renderEnterpriseView() {
   }
 }
 
-async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : null)) {
+async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._selectedOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : null)) {
   const container = document.getElementById("enterprise-tree-container");
   if (!container) return;
 
@@ -2445,7 +2445,7 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof
   container.innerHTML = `<div class="feedback">Loading hospital tree...</div>`;
 
   try {
-    const activeOrgId = targetOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || window._selectedOrgId || "";
+    const activeOrgId = targetOrgId || window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || window._selectedOrgId || "";
     const orgIdQuery = activeOrgId ? `?orgId=${encodeURIComponent(activeOrgId)}` : "";
     const [treeRes, allOrgsRes] = await Promise.all([
       apiRequest(`${API_BASE}/organization/tree${orgIdQuery}`),
@@ -2461,6 +2461,7 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof
 
     const currentOrgId = String(tree.organization?._id || tree._id || "");
     if (currentOrgId) {
+      window.activeOrgId = currentOrgId;
       window._selectedOrgId = currentOrgId;
       if (typeof localStorage !== "undefined") {
         localStorage.setItem("drmeet_active_org_id", currentOrgId);
@@ -2481,12 +2482,10 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof
     const depts = Array.isArray(tree.departments) ? tree.departments : [];
 
     const departmentsContentHtml = depts.length === 0 ? `
-      <div class="card" style="padding: 2.5rem 1.5rem; text-align: center; margin-top: 1rem; border: 1px dashed #cbd5e1;">
+      <div class="empty-workspace card p-8 text-center border-2 border-dashed border-gray-300 rounded-lg" style="padding: 2.5rem 1.5rem; text-align: center; margin-top: 1rem; border: 2px dashed #cbd5e1;">
         <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;">🏥</span>
-        <h4 style="margin-bottom: 0.5rem; color: #0284c7; font-size: 1.1rem;">No departments found for this facility</h4>
-        <p style="color: #64748b; max-width: 480px; margin: 0 auto 1.25rem auto; font-size: 0.9rem; line-height: 1.5;">
-          No departments have been added to <strong>${escapeHtml(facilityName)}</strong> yet. Click <strong>'+ Add Department'</strong> above to create your first department.
-        </p>
+        <p class="text-gray-500 font-medium" style="color: #64748b; font-weight: 500; margin-bottom: 0.75rem;">No departments added yet for this facility.</p>
+        <button class="btn btn-primary cta-primary mt-3" id="add-first-dept-btn">+ Add Department</button>
       </div>
     ` : `
       <div class="departments-tree-grid" style="display: flex; flex-direction: column; gap: 1.25rem;">
@@ -2499,11 +2498,11 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
           <div>
             <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.25rem;">
-              <h3 id="enterprise-header-facility-name" style="margin: 0; font-size: 1.35rem; color: #0284c7;">🏥 ${escapeHtml(facilityName)}</h3>
+              <h3 id="enterprise-header-facility-name" id="hospital-title-display" class="hospital-title-display hospital-name-display" style="margin: 0; font-size: 1.35rem; color: #0284c7;">🏥 ${escapeHtml(facilityName)}</h3>
               ${allOrgs.length > 0 ? `
-                <select id="hospital-facility-switcher" style="font-size: 0.85rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #0284c7; background: #ffffff; color: #0284c7; font-weight: 600; cursor: pointer;">
+                <select id="hospital-facility-switcher" id="hospital-switcher" class="hospital-switcher" style="font-size: 0.85rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #0284c7; background: #ffffff; color: #0284c7; font-weight: 600; cursor: pointer;">
                   ${allOrgs.map((o) => `
-                    <option value="${o._id}" ${String(o._id) === currentOrgId ? "selected" : ""}>
+                    <option value="${o._id}" ${String(o._id) === String(window.activeOrgId || currentOrgId) ? "selected" : ""}>
                       ${escapeHtml(o.name)}
                     </option>
                   `).join("")}
@@ -2534,6 +2533,8 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof
       ${departmentsContentHtml}
     `;
 
+    container.querySelector("#add-first-dept-btn")?.addEventListener("click", () => showAddDepartmentModal());
+
     const hospitalSelect = document.getElementById("hospital-facility-switcher") || document.getElementById("hospital-switcher");
     if (hospitalSelect) {
       hospitalSelect.addEventListener("change", async (e) => {
@@ -2543,7 +2544,7 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof
         const selectedOrgName = e.target.options[e.target.selectedIndex]?.text || "";
 
         // 1. Instantly update the main facility title on screen
-        const titleEl = document.querySelector("#enterprise-header-facility-name") || document.querySelector(".hospital-title-display") || document.querySelector(".hospital-name-display");
+        const titleEl = document.querySelector("#enterprise-header-facility-name") || document.querySelector("#hospital-title-display") || document.querySelector(".hospital-title-display") || document.querySelector(".hospital-name-display");
         if (titleEl && selectedOrgName) {
           titleEl.textContent = `🏥 ${selectedOrgName.trim()}`;
         }
@@ -2555,8 +2556,9 @@ async function loadEnterpriseTree(targetOrgId = window._selectedOrgId || (typeof
         }
 
         // 3. Store active org ID & fetch data specifically for this orgId and re-render
-        localStorage.setItem("drmeet_active_org_id", selectedOrgId);
+        window.activeOrgId = selectedOrgId;
         window._selectedOrgId = selectedOrgId;
+        localStorage.setItem("drmeet_active_org_id", selectedOrgId);
         await loadEnterpriseTree(selectedOrgId);
       });
     }
@@ -2604,7 +2606,7 @@ function buildDepartmentCardHtml(dept) {
           ${rooms.length === 0 ? `<div style="font-size: 0.85rem; color: #94a3b8; font-style: italic;">No rooms assigned</div>` : `
             <div style="display: flex; flex-direction: column; gap: 0.4rem;">
               ${rooms.map((r) => `
-                <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.85rem;">
+                <div class="room-card room-drop-target" data-room-id="${r.id}" style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.85rem; transition: all 0.2s ease;">
                   <div>
                     <strong>${escapeHtml(r.name)}</strong>
                     <span style="font-size: 0.75rem; color: #64748b; display: block;">Cap: ${r.dailyCap} pts/day</span>
@@ -2626,8 +2628,9 @@ function buildDepartmentCardHtml(dept) {
           ${doctors.length === 0 ? `<div style="font-size: 0.85rem; color: #94a3b8; font-style: italic;">No doctors assigned</div>` : `
             <div style="display: flex; flex-direction: column; gap: 0.4rem;">
               ${doctors.map((d) => `
-                <div style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.85rem;">
+                <div class="doctor-draggable-card" draggable="true" data-doctor-id="${d.id}" style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.85rem; cursor: grab; user-select: none; transition: all 0.15s ease;">
                   <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="color: #94a3b8; font-size: 0.85rem; cursor: grab;" title="Drag doctor to assign room">⋮⋮</span>
                     <img src="${escapeHtml(d.photoUrl || DEFAULT_AVATAR_URL)}" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover;" onerror="this.src='${DEFAULT_AVATAR_URL}'" />
                     <div>
                       <strong>${escapeHtml(d.name)}</strong>
@@ -2663,6 +2666,73 @@ function wireEnterpriseTreeEvents(container) {
       showDeleteRoomModal(btn.dataset.roomId);
     } else if (action === "edit-doctor-node") {
       void showDoctorNodePopover(btn.dataset.docId);
+    }
+  });
+
+  // Drag and Drop Doctor-to-Room Assignment Listeners
+  container.addEventListener("dragstart", (e) => {
+    const docCard = e.target.closest(".doctor-draggable-card");
+    if (!docCard) return;
+    const docId = docCard.dataset.doctorId;
+    if (!docId) return;
+    e.dataTransfer.setData("text/plain", docId);
+    e.dataTransfer.effectAllowed = "move";
+    docCard.style.opacity = "0.5";
+    docCard.style.outline = "2px dashed #0284c7";
+  });
+
+  container.addEventListener("dragend", (e) => {
+    const docCard = e.target.closest(".doctor-draggable-card");
+    if (!docCard) return;
+    docCard.style.opacity = "1";
+    docCard.style.outline = "none";
+  });
+
+  container.addEventListener("dragover", (e) => {
+    const roomCard = e.target.closest(".room-drop-target");
+    if (!roomCard) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    roomCard.style.borderColor = "#22c55e";
+    roomCard.style.backgroundColor = "#f0fdf4";
+  });
+
+  container.addEventListener("dragleave", (e) => {
+    const roomCard = e.target.closest(".room-drop-target");
+    if (!roomCard) return;
+    roomCard.style.borderColor = "#e2e8f0";
+    roomCard.style.backgroundColor = "#ffffff";
+  });
+
+  container.addEventListener("drop", async (e) => {
+    const roomCard = e.target.closest(".room-drop-target");
+    if (!roomCard) return;
+    e.preventDefault();
+    roomCard.style.borderColor = "#e2e8f0";
+    roomCard.style.backgroundColor = "#ffffff";
+
+    const doctorId = e.dataTransfer.getData("text/plain");
+    const roomId = roomCard.dataset.roomId;
+    if (!doctorId || !roomId) return;
+
+    try {
+      const res = await apiRequest(`${API_BASE}/organization/assign-room`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ doctorId, roomId }),
+      });
+      if (!res.ok) {
+        const fallbackRes = await apiRequest(`${API_BASE}/organization/doctors/${doctorId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assignedRoom: roomId }),
+        });
+        if (!fallbackRes.ok) throw new Error(await getApiErrorMessage(fallbackRes, "Failed to assign room to doctor."));
+      }
+      showToast("Doctor assigned to consultation room successfully.");
+      await loadEnterpriseTree(window.activeOrgId);
+    } catch (err) {
+      showToast(err.message, "error");
     }
   });
 }

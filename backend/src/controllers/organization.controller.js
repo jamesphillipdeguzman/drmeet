@@ -517,3 +517,40 @@ export async function deleteRoom(req, res) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+/**
+ * PUT /api/organization/assign-room
+ * Assign doctor to consultation room
+ */
+export async function assignDoctorRoom(req, res) {
+  try {
+    const { doctorId, roomId } = req.body;
+    if (!doctorId) return res.status(400).json({ error: "Doctor ID is required." });
+
+    const doctor = await Doctor.findById(doctorId);
+    if (!doctor) return res.status(404).json({ error: "Doctor not found." });
+
+    let room = null;
+    if (roomId) {
+      room = await Room.findById(roomId);
+      if (room) {
+        doctor.assignedRoom = room._id;
+        if (room.department) doctor.department = room.department;
+      }
+    } else {
+      doctor.assignedRoom = null;
+    }
+
+    await doctor.save();
+    if (doctor.userId) {
+      await User.findByIdAndUpdate(doctor.userId, {
+        assignedRoom: doctor.assignedRoom,
+        department: doctor.department,
+      });
+    }
+
+    return res.status(200).json({ message: "Doctor room assignment updated successfully.", doctor });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}

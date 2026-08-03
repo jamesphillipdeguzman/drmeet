@@ -13,6 +13,7 @@ import {
   getRooms,
   createRoom,
   deleteRoom,
+  assignDoctorRoom,
 } from "../controllers/organization.controller.js";
 
 const router = express.Router();
@@ -30,6 +31,9 @@ router.delete("/departments/:deptName", deleteDepartment);
 
 router.post("/doctors", attachDoctorToOrg);
 router.patch("/doctors/:doctorId", updateDoctorAssignment);
+
+router.put("/assign-room", assignDoctorRoom);
+router.patch("/assign-room", assignDoctorRoom);
 
 router.get("/rooms", getRooms);
 router.post("/rooms", createRoom);
