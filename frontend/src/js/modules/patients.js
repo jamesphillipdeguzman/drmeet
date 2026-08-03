@@ -242,11 +242,12 @@ export async function renderPatients() {
           <button 
             type="button" 
             id="patients-search-clear"
-            class="search-clear-btn hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-            style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; display: none;"
+            class="search-clear-btn hidden"
             title="Clear search"
           >
-            ✕
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
           </button>
         </div>
         <label style="display: flex; align-items: center; gap: 0.5rem; white-space: nowrap;">Sort by date added
@@ -590,11 +591,12 @@ export async function showPatientForm(editId = null, familyMode = false) {
           <button 
             type="button" 
             id="patient-existing-search-clear"
-            class="search-clear-btn hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-            style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; display: none;"
+            class="search-clear-btn hidden"
             title="Clear search"
           >
-            ✕
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
           </button>
         </div>
         <div id="patient-existing-results" class="feedback" style="display:none"></div>
