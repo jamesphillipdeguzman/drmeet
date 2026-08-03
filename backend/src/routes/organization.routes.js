@@ -4,6 +4,8 @@ import { requireEnterpriseAccess } from "../middlewares/organization.middleware.
 import {
   getOrganizationTree,
   getMyOrganization,
+  getAllOrganizations,
+  createOrganization,
   addDepartment,
   deleteDepartment,
   attachDoctorToOrg,
@@ -18,6 +20,8 @@ const router = express.Router();
 // Apply auth and enterprise access protection to all organization endpoints
 router.use(hybridAuth, requireEnterpriseAccess);
 
+router.get("/all", getAllOrganizations);
+router.post("/", createOrganization);
 router.get("/tree", getOrganizationTree);
 router.get("/my-org", getMyOrganization);
 

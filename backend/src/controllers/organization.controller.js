@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Organization from "../models/organization.model.js";
 import Room from "../models/room.model.js";
 import Doctor from "../models/doctor.model.js";
@@ -7,8 +8,13 @@ import User from "../models/user.model.js";
 async function resolveOrganizationForUser(req) {
   let org = null;
   const user = req.user || {};
+  const requestedOrgId = req.query?.orgId || req.body?.orgId;
 
-  if (user.organizationId) {
+  if (requestedOrgId && mongoose.Types.ObjectId.isValid(requestedOrgId)) {
+    org = await Organization.findById(requestedOrgId);
+  }
+
+  if (!org && user.organizationId) {
     org = await Organization.findById(user.organizationId);
   }
 
@@ -41,6 +47,57 @@ async function resolveOrganizationForUser(req) {
   }
 
   return org;
+}
+
+/**
+ * GET /api/organization/all
+ * List all hospital organizations
+ */
+export async function getAllOrganizations(req, res) {
+  try {
+    const orgs = await Organization.find().sort({ createdAt: -1 });
+    return res.status(200).json(orgs);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+/**
+ * POST /api/organization
+ * Create a new hospital organization
+ */
+export async function createOrganization(req, res) {
+  try {
+    const { name, slug, maxDoctorSeats, maxRooms } = req.body;
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ error: "Hospital name is required." });
+    }
+
+    const trimmedName = name.trim();
+    const generatedSlug = (slug && String(slug).trim())
+      ? String(slug).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-")
+      : trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Math.random().toString(36).substring(2, 7);
+
+    const newOrg = await Organization.create({
+      name: trimmedName,
+      slug: generatedSlug,
+      tier: "enterprise",
+      maxDoctorSeats: Number(maxDoctorSeats) || 150,
+      maxRooms: Number(maxRooms) || 50,
+      adminUser: req.user?.id || req.user?._id || null,
+      departments: [
+        { name: "Cardiology" },
+        { name: "Pediatrics" },
+        { name: "Dermatology" },
+        { name: "Orthopedics" },
+        { name: "General Medicine" },
+      ],
+    });
+
+    return res.status(201).json({ message: "Hospital facility created successfully.", organization: newOrg });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 }
 
 /**
