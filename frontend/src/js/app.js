@@ -2316,15 +2316,27 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
         </div>
 
         <!-- Search Bar UI -->
-        <div class="mb-4 flex justify-between items-center" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid #e2e8f0;">
-          <input 
-            type="text" 
-            id="admin-user-search" 
-            placeholder="🔍 Search users by name, email, role, or plan..." 
-            class="w-80 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            style="max-width: 340px; width: 100%; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem; background: #ffffff;"
-          />
-          <span id="search-result-count" class="text-xs text-gray-500 font-medium" style="font-size: 0.8rem; color: #64748b; font-weight: 600;">
+        <div class="mb-4 flex justify-between items-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; padding: 0.75rem 1rem; border-radius: 8px;">
+          <div class="relative w-full max-w-xl" style="position: relative; flex: 1; min-width: 280px; max-width: 36rem;">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-gray-400 pointer-events-none" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none;">🔍</span>
+            <input 
+              type="text" 
+              id="superadmin-search-input" 
+              placeholder="Search users by name, email, role, or plan..." 
+              class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style="width: 100%; padding: 8px 36px 8px 44px; border-radius: 8px; font-size: 0.875rem;"
+            />
+            <button 
+              type="button" 
+              id="superadmin-search-clear"
+              class="search-clear-btn hidden absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: transparent; border: none; font-size: 1rem; color: #94a3b8; cursor: pointer; display: none;"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          </div>
+          <span id="search-result-count" class="text-xs text-gray-500 dark:text-slate-400 font-medium" style="font-size: 0.8rem; font-weight: 600;">
             Showing ${users.length} of ${users.length} accounts
           </span>
         </div>
@@ -2428,10 +2440,14 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
       }).join("");
     };
 
-    const searchInput = document.getElementById("admin-user-search");
+    const searchInput = document.getElementById("superadmin-search-input") || document.getElementById("admin-user-search");
+    const searchClear = document.getElementById("superadmin-search-clear");
     if (searchInput) {
-      searchInput.addEventListener("input", (e) => {
-        const q = (e.target.value || "").trim().toLowerCase();
+      const applyFilter = () => {
+        const q = (searchInput.value || "").trim().toLowerCase();
+        if (searchClear) {
+          searchClear.style.display = q.length > 0 ? "block" : "none";
+        }
         if (!q) {
           renderTableRows(users);
           return;
@@ -2439,12 +2455,18 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
         const filtered = users.filter((u) => {
           const name = (u.name || "").toLowerCase();
           const email = (u.email || "").toLowerCase();
-          const role = (u.role || "").toLowerCase();
+          const roleStr = (u.role || "").toLowerCase();
           const plan = (u.currentTier || u.subscriptionPlan || "").toLowerCase();
           const orgName = (u.organizationName || "").toLowerCase();
-          return name.includes(q) || email.includes(q) || role.includes(q) || plan.includes(q) || orgName.includes(q);
+          return name.includes(q) || email.includes(q) || roleStr.includes(q) || plan.includes(q) || orgName.includes(q);
         });
         renderTableRows(filtered);
+      };
+      searchInput.addEventListener("input", applyFilter);
+      searchClear?.addEventListener("click", () => {
+        searchInput.value = "";
+        applyFilter();
+        searchInput.focus();
       });
     }
 
@@ -2628,7 +2650,7 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
             type="text" 
             id="hierarchy-search-input" 
             placeholder="Search by department name, consultation room, doctor name, or specialty..." 
-            class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-slate-900 dark:text-white"
+            class="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-slate-100 placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             style="width: 100%; padding: 8px 36px 8px 44px; border-radius: 8px; font-size: 0.875rem;"
           />
           <button 
@@ -2641,7 +2663,7 @@ async function loadEnterpriseTree(targetOrgId = window.activeOrgId || window._se
             ✕
           </button>
         </div>
-        <select id="hierarchy-search-category" class="px-3 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-gray-50 dark:bg-slate-800 dark:text-white focus:outline-none" style="padding: 8px 12px; border-radius: 8px; font-size: 0.875rem; cursor: pointer;">
+        <select id="hierarchy-search-category" class="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg text-sm bg-gray-50 dark:bg-slate-900 text-gray-900 dark:text-slate-100 focus:outline-none" style="padding: 8px 12px; border-radius: 8px; font-size: 0.875rem; cursor: pointer;">
           <option value="all">All Categories</option>
           <option value="department">Departments</option>
           <option value="room">Rooms</option>
