@@ -2666,15 +2666,17 @@ if (typeof window !== "undefined") {
 
 function buildDepartmentCardHtml(dept) {
   const deptName = dept.name || "Department";
+  const deptId = dept._id || dept.id || deptName;
   const rooms = dept.rooms || [];
   const doctors = dept.doctors || [];
   const isGeneral = deptName === "General / Unassigned";
   const isAdminUser = isEnterpriseAdminUser();
 
   return `
-    <div class="card department-tree-card" style="border-left: 4px solid #0284c7; position: relative;">
+    <div class="card department-tree-card department-card" draggable="true" data-dept-id="${escapeHtml(String(deptId))}" data-dept-name="${escapeHtml(deptName)}" style="border-left: 4px solid #0284c7; position: relative; transition: all 0.2s ease;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem;">
         <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span class="drag-handle text-gray-400 cursor-grab px-2 hover:text-gray-600" style="cursor: grab; font-size: 1.1rem; color: #94a3b8; user-select: none;" title="Drag to reorder department">⋮⋮</span>
           <span style="font-size: 1.3rem;">📂</span>
           <h3 style="margin: 0; font-size: 1.15rem;">${escapeHtml(deptName)}</h3>
           ${dept.headDoctor ? `<span class="badge" style="background: #e0e7ff; color: #4338ca; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600;">👑 Head: ${escapeHtml(dept.headDoctor.name)}</span>` : ""}
@@ -2758,6 +2760,8 @@ function wireEnterpriseTreeEvents(container) {
   if (container._hasEnterpriseEvents) return;
   container._hasEnterpriseEvents = true;
 
+  let draggedDeptCard = null;
+
   container.addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-action]");
     if (!btn) return;
@@ -2799,8 +2803,17 @@ function wireEnterpriseTreeEvents(container) {
     }
   });
 
-  // Drag and Drop Doctor-to-Room Assignment Listeners with Single Execution Guard
+  // Drag and Drop Department Cards and Doctor Cards Listeners
   container.addEventListener("dragstart", (e) => {
+    const deptCard = e.target.closest(".department-card");
+    if (deptCard && !e.target.closest(".doctor-draggable-card")) {
+      draggedDeptCard = deptCard;
+      e.dataTransfer.setData("text/plain", deptCard.dataset.deptId || deptCard.dataset.deptName);
+      e.dataTransfer.effectAllowed = "move";
+      deptCard.style.opacity = "0.4";
+      return;
+    }
+
     const docCard = e.target.closest(".doctor-draggable-card");
     if (!docCard) return;
     const docId = docCard.dataset.doctorId;
@@ -2812,6 +2825,14 @@ function wireEnterpriseTreeEvents(container) {
   });
 
   container.addEventListener("dragend", (e) => {
+    const deptCard = e.target.closest(".department-card");
+    if (deptCard) {
+      deptCard.style.opacity = "1";
+      deptCard.style.borderTop = "none";
+      deptCard.style.borderBottom = "none";
+    }
+    draggedDeptCard = null;
+
     const docCard = e.target.closest(".doctor-draggable-card");
     if (!docCard) return;
     docCard.style.opacity = "1";
@@ -2819,6 +2840,15 @@ function wireEnterpriseTreeEvents(container) {
   });
 
   container.addEventListener("dragover", (e) => {
+    const deptCard = e.target.closest(".department-card");
+    if (deptCard && draggedDeptCard && draggedDeptCard !== deptCard) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "move";
+      deptCard.style.borderTop = "3px solid #0284c7";
+      return;
+    }
+
     const roomCard = e.target.closest(".room-drop-target");
     if (!roomCard) return;
     e.preventDefault();
@@ -2831,6 +2861,12 @@ function wireEnterpriseTreeEvents(container) {
   });
 
   container.addEventListener("dragleave", (e) => {
+    const deptCard = e.target.closest(".department-card");
+    if (deptCard) {
+      deptCard.style.borderTop = "none";
+      deptCard.style.borderBottom = "none";
+    }
+
     const roomCard = e.target.closest(".room-drop-target");
     if (!roomCard) return;
     e.stopPropagation();
@@ -2841,6 +2877,45 @@ function wireEnterpriseTreeEvents(container) {
   });
 
   container.addEventListener("drop", async (e) => {
+    const targetDeptCard = e.target.closest(".department-card");
+    if (targetDeptCard && draggedDeptCard && draggedDeptCard !== targetDeptCard) {
+      e.preventDefault();
+      e.stopPropagation();
+      targetDeptCard.style.borderTop = "none";
+      targetDeptCard.style.borderBottom = "none";
+
+      const grid = targetDeptCard.parentElement;
+      if (grid) {
+        grid.insertBefore(draggedDeptCard, targetDeptCard);
+      }
+
+      const cards = Array.from(container.querySelectorAll(".department-card"));
+      const departmentOrders = cards.map((card, idx) => ({
+        id: card.dataset.deptId,
+        name: card.dataset.deptName,
+        position: idx,
+        orderIndex: idx,
+      }));
+
+      try {
+        const res = await apiRequest(`${API_BASE}/organization/departments/reorder`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            organizationId: window.activeOrgId,
+            departmentOrders,
+          }),
+        });
+        if (!res.ok) {
+          throw new Error(await getApiErrorMessage(res, "Failed to update department order."));
+        }
+        showToast("Department order updated successfully.");
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+      return;
+    }
+
     const roomCard = e.target.closest(".room-drop-target");
     if (!roomCard) return;
     e.preventDefault();

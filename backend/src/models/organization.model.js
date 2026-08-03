@@ -32,6 +32,10 @@ const organizationSchema = new mongoose.Schema(
           ref: "Doctor",
           default: null,
         },
+        orderIndex: {
+          type: Number,
+          default: 0,
+        },
       },
     ],
     maxDoctorSeats: {
