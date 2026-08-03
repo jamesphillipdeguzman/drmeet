@@ -1723,6 +1723,8 @@ body.theme-dark .assigned-doctor-badge {
    Universal Search Input & Select Styling
    ========================================================== */
 
+/* 1. Standardize both Inputs and Selects in Light Mode */
+select,
 .search-input-unified {
   background: #ffffff;
   color: #1d2740;
@@ -1733,25 +1735,17 @@ body.theme-dark .assigned-doctor-badge {
   color: #64748b;
 }
 
-/* Dark Mode Overrides */
-
+/* 2. Standardize both Inputs, Selects, and Options in Dark Mode */
+body.theme-dark select,
+body.theme-dark option,
 body.theme-dark .search-input-unified {
-  background: #0f172a !important;
+  background-color: #0f172a !important;
   color: #f8fafc !important;
   border-color: #334155 !important;
 }
 
 body.theme-dark .search-input-unified::placeholder {
   color: #94a3b8 !important;
-}
-
-/* Dark Mode Dropdowns & Selects */
-
-body.theme-dark select,
-body.theme-dark option {
-  background-color: #1e293b !important;
-  color: #f8fafc !important;
-  border-color: #334155 !important;
 }
 
 body.theme-dark .modal-sheet label,

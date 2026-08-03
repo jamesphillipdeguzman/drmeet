@@ -3345,7 +3345,7 @@ async function showAddDoctorModal(deptName) {
         <form id="add-doctor-to-dept-form">
           <div class="mb-4" style="margin-bottom: 0.75rem;">
             <label class="block text-sm font-medium mb-1" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px;">Target Department</label>
-            <select id="modal-doctor-dept-select" name="department" class="w-full px-3 py-2 border rounded-md text-sm dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700" style="width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 0.875rem;">
+            <select id="modal-doctor-dept-select" name="department" class="select-input-unified" style="width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 0.875rem;">
               ${deptList.length === 0 ? `<option value="${escapeHtml(deptName || "General / Unassigned")}">${escapeHtml(deptName || "General / Unassigned")}</option>` : `
                 ${deptList.map((d) => {
     const dName = typeof d === "string" ? d : d.name;
@@ -3427,7 +3427,7 @@ function showAddRoomModal(deptName) {
         <form id="add-room-form">
           <div class="mb-4" style="margin-bottom: 0.75rem;">
             <label class="block text-sm font-medium mb-1" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px;">Target Department</label>
-            <select id="modal-room-dept-select" name="department" class="w-full px-3 py-2 border rounded-md text-sm dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700" style="width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 0.875rem;">
+            <select id="modal-room-dept-select" name="department" class="select-input-unified" style="width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 0.875rem;">
               ${deptList.length === 0 ? `<option value="${escapeHtml(deptName || "General / Unassigned")}">${escapeHtml(deptName || "General / Unassigned")}</option>` : `
                 ${deptList.map((d) => {
     const dName = typeof d === "string" ? d : d.name;
