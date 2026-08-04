@@ -2266,6 +2266,29 @@ body.theme-dark .patient-profile-missing .btn {
   }
 }
 
+/* Typewriter Cursor Styling */
+.typewriter-cursor::after {
+  content: '|';
+  color: #0284c7;
+  font-weight: 700;
+  animation: blinkCursor 0.7s infinite;
+  margin-left: 2px;
+  display: inline-block;
+}
+
+body.theme-dark .typewriter-cursor::after {
+  color: #38bdf8;
+}
+
+@keyframes blinkCursor {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
 .why-drmeet-media {
   width: 100%;
   border-radius: 14px;
