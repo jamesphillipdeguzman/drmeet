@@ -1115,8 +1115,11 @@ export async function deletePatient(id) {
 
 // Ensure global window bindings are available immediately when module loads
 if (typeof window !== "undefined") {
+  window._rawShowPatientForm = showPatientForm;
   window.showPatientForm = showPatientForm;
+  window.openAddPatientModal = () => window.showPatientForm();
   window.editPatient = editPatient;
+  window.openEditPatientModal = (id) => window.editPatient(id);
   window.deletePatient = deletePatient;
   window.closePatientForm = function () {
     const modal = document.getElementById("patient-form-modal") || document.querySelector(".patient-form-modal-host");
