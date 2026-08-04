@@ -1338,25 +1338,143 @@ async function showClinicalTab(tab) {
     }
 
     if (tab === "settings") {
-      const res = await apiRequest(`${API_BASE}/doctors/me/overview`);
-      if (!res.ok)
+      const userRole = String(getCurrentUserRole() || "").toLowerCase();
+      if (userRole !== "doctor") {
+        panel.innerHTML = `<div class="feedback error">Access Restricted: Staff & practice settings are only accessible to Doctor accounts.</div>`;
+        doctorDashUI.loaded.settings = true;
+        return;
+      }
+
+      const [resOverview, resDocs] = await Promise.all([
+        apiRequest(`${API_BASE}/doctors/me/overview`),
+        apiRequest(`${API_BASE}/doctors`),
+      ]);
+
+      if (!resOverview.ok)
         throw new Error(
-          await getApiErrorMessage(res, "Unable to load settings."),
+          await getApiErrorMessage(resOverview, "Unable to load settings."),
         );
-      const overview = await res.json();
+
+      const overview = await resOverview.json();
+      const allDoctors = resDocs.ok ? await resDocs.json() : [];
+      const currentUserId = getCurrentUserId();
+      const myDoctor = allDoctors.find(
+        (d) => String(d.userId || "") === String(currentUserId || "")
+      ) || (allDoctors.length ? allDoctors[0] : null);
+
       const prefs = overview.notificationPrefs || {};
+
       panel.innerHTML = `
-        <section class="card">
-          <h4>Notifications</h4>
-          <label><input type="checkbox" id="clinical-pref-appt" ${prefs.emailAppointments !== false ? "checked" : ""} /> Appointment-related email (beta)</label>
-          <label><input type="checkbox" id="clinical-pref-msg" ${prefs.emailMessages !== false ? "checked" : ""} /> Message-related email (beta)</label>
-          <button type="button" class="btn btn-primary" id="clinical-save-prefs">Save preferences</button>
-        </section>
-        <section class="card">
-          <h4>Account</h4>
-          <p class="clinical-muted">Theme, password, and profile fields stay in <a href="#settings">global settings</a>.</p>
-        </section>
+        <div class="clinical-settings-container">
+          <section class="card clinical-profile-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <h4 style="margin:0;">Doctor Profile & Availability</h4>
+              ${myDoctor ? `<button type="button" class="btn btn-primary btn-sm" id="clinical-edit-doctor-btn">Edit Doctor Profile</button>` : ""}
+            </div>
+            <p><strong>Name:</strong> ${escapeHtml(myDoctor ? `${myDoctor.title || "Dr."} ${myDoctor.firstName || ""} ${myDoctor.lastName || ""}`.trim() : "—")}</p>
+            <p><strong>Specialty:</strong> ${escapeHtml(myDoctor?.specialty || "—")}</p>
+            <p><strong>Affiliated Clinic:</strong> ${escapeHtml(myDoctor?.affiliatedClinics || "—")}</p>
+            <p><strong>Consultation Room:</strong> ${escapeHtml(myDoctor?.room || "—")}</p>
+            <p><strong>Contact Phone:</strong> ${escapeHtml(myDoctor?.phone || "—")}</p>
+            <p><strong>PRC License Number:</strong> ${escapeHtml(myDoctor?.prcLicenseNumber || myDoctor?.licenseNumber || "—")}</p>
+          </section>
+
+          <section class="card clinical-staff-card" style="margin-top: 1rem;">
+            <h4>Clinic Staff & Receptionist Invitations</h4>
+            <p class="clinical-muted" style="margin-bottom: 0.75rem;">Invite a receptionist and link them to your clinic workspace.</p>
+            <form id="invite-receptionist-form">
+              <div style="display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 0.75rem;">
+                <label>
+                  Receptionist Email
+                  <input type="email" name="email" required placeholder="reception@clinic.com" />
+                </label>
+                <label>
+                  Receptionist Name
+                  <input type="text" name="receptionistName" required placeholder="e.g. Maria Clara" />
+                </label>
+              </div>
+              <button type="submit" class="btn btn-secondary btn-action-edit">Invite Receptionist</button>
+            </form>
+            <div id="invite-receptionist-feedback" class="feedback" style="display:none; margin-top: 0.5rem;"></div>
+            ${myDoctor ? `
+              <label style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" id="doctor-allow-receptionist-docs" ${myDoctor.allowReceptionistSendDocuments ? "checked" : ""} />
+                <span>Allow receptionist to send patient documents</span>
+              </label>
+            ` : ""}
+          </section>
+
+          <section class="card" style="margin-top: 1rem;">
+            <h4>Notifications</h4>
+            <label style="display: block; margin-bottom: 0.5rem;"><input type="checkbox" id="clinical-pref-appt" ${prefs.emailAppointments !== false ? "checked" : ""} /> Appointment-related email (beta)</label>
+            <label style="display: block; margin-bottom: 0.75rem;"><input type="checkbox" id="clinical-pref-msg" ${prefs.emailMessages !== false ? "checked" : ""} /> Message-related email (beta)</label>
+            <button type="button" class="btn btn-primary btn-sm" id="clinical-save-prefs">Save preferences</button>
+          </section>
+
+          <section class="card" style="margin-top: 1rem;">
+            <h4>Account Settings</h4>
+            <p class="clinical-muted">Theme, password, and general settings stay in <a href="#settings">global settings</a>.</p>
+          </section>
+        </div>
       `;
+
+      document.getElementById("clinical-edit-doctor-btn")?.addEventListener("click", () => {
+        if (myDoctor && typeof window.showDoctorForm === "function") {
+          window.showDoctorForm(myDoctor._id);
+        }
+      });
+
+      document.getElementById("invite-receptionist-form")?.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const feedback = document.getElementById("invite-receptionist-feedback");
+        const email = String(new FormData(form).get("email") || "").trim();
+        const receptionistName = String(new FormData(form).get("receptionistName") || "").trim();
+        if (!email) return;
+        if (feedback) {
+          feedback.style.display = "block";
+          feedback.className = "feedback";
+          feedback.textContent = "Inviting receptionist...";
+        }
+        try {
+          const inviteRes = await apiRequest(`${API_BASE}/doctors/clinic-staff/invite`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, receptionistName }),
+          });
+          if (!inviteRes.ok) throw new Error(await getApiErrorMessage(inviteRes, "Failed to invite receptionist"));
+          const data = await inviteRes.json();
+          if (feedback) {
+            feedback.className = "feedback success";
+            feedback.textContent = data.message + (data.emailStatus === "failed" ? " (Email failed to send)" : " (Invitation email sent)");
+          }
+          form.reset();
+        } catch (error) {
+          if (feedback) {
+            feedback.className = "feedback error";
+            feedback.textContent = error.message || "Failed to invite receptionist.";
+          }
+        }
+      });
+
+      if (myDoctor) {
+        document.getElementById("doctor-allow-receptionist-docs")?.addEventListener("change", async (e) => {
+          const checked = e.target.checked;
+          try {
+            const upRes = await apiRequest(`${API_BASE}/doctors/${myDoctor._id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ allowReceptionistSendDocuments: checked }),
+            });
+            if (!upRes.ok) throw new Error(await getApiErrorMessage(upRes, "Failed to update permission"));
+            showToast("Receptionist document permission updated.");
+          } catch (error) {
+            e.target.checked = !checked;
+            showToast(error.message || "Failed to update permission.", "error");
+          }
+        });
+      }
+
       document
         .getElementById("clinical-save-prefs")
         ?.addEventListener("click", async () => {
@@ -1921,6 +2039,8 @@ function renderDoctorDashboard() {
     return;
   }
 
+  const role = getCurrentUserRole();
+  const isDoctor = role === "doctor";
   const tab = parseDoctorDashboardTab();
   const tabs = [
     { id: "overview", label: "Overview" },
@@ -1928,7 +2048,7 @@ function renderDoctorDashboard() {
     { id: "appointments", label: "Appointments" },
     { id: "billing", label: "Billing" },
     { id: "documents", label: "Documents" },
-    { id: "settings", label: "Settings" },
+    ...(isDoctor ? [{ id: "settings", label: "Staff & Practice" }] : []),
   ];
 
   mainContent.innerHTML = `
@@ -4411,8 +4531,8 @@ function renderHome() {
         void renderSignup();
         return;
       }
-      window.location.hash = "#doctors";
-      renderDoctors();
+      window.location.hash = "#doctor-dashboard?tab=settings";
+      renderDoctorDashboard();
     });
   document
     .getElementById("role-select-patient")

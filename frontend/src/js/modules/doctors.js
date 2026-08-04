@@ -136,6 +136,7 @@ window.closeDoctorForm = function () {
 
 // --- Doctors ---
 export async function renderDoctors() {
+  window.location.hash = "#doctor-dashboard?tab=settings";
   const mainContent = document.getElementById("main-content");
   if (!mainContent) return;
 
