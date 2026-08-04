@@ -134,14 +134,15 @@ export const getUserById = async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: 'User not found.' });
         }
-        const requesterRole = String(req.user?.role || '').toLowerCase();
+        const requesterRole = normalizeRole(req.user?.role || '');
         const requesterId = String(req.user?._id || req.user?.id || '');
-        if (requesterRole !== 'admin' && requesterId !== String(user._id)) {
+        const isAdmin = ['hospital_admin', 'super_admin', 'admin'].includes(requesterRole);
+        if (!isAdmin && requesterId !== String(user._id)) {
             if (requesterRole === 'doctor') {
                 const doctor = await findDoctorByUserId(requesterId);
                 const doctorId = doctor ? String(doctor._id) : '';
                 const isLinkedReceptionist =
-                    String(user.role || '').toLowerCase() === 'receptionist' &&
+                    normalizeRole(user.role) === 'receptionist' &&
                     doctorId &&
                     String(user.linkedDoctorId || '') === doctorId;
                 if (!isLinkedReceptionist) {
@@ -215,21 +216,21 @@ export const updateUser = async (req, res) => {
     const updates = { ...cleaned };
 
     // Security & Privilege Escalation Protection
-    if (cleaned.role && String(id) === String(requesterId)) {
-        return res.status(403).json({ error: 'Security Restriction: Users cannot modify their own role.' });
+    const isSelfEdit = String(id) === String(requesterId);
+    if (isSelfEdit && (cleaned.role || cleaned.subscriptionPlan)) {
+        return res.status(403).json({ error: 'Forbidden: Self-editing of role or subscription plan is restricted.' });
     }
 
     if (!isSuperAdmin) {
-        if (cleaned.role) {
-            delete updates.role; // Only Super Admin can modify user roles
+        if (cleaned.role || cleaned.subscriptionPlan) {
+            return res.status(403).json({ error: 'Forbidden: Only Super Admin accounts can modify user roles or subscription tiers.' });
         }
-        if (cleaned.subscriptionPlan) {
-            delete updates.subscriptionPlan; // Only Super Admin can modify subscription tiers
-        }
+        delete updates.role;
+        delete updates.subscriptionPlan;
     }
 
     if (cleaned.role && normalizeRole(cleaned.role) === 'super_admin' && !isSuperAdmin) {
-        return res.status(403).json({ error: 'Security Restriction: Only Super Admin accounts can assign Super Admin privilege.' });
+        return res.status(403).json({ error: 'Forbidden: Only Super Admin accounts can assign Super Admin privilege.' });
     }
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
