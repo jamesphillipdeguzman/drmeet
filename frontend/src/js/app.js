@@ -74,6 +74,7 @@ import {
   renderMessengerThread,
   mountFloatingChatWidget,
   hideFloatingChatWidget,
+  startConversationWithRecipient,
 } from "./modules/messaging.js";
 
 import {
@@ -824,6 +825,43 @@ async function resolvePatientMessageRecipient(patient) {
     return null;
   }
 }
+
+window.openPatientMessagingContext = async function (patientId) {
+  if (!patientId) return;
+  try {
+    const res = await apiRequest(`${API_BASE}/patients/${patientId}`);
+    const patient = res.ok ? await res.json() : { _id: patientId };
+
+    const recipientUserId = typeof resolvePatientMessageRecipient === "function"
+      ? await resolvePatientMessageRecipient(patient)
+      : (patient.userId || patient._id);
+
+    if (!recipientUserId) {
+      showToast("Patient does not have a linked user account for direct messaging.", "error");
+      return;
+    }
+
+    if (typeof mountFloatingChatWidget === "function") {
+      mountFloatingChatWidget();
+    }
+    const root = document.getElementById("floating-chat-widget");
+    const panel = document.getElementById("floating-chat-panel");
+    const toggleBtn = document.getElementById("floating-chat-toggle");
+    const shellRoot = document.getElementById("floating-messenger-root");
+
+    if (root) root.classList.remove("hidden");
+    if (panel) panel.classList.remove("hidden");
+    if (toggleBtn) toggleBtn.setAttribute("aria-expanded", "true");
+
+    if (typeof startConversationWithRecipient === "function") {
+      await startConversationWithRecipient(recipientUserId, shellRoot);
+    }
+    showToast(`Opening chat with ${patient.firstName || "patient"}...`);
+  } catch (err) {
+    console.error("Error opening patient message context:", err);
+    showToast(err?.message || "Unable to open chat", "error");
+  }
+};
 
 async function fetchMyPatientRecord() {
   const res = await apiRequest(`${API_BASE}/patients`);
