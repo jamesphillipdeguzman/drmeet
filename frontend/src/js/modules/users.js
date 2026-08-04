@@ -231,7 +231,11 @@ export async function showUserForm(editId = null) {
   await ensureDoctorSpecialtiesLoaded();
   const modal = document.getElementById("user-form-modal");
   if (!modal) return;
+  const currentUserId = String(getCurrentUserId() || "");
   const isPlatformSuperAdmin = String(getCurrentUserRole() || "").toLowerCase() === "super_admin";
+  const isSelfEdit = Boolean(editId && String(editId) === currentUserId);
+  const canEditRoleAndPlan = isPlatformSuperAdmin && !isSelfEdit;
+
   modal.style.display = "block";
   modal.innerHTML = `
     <div class="modal-sheet card">
@@ -252,7 +256,7 @@ export async function showUserForm(editId = null) {
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
       <label>Role
-        <select name="role" ${isPlatformSuperAdmin ? "required" : "disabled"} style="${!isPlatformSuperAdmin ? "background:#f1f5f9; cursor:not-allowed;" : ""}">
+        <select name="role" ${canEditRoleAndPlan ? "required" : "disabled"} style="${!canEditRoleAndPlan ? "background:#f1f5f9; cursor:not-allowed; opacity:0.8;" : ""}">
           <option value="hospital_admin">Hospital Admin</option>
           <option value="super_admin">Super Admin</option>
           <option value="doctor">Doctor</option>
@@ -263,15 +267,27 @@ export async function showUserForm(editId = null) {
           <option value="pharmacist">Pharmacist</option>
           <option value="patient">Patient</option>
         </select>
-        ${!isPlatformSuperAdmin ? `<small style="display:block; color:#94a3b8; margin-top:2px;">Role modification is restricted exclusively to Super Admin.</small>` : ""}
+        ${isSelfEdit
+          ? `<small style="display:block; color:#64748b; margin-top:2px;">Self-editing of role or subscription plan is restricted to prevent accidental permission loss.</small>`
+          : (!isPlatformSuperAdmin
+            ? `<small style="display:block; color:#dc2626; margin-top:2px;">Only Super Admin can modify user roles or subscription tiers.</small>`
+            : ""
+          )
+        }
       </label>
       <label>Subscription Tier / Plan
-        <select name="subscriptionPlan" ${isPlatformSuperAdmin ? "required" : "disabled"} style="${!isPlatformSuperAdmin ? "background:#f1f5f9; cursor:not-allowed;" : ""}">
+        <select name="subscriptionPlan" ${canEditRoleAndPlan ? "required" : "disabled"} style="${!canEditRoleAndPlan ? "background:#f1f5f9; cursor:not-allowed; opacity:0.8;" : ""}">
           <option value="starter">Free (Starter)</option>
           <option value="pro">Clinic Pro</option>
           <option value="enterprise">Enterprise</option>
         </select>
-        ${!isPlatformSuperAdmin ? `<small style="display:block; color:#94a3b8; margin-top:2px;">Subscription tier assignment is restricted to Super Admin manual verification.</small>` : ""}
+        ${isSelfEdit
+          ? `<small style="display:block; color:#64748b; margin-top:2px;">Self-editing of subscription tier is restricted.</small>`
+          : (!isPlatformSuperAdmin
+            ? `<small style="display:block; color:#dc2626; margin-top:2px;">Only Super Admin can modify user roles or subscription tiers.</small>`
+            : ""
+          )
+        }
       </label>
       <label id="user-receptionist-type-wrap">Receptionist Type
         <select name="receptionistType">
@@ -317,31 +333,41 @@ export async function showUserForm(editId = null) {
     receptionistTypeWrap.style.display = isReceptionistRole ? "" : "none";
   };
   roleSelect?.addEventListener("change", syncSpecialtyVisibility);
+
   if (editId) {
-    apiRequest(`${API_BASE}/users/${editId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        form.firstName.value = data.firstName || "";
-        form.lastName.value = data.lastName || "";
-        form.email.value = data.email || "";
-        form.title.value = data.title || "";
-        form.role.value = data.role || "patient";
-        if (form.subscriptionPlan) {
-          form.subscriptionPlan.value = data.subscriptionPlan || "starter";
-        }
-        form.receptionistType.value = data.receptionistType || "";
-        form.specialty.value = data.specialty || "";
-        form.phone.value = data.phone || "";
-        form.address.value = data.address || "";
-        syncSpecialtyVisibility();
-      });
+    try {
+      const res = await apiRequest(`${API_BASE}/users/${editId}`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to fetch user details.");
+      }
+      const data = await res.json();
+      form.firstName.value = data.firstName || "";
+      form.lastName.value = data.lastName || "";
+      form.email.value = data.email || "";
+      form.title.value = data.title || "";
+      if (form.role) form.role.value = data.role || "patient";
+      if (form.subscriptionPlan) {
+        form.subscriptionPlan.value = data.subscriptionPlan || "starter";
+      }
+      if (form.receptionistType) form.receptionistType.value = data.receptionistType || "";
+      if (form.specialty) form.specialty.value = data.specialty || "";
+      form.phone.value = data.phone || "";
+      form.address.value = data.address || "";
+      syncSpecialtyVisibility();
+    } catch (err) {
+      if (typeof showToast === "function") {
+        showToast(err.message || "Failed to load target user details.", "error");
+      }
+    }
   } else {
     syncSpecialtyVisibility();
   }
+
   form.onsubmit = async (e) => {
     e.preventDefault();
     const user = Object.fromEntries(new FormData(form));
-    if (!isPlatformSuperAdmin) {
+    if (!canEditRoleAndPlan) {
       delete user.role;
       delete user.subscriptionPlan;
     }
@@ -361,7 +387,11 @@ export async function showUserForm(editId = null) {
       modal.style.display = "none";
       renderUsers();
     } catch (err) {
-      showToast(err.message, "error");
+      if (typeof showToast === "function") {
+        showToast(err.message, "error");
+      } else {
+        alert(err.message);
+      }
     }
   };
 }
