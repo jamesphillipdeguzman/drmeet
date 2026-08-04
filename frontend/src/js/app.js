@@ -545,6 +545,9 @@ window.addEventListener("DOMContentLoaded", () => {
     wireAvatarPresetGrid,
     showDangerConfirm,
     ensureAvatarPresetsLoaded,
+    applyUserRecordToLocalCache,
+    refreshCurrentUserCacheFromApi,
+    updateSidebarAccountInfoAndPlan,
   });
 
   initDoctorsModule({
