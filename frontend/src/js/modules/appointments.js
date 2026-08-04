@@ -134,11 +134,14 @@ export async function renderAppointments(targetContainer = null) {
   const container = targetContainer || document.getElementById("main-content");
   if (!container) return;
 
-  if (!targetContainer) {
+  const role = String(getCurrentUserRole() || "").toLowerCase();
+
+  if (!targetContainer && role === "doctor") {
     window.location.hash = "#doctor-dashboard?tab=appointments";
+    return;
   }
   setPageTone("appointments");
-  container.innerHTML = '<div class="feedback">Loading...</div>';
+  container.innerHTML = '<div class="feedback">Loading appointments...</div>';
   try {
     const [res, doctorRes, patientRes] = await Promise.all([
       apiRequest(`${API_BASE}/appointments`),
@@ -164,6 +167,138 @@ export async function renderAppointments(targetContainer = null) {
     const patientById = new Map(
       patients.map((patient) => [String(patient._id), patient]),
     );
+
+    if (role === "patient") {
+      container.innerHTML = `
+        <header class="patient-appointments-header" style="margin-bottom: 1.5rem;">
+          <h2 class="page-title page-title-appointments" style="margin-bottom: 0.35rem;">My Appointments</h2>
+          <p class="clinical-muted" style="margin: 0;">View, manage, or reschedule your upcoming and past doctor appointments.</p>
+        </header>
+        <div class="appointments-toolbar" style="margin-bottom: 1.25rem; display: flex; gap: 0.75rem; align-items: center; justify-content: space-between; flex-wrap: wrap;">
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <button type="button" class="btn btn-secondary btn-sm" id="appointments-refresh-btn">🔄 Refresh List</button>
+            <a href="#book" class="btn btn-primary btn-sm" style="text-decoration: none;">+ Book New Appointment</a>
+          </div>
+        </div>
+        <div class="relative w-full max-w-xl mb-4" style="position: relative; width: 100%; max-width: 36rem; margin-bottom: 1rem; display: flex; align-items: center;">
+          <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; display: flex; align-items: center;">🔍</span>
+          <input 
+            type="text" 
+            id="appointments-unified-search" 
+            placeholder="Search your visits by doctor, date, time, or status..." 
+            class="search-input-unified" 
+            style="width: 100%; padding: 8px 36px 8px 48px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
+          />
+          <button 
+            type="button" 
+            id="appointments-search-clear" 
+            class="search-clear-btn hidden" 
+            aria-label="Clear search"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+              <path d="M1 1L11 11M1 11L11 1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+        <div id="patient-appointments-list" class="patient-appointments-list" style="display: flex; flex-direction: column; gap: 1rem;"></div>
+        <div id="appointment-form-modal" style="display:none"></div>
+      `;
+
+      const listEl = document.getElementById("patient-appointments-list");
+      const renderPatientRows = (list) => {
+        if (!list || !list.length) {
+          listEl.innerHTML = `
+            <div class="card patient-empty-appointments" style="padding: 2.5rem; text-align: center; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px;">
+              <p style="font-size: 1.1rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem;">No appointments found</p>
+              <p class="clinical-muted" style="margin-bottom: 1.25rem;">You haven't scheduled any doctor visits yet, or none match your search criteria.</p>
+              <a href="#book" class="btn btn-primary" style="text-decoration: none;">Book an Appointment</a>
+            </div>
+          `;
+          return;
+        }
+
+        listEl.innerHTML = list
+          .map((a) => {
+            const docName = resolveAppointmentDoctorName(a, doctorLookup) || "Doctor";
+            const dateText = formatDateDisplay(a.date) || "";
+            const timeText = a.time || "";
+            const statusRaw = String(a.status || "pending").toLowerCase();
+            const isCancelled = statusRaw === "cancelled";
+            const isCompleted = statusRaw === "completed";
+            const canModify = !isCancelled && !isCompleted;
+
+            return `
+              <div class="card patient-appt-card ${isCancelled ? "row-cancelled" : ""}" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; border-left: 4px solid ${isCancelled ? "#ef4444" : isCompleted ? "#10b981" : "#3b82f6"};">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 0.5rem;">
+                  <div>
+                    <h3 style="margin: 0 0 0.25rem; font-size: 1.1rem; color: #1e293b;">${escapeHtml(docName)}</h3>
+                    <p class="clinical-muted" style="margin: 0; font-size: 0.9rem;">
+                      🗓️ <strong>${escapeHtml(dateText)}</strong> at ⏰ <strong>${escapeHtml(timeText)}</strong>
+                    </p>
+                  </div>
+                  <span class="status-pill status-${escapeHtml(statusRaw)}">${escapeHtml(a.status || "Pending")}</span>
+                </div>
+                ${a.reason || a.notes ? `<p style="margin: 0; font-size: 0.875rem; color: #475569;"><strong>Reason:</strong> ${escapeHtml(a.reason || a.notes)}</p>` : ""}
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.25rem;">
+                  ${canModify ? `
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="window.editAppointment('${a._id}')">Reschedule</button>
+                    <button type="button" class="btn btn-secondary btn-sm" style="color: #dc2626; border-color: #fca5a5;" onclick="window.cancelAppointment('${a._id}')">Cancel Appointment</button>
+                  ` : `
+                    <a href="#book" class="btn btn-secondary btn-sm" style="text-decoration: none;">Book Again</a>
+                  `}
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+      };
+
+      const searchInput = document.getElementById("appointments-unified-search");
+      const searchClear = document.getElementById("appointments-search-clear");
+      const applyFilters = () => {
+        const q = String(searchInput?.value || "").toLowerCase().trim();
+        if (searchClear) {
+          if (q.length > 0) {
+            searchClear.classList.remove("hidden");
+            searchClear.style.display = "block";
+          } else {
+            searchClear.classList.add("hidden");
+            searchClear.style.display = "none";
+          }
+        }
+        const filtered = appointments.filter((a) => {
+          const doc = String(resolveAppointmentDoctorName(a, doctorLookup) || "").toLowerCase();
+          const dInput = formatDateForInput(a.date).toLowerCase();
+          const dDisplay = String(formatDateDisplay(a.date) || "").toLowerCase();
+          const time = String(a.time || "").toLowerCase();
+          const status = String(a.status || "").toLowerCase();
+          const reason = String(a.reason || a.notes || "").toLowerCase();
+          return !q || doc.includes(q) || dInput.includes(q) || dDisplay.includes(q) || time.includes(q) || status.includes(q) || reason.includes(q);
+        });
+        renderPatientRows(filtered);
+      };
+
+      searchInput?.addEventListener("input", applyFilters);
+      searchClear?.addEventListener("click", () => {
+        if (searchInput) {
+          searchInput.value = "";
+          applyFilters();
+          searchInput.focus();
+        }
+      });
+
+      renderPatientRows(appointments);
+
+      document.getElementById("appointments-refresh-btn")?.addEventListener("click", () => {
+        void renderAppointments(targetContainer);
+      });
+      window.showAppointmentForm = showAppointmentForm;
+      window.editAppointment = editAppointment;
+      window.cancelAppointment = cancelAppointment;
+      window.deleteAppointment = deleteAppointment;
+      return;
+    }
+
     container.innerHTML = `
       <div class="appointments-toolbar" style="margin-bottom: 1rem; display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
         <button type="button" class="btn btn-secondary" id="appointments-refresh-btn">Refresh List</button>
@@ -292,9 +427,10 @@ export async function renderAppointments(targetContainer = null) {
       });
     window.showAppointmentForm = showAppointmentForm;
     window.editAppointment = editAppointment;
+    window.cancelAppointment = cancelAppointment;
     window.deleteAppointment = deleteAppointment;
   } catch (err) {
-    mainContent.innerHTML = `<h2>Appointments</h2><div class="feedback error">${err.message}</div>`;
+    container.innerHTML = `<h2>Appointments</h2><div class="feedback error">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -573,6 +709,30 @@ export async function deleteAppointment(id) {
     renderAppointments();
   } catch (err) {
     showToast(err.message, "error");
+  }
+}
+
+export async function cancelAppointment(id) {
+  if (!id) return;
+  if (!(await showDangerConfirm("Are you sure you want to cancel this appointment?"))) return;
+  try {
+    const res = await apiRequest(`${API_BASE}/appointments/${id}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "cancelled" }),
+    });
+    if (!res.ok) {
+      const fallbackRes = await apiRequest(`${API_BASE}/appointments/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      if (!fallbackRes.ok) throw new Error(await getApiErrorMessage(fallbackRes, "Failed to cancel appointment"));
+    }
+    showToast("Appointment cancelled successfully.");
+    void renderAppointments();
+  } catch (err) {
+    showToast(err?.message || "Unable to cancel appointment", "error");
   }
 }
 
