@@ -49,6 +49,17 @@ function formatRoleBadge(r) {
   }
 }
 
+function formatPlanBadge(plan) {
+  const p = String(plan || "starter").toLowerCase();
+  if (p === "enterprise") {
+    return '<span class="status-badge" style="background:#7c3aed; color:#fff; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.75rem;">ENTERPRISE</span>';
+  }
+  if (p === "pro") {
+    return '<span class="status-badge" style="background:#0284c7; color:#fff; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.75rem;">CLINIC PRO</span>';
+  }
+  return '<span class="status-badge" style="background:#64748b; color:#fff; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.75rem;">FREE</span>';
+}
+
 // --- Users ---
 export async function renderUsers() {
   const el = mainContent || document.getElementById("main-content");
@@ -107,7 +118,7 @@ export async function renderUsers() {
         </select>
       </div>
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th>${isSuperAdmin ? "<th>Plan / Tier</th>" : ""}<th>Phone</th><th>Actions</th></tr></thead>
         <tbody id="users-table-body">
           ${users
         .map(
@@ -116,6 +127,7 @@ export async function renderUsers() {
               <td>${u.title ? `${u.title} ` : ""}${u.firstName} ${u.lastName}</td>
               <td>${u.email || ""}</td>
               <td>${formatRoleBadge(u.role)}</td>
+              ${isSuperAdmin ? `<td>${formatPlanBadge(u.subscriptionPlan)}</td>` : ""}
               <td>${u.phone || ""}</td>
               <td>
                 ${canManageUsers
@@ -140,6 +152,7 @@ export async function renderUsers() {
               <td>${u.title ? `${u.title} ` : ""}${u.firstName} ${u.lastName}</td>
               <td>${u.email || ""}</td>
               <td>${formatRoleBadge(u.role)}</td>
+              ${isSuperAdmin ? `<td>${formatPlanBadge(u.subscriptionPlan)}</td>` : ""}
               <td>${u.phone || ""}</td>
               <td>
                 ${canManageUsers
@@ -218,6 +231,7 @@ export async function showUserForm(editId = null) {
   await ensureDoctorSpecialtiesLoaded();
   const modal = document.getElementById("user-form-modal");
   if (!modal) return;
+  const isPlatformSuperAdmin = String(getCurrentUserRole() || "").toLowerCase() === "super_admin";
   modal.style.display = "block";
   modal.innerHTML = `
     <div class="modal-sheet card">
@@ -238,7 +252,7 @@ export async function showUserForm(editId = null) {
       <label>Last Name <input name="lastName" required /></label>
       <label>Email <input name="email" type="email" required /></label>
       <label>Role
-        <select name="role" required>
+        <select name="role" ${isPlatformSuperAdmin ? "required" : "disabled"} style="${!isPlatformSuperAdmin ? "background:#f1f5f9; cursor:not-allowed;" : ""}">
           <option value="hospital_admin">Hospital Admin</option>
           <option value="super_admin">Super Admin</option>
           <option value="doctor">Doctor</option>
@@ -249,6 +263,15 @@ export async function showUserForm(editId = null) {
           <option value="pharmacist">Pharmacist</option>
           <option value="patient">Patient</option>
         </select>
+        ${!isPlatformSuperAdmin ? `<small style="display:block; color:#94a3b8; margin-top:2px;">Role modification is restricted exclusively to Super Admin.</small>` : ""}
+      </label>
+      <label>Subscription Tier / Plan
+        <select name="subscriptionPlan" ${isPlatformSuperAdmin ? "required" : "disabled"} style="${!isPlatformSuperAdmin ? "background:#f1f5f9; cursor:not-allowed;" : ""}">
+          <option value="starter">Free (Starter)</option>
+          <option value="pro">Clinic Pro</option>
+          <option value="enterprise">Enterprise</option>
+        </select>
+        ${!isPlatformSuperAdmin ? `<small style="display:block; color:#94a3b8; margin-top:2px;">Subscription tier assignment is restricted to Super Admin manual verification.</small>` : ""}
       </label>
       <label id="user-receptionist-type-wrap">Receptionist Type
         <select name="receptionistType">
@@ -303,6 +326,9 @@ export async function showUserForm(editId = null) {
         form.email.value = data.email || "";
         form.title.value = data.title || "";
         form.role.value = data.role || "patient";
+        if (form.subscriptionPlan) {
+          form.subscriptionPlan.value = data.subscriptionPlan || "starter";
+        }
         form.receptionistType.value = data.receptionistType || "";
         form.specialty.value = data.specialty || "";
         form.phone.value = data.phone || "";
@@ -315,6 +341,10 @@ export async function showUserForm(editId = null) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const user = Object.fromEntries(new FormData(form));
+    if (!isPlatformSuperAdmin) {
+      delete user.role;
+      delete user.subscriptionPlan;
+    }
     try {
       const res = await apiRequest(
         `${API_BASE}/users${editId ? "/" + editId : ""}`,
@@ -324,7 +354,10 @@ export async function showUserForm(editId = null) {
           body: JSON.stringify(user),
         },
       );
-      if (!res.ok) throw new Error("Failed to save user");
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Failed to save user");
+      }
       modal.style.display = "none";
       renderUsers();
     } catch (err) {
