@@ -2242,7 +2242,18 @@ body.theme-dark .patient-profile-missing .btn {
   align-items: center;
 }
 
-@keyframes slideInFromLeft {
+@keyframes heroTextSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-25px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes heroImgSlideIn {
   0% {
     opacity: 0;
     transform: translateX(-30px);
@@ -2253,30 +2264,27 @@ body.theme-dark .patient-profile-missing .btn {
   }
 }
 
-@keyframes slideInFromLeftText {
-  0% {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateX(0);
-  }
+.hero-text-content,
+.hero-image-container {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .hero-text-content {
     opacity: 0;
-    animation: slideInFromLeftText 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    will-change: transform, opacity;
-    backface-visibility: hidden;
   }
 
   .hero-image-container {
     opacity: 0;
-    animation: slideInFromLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
-    will-change: transform, opacity;
-    backface-visibility: hidden;
+  }
+
+  .hero-text-content.hero-text-entry {
+    animation: heroTextSlideIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .hero-image-container.hero-img-entry {
+    animation: heroImgSlideIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.12s forwards;
   }
 }
 
