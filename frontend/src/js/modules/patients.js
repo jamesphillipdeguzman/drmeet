@@ -394,7 +394,13 @@ export async function renderPatients(targetContainer = null) {
                   <span class="patient-name-text" style="font-weight: 600; white-space: nowrap;">${escapeHtml(formatPatientDisplayName(p))}</span>
                 </div>
               </td>
-              <td>${p.isPrimaryProfile ? "Account Owner" : "Family Member"}</td>
+              <td>${(() => {
+                const isPrimary = typeof p.isPrimaryProfile !== "undefined"
+                  ? p.isPrimaryProfile
+                  : (!p.relationshipToAccountHolder && (!p.accountOwnerId || String(p.userId || "") === String(p.accountOwnerId || "")));
+                if (isPrimary) return "Account Owner";
+                return p.relationshipToAccountHolder ? `Family Member (${escapeHtml(p.relationshipToAccountHolder)})` : "Family Member";
+              })()}</td>
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
               <td>${formatDateForInput(p.birthdate)}</td>
@@ -696,7 +702,7 @@ export async function showPatientForm(editId = null, familyMode = false) {
       </label>
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
-      <label>Email <input name="email" type="email" ${familyMode ? "" : "required"} /></label>
+      <label>Email <input name="email" type="email" ${editId || familyMode ? "" : "required"} placeholder="patient@example.com" /></label>
       <label>Phone
         <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
         <small>Digits only, 10-11 numbers.</small>
@@ -726,13 +732,22 @@ export async function showPatientForm(editId = null, familyMode = false) {
         <input name="profilePhotoFile" type="file" accept="image/*" />
       </label>
       ${buildAvatarPresetGridHtml("patient")}
-      ${familyMode ? `<label>Relationship to Account Holder <input name="relationshipToAccountHolder" required placeholder="e.g. Son, Daughter, Spouse" /></label>` : ""}
+      <div id="patient-profile-type-badge-wrap" style="margin-bottom: 0.75rem; padding: 0.5rem 0.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.875rem;">
+        <strong>Profile Type:</strong> <span id="patient-profile-type-text">${editId ? "Loading profile type..." : (familyMode ? "Family Member" : "Account Owner (Primary Profile)")}</span>
+      </div>
+      <div id="patient-relationship-wrap" style="${familyMode ? "display:block" : "display:none"}">
+        <label>Relationship to Account Holder <input name="relationshipToAccountHolder" placeholder="e.g. Son, Daughter, Spouse" /></label>
+      </div>
       <label>Notes <textarea name="notes" placeholder="Medical notes or reminders"></textarea></label>
-      ${!isAdminUser ? `
+      ${staffRole ? `
         <label>Medical History
-          <textarea name="medicalHistory" placeholder="One item per line"></textarea>
+          <textarea name="medicalHistory" placeholder="One item per line (e.g. Hypertension, Diabetes)"></textarea>
         </label>
-        <label><span class="label-text-row" data-tooltip="Accepted formats: PDF, DOCX, JPG, PNG. Images and PDFs upload to secure storage.">Upload Records</span>
+        <div id="patient-existing-documents-container" style="margin-bottom: 0.75rem; display: none;">
+          <label style="font-weight: 600; margin-bottom: 0.25rem; display: block;">Existing Records & Documents</label>
+          <div id="patient-existing-documents-list" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+        </div>
+        <label><span class="label-text-row" data-tooltip="Accepted formats: PDF, DOCX, JPG, PNG. Images and PDFs upload to secure storage.">Upload New Document Record</span>
           <input name="documentFile" type="file" accept="image/*,.pdf,.doc,.docx,.txt" />
         </label>
       ` : ""}
@@ -873,7 +888,6 @@ export async function showPatientForm(editId = null, familyMode = false) {
         form.title.value = data.title || "";
         form.firstName.value = data.firstName || "";
         form.lastName.value = data.lastName || "";
-        form.title.value = data.title || "";
         form.email.value = data.email || "";
         form.phone.value = data.phone || "";
         form.birthdate.value = formatDateForInput(data.birthdate);
@@ -885,6 +899,9 @@ export async function showPatientForm(editId = null, familyMode = false) {
             ? data.medicalHistory.join("\n")
             : "";
         }
+        if (form.relationshipToAccountHolder) {
+          form.relationshipToAccountHolder.value = data.relationshipToAccountHolder || "";
+        }
         const regFacilityInput = form.querySelector(
           '[name="registrationFacility"]',
         );
@@ -895,6 +912,63 @@ export async function showPatientForm(editId = null, familyMode = false) {
         if (hmoSelect && data.hmoProvider)
           hmoSelect.value = String(data.hmoProvider || "");
         syncInsured();
+
+        const isPrimary = typeof data.isPrimaryProfile !== "undefined"
+          ? data.isPrimaryProfile
+          : (!data.relationshipToAccountHolder && (!data.accountOwnerId || String(data.userId || "") === String(data.accountOwnerId || "")));
+
+        const badgeTextEl = document.getElementById("patient-profile-type-text");
+        const relWrap = document.getElementById("patient-relationship-wrap");
+        if (badgeTextEl) {
+          badgeTextEl.textContent = isPrimary
+            ? "Account Owner (Primary Profile)"
+            : `Family Member ${data.relationshipToAccountHolder ? `(${data.relationshipToAccountHolder})` : ""}`;
+        }
+        if (relWrap) {
+          relWrap.style.display = isPrimary ? "none" : "block";
+        }
+
+        const docsContainer = document.getElementById("patient-existing-documents-container");
+        const docsList = document.getElementById("patient-existing-documents-list");
+        const docs = Array.isArray(data.documents) ? data.documents : [];
+        if (docsContainer && docsList && docs.length > 0) {
+          docsContainer.style.display = "block";
+          docsList.innerHTML = docs
+            .map((d) => {
+              const docId = String(d._id || d.id || "");
+              const name = escapeHtml(d.name || d.fileUrl || d.url || "Document");
+              const fileUrl = escapeHtml(d.fileUrl || d.url || "#");
+              return `
+                <div style="display: flex; align-items: center; justify-content: space-between; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 12px; font-size: 0.875rem;">
+                  <a href="${fileUrl}" target="_blank" rel="noopener noreferrer" download style="color: #2563eb; text-decoration: underline; font-weight: 500;">📄 ${name}</a>
+                  <button type="button" class="btn btn-sm btn-action-delete" style="padding: 2px 8px; font-size: 0.75rem;" data-remove-doc-id="${docId}">Remove</button>
+                </div>
+              `;
+            })
+            .join("");
+
+          docsList.querySelectorAll("[data-remove-doc-id]").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+              const docIdToRemove = btn.getAttribute("data-remove-doc-id");
+              if (!docIdToRemove) return;
+              try {
+                const rmRes = await apiRequest(`${API_BASE}/patients/${editId}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ removeDocumentId: docIdToRemove }),
+                });
+                if (!rmRes.ok) throw new Error("Failed to remove document");
+                btn.parentElement?.remove();
+                if (!docsList.children.length) {
+                  docsContainer.style.display = "none";
+                }
+                showToast("Document record removed.");
+              } catch (err) {
+                showToast(err.message || "Failed to remove document", "error");
+              }
+            });
+          });
+        }
       });
   }
   form.onsubmit = async (e) => {
@@ -994,6 +1068,7 @@ export async function showPatientForm(editId = null, familyMode = false) {
       }
 
       modal.style.display = "none";
+      showToast(editId ? "Patient details updated successfully." : "Patient added successfully.");
       const sendDocDoctorSelect = document.getElementById(
         "patient-send-doc-doctor",
       );

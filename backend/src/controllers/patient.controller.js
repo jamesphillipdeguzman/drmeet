@@ -115,6 +115,7 @@ const mapPatientForClient = (patient, req = null) => {
     address: addressText || '',
     relationshipToAccountHolder: plain.relationshipToAccountHolder || '',
     isDependent: Boolean(plain.accountOwnerId) && String(plain.userId || '') !== String(plain.accountOwnerId || ''),
+    isPrimaryProfile: !plain.relationshipToAccountHolder && (!plain.accountOwnerId || String(plain.userId || '') === String(plain.accountOwnerId || '')),
     familyHeadName: plain.familyHeadName || '',
     isCareTeamLinked: Array.isArray(plain.careTeamDoctorIds) && plain.careTeamDoctorIds.length > 0,
     documents,
@@ -129,10 +130,14 @@ async function doctorMayAccessPatientDoctorScope(doctorMongoId, patientDoc) {
   const pid = String(patientDoc._id);
   const appt = await appointmentExistsForDoctorPatient(String(doctorMongoId), pid);
   if (appt) return true;
+  const doctor = await findDoctorById(doctorMongoId).catch(() => null);
+  const doctorUserId = doctor?.userId ? String(doctor.userId) : null;
   const ids = Array.isArray(patientDoc.careTeamDoctorIds)
     ? patientDoc.careTeamDoctorIds.map(String)
     : [];
-  return ids.includes(String(doctorMongoId));
+  if (ids.includes(String(doctorMongoId))) return true;
+  if (doctorUserId && ids.includes(doctorUserId)) return true;
+  return false;
 }
 
 async function primaryCareDoctorUserIdForPatient(patientLike) {
@@ -624,30 +629,42 @@ export const postPatient = async (req, res) => {
 export const updatePatient = async (req, res) => {
   const { id } = req.params;
   const cleanedBody = sanitizeInput(req.body || {});
-    const updates = {
+  let parsedBirthdate = undefined;
+  if ('birthdate' in cleanedBody) {
+    if (!cleanedBody.birthdate) {
+      parsedBirthdate = null;
+    } else {
+      const d = new Date(cleanedBody.birthdate);
+      if (!isNaN(d.getTime())) {
+        parsedBirthdate = d;
+      }
+    }
+  }
+
+  const updates = {
     ...cleanedBody,
-    birthdate: cleanedBody.birthdate || cleanedBody.birthdate || undefined,
+    ...(parsedBirthdate !== undefined ? { birthdate: parsedBirthdate } : {}),
     address:
       typeof cleanedBody.address === 'string'
         ? { address1: cleanedBody.address }
         : cleanedBody.address,
   };
 
-    if ('isInsured' in cleanedBody || 'hmoProvider' in cleanedBody) {
-      const insured = Boolean(cleanedBody.isInsured);
-      updates.isInsured = insured;
-      if (insured) {
-        const hmo = String(cleanedBody.hmoProvider || '').trim();
-        if (!PHILIPPINES_HMO_PROVIDERS.includes(hmo)) {
-          return res.status(400).json({
-            error: 'When insured, select a valid HMO provider from the list.',
-          });
-        }
-        updates.hmoProvider = hmo;
-      } else {
-        updates.hmoProvider = '';
+  if ('isInsured' in cleanedBody || 'hmoProvider' in cleanedBody) {
+    const insured = Boolean(cleanedBody.isInsured);
+    updates.isInsured = insured;
+    if (insured) {
+      const hmo = String(cleanedBody.hmoProvider || '').trim();
+      if (!PHILIPPINES_HMO_PROVIDERS.includes(hmo)) {
+        return res.status(400).json({
+          error: 'When insured, select a valid HMO provider from the list.',
+        });
       }
+      updates.hmoProvider = hmo;
+    } else {
+      updates.hmoProvider = '';
     }
+  }
   if (!mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({ error: 'Invalid patient ID format.' });
   }
@@ -658,13 +675,22 @@ export const updatePatient = async (req, res) => {
     if (!existing) {
       return res.status(404).json({ error: 'Patient not found. ' });
     }
+    if (cleanedBody.removeDocumentId) {
+      const targetDocId = String(cleanedBody.removeDocumentId);
+      const docs = Array.isArray(existing?.documents) ? existing.documents : [];
+      updates.documents = docs.filter(
+        (d) => String(d._id || d.id || '') !== targetDocId,
+      );
+    }
     if (cleanedBody.documentFileData) {
       const uploaded = await uploadToCloudinary(cleanedBody.documentFileData, {
         folder: 'drmeet/patients',
         resource_type: 'auto',
       });
       const secureUrl = uploaded.secure_url;
-      const docs = Array.isArray(existing?.documents) ? existing.documents : [];
+      const docs = Array.isArray(updates.documents || existing?.documents)
+        ? updates.documents || existing.documents
+        : [];
       const uid = authUserId(req);
       const role = authRole(req);
       const docEntry = {
