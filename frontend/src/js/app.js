@@ -5083,14 +5083,23 @@ async function renderPatientBooking() {
   const cancelBtn = document.getElementById("patient-booking-cancel");
   if (cancelBtn) cancelBtn.onclick = closeDrawer;
 
+  let activeAvailableTimes = new Set();
+  let activeConflictingTimes = new Set();
+
   const renderPatientBookingHint = async () => {
     const doctorId = String(
       document.getElementById("patient-booking-doctor-id")?.value || "",
     ).trim();
     const date = String(bookingForm?.date?.value || "").trim();
     if (!doctorId || !date) {
+      activeAvailableTimes.clear();
+      activeConflictingTimes.clear();
       if (smartHintEl) smartHintEl.style.display = "none";
       if (smartTimesEl) smartTimesEl.innerHTML = "";
+      if (bookingForm?.time) {
+        bookingForm.time.removeAttribute("min");
+        bookingForm.time.removeAttribute("max");
+      }
       return;
     }
     try {
@@ -5102,6 +5111,8 @@ async function renderPatientBooking() {
       url.searchParams.set("date", date);
       const res = await apiRequest(url.toString());
       if (!res.ok) {
+        activeAvailableTimes.clear();
+        activeConflictingTimes.clear();
         if (smartHintEl) {
           smartHintEl.style.display = "block";
           smartHintEl.className = "feedback error booking-hint";
@@ -5114,13 +5125,31 @@ async function renderPatientBooking() {
         return;
       }
       const info = await res.json();
+      const availableList = (Array.isArray(info.suggestedAvailableTimes) ? info.suggestedAvailableTimes : [])
+        .map((t) => normalizeTimeText(t))
+        .filter(Boolean);
+      const conflictList = (Array.isArray(info.conflictingTimes) ? info.conflictingTimes : [])
+        .map((t) => normalizeTimeText(t))
+        .filter(Boolean);
+
+      activeAvailableTimes = new Set(availableList);
+      activeConflictingTimes = new Set(conflictList);
+
+      if (bookingForm?.time && availableList.length) {
+        const sorted = [...availableList].sort((a, b) => a.localeCompare(b));
+        bookingForm.time.min = sorted[0];
+        bookingForm.time.max = sorted[sorted.length - 1];
+      }
+
       if (smartHintEl) {
         smartHintEl.style.display = "block";
         smartHintEl.className =
-          Number(info.remainingSlots) > 0
+          Number(info.remainingSlots) > 0 && availableList.length
             ? "feedback booking-hint"
             : "feedback error booking-hint";
-        smartHintEl.textContent = String(info.hint || "");
+        smartHintEl.textContent = availableList.length
+          ? String(info.hint || "")
+          : "No available schedule slots for the selected date. Please pick another date.";
       }
       if (smartTimesEl) {
         smartTimesEl.innerHTML = buildBookingTimeGridHtml({
@@ -5138,6 +5167,8 @@ async function renderPatientBooking() {
         });
       });
     } catch (error) {
+      activeAvailableTimes.clear();
+      activeConflictingTimes.clear();
       if (smartHintEl) {
         smartHintEl.style.display = "block";
         smartHintEl.className = "feedback error booking-hint";
@@ -5159,10 +5190,39 @@ async function renderPatientBooking() {
       const docIdInput = document.getElementById("patient-booking-doctor-id");
       const doctorId = docIdInput ? docIdInput.value : "";
       const fd = new FormData(bookingForm);
-      const date = fd.get("date");
-      const time = fd.get("time");
+      const date = String(fd.get("date") || "").trim();
+      const rawTime = String(fd.get("time") || "").trim();
+      const time = normalizeTimeText(rawTime);
       const notes = String(fd.get("notes") || "").trim();
       if (feedbackEl) feedbackEl.style.display = "none";
+
+      if (!date || !time) {
+        if (feedbackEl) {
+          feedbackEl.className = "feedback error";
+          feedbackEl.style.display = "block";
+          feedbackEl.textContent = "Please select both a date and a valid time slot.";
+        }
+        return;
+      }
+
+      if (activeAvailableTimes.size > 0 && !activeAvailableTimes.has(time)) {
+        if (feedbackEl) {
+          feedbackEl.className = "feedback error";
+          feedbackEl.style.display = "block";
+          feedbackEl.textContent = "Selected time is outside the doctor's available schedule.";
+        }
+        return;
+      }
+
+      if (activeConflictingTimes.has(time)) {
+        if (feedbackEl) {
+          feedbackEl.className = "feedback error";
+          feedbackEl.style.display = "block";
+          feedbackEl.textContent = "Selected time slot is already booked or conflicting. Please choose another time.";
+        }
+        return;
+      }
+
       try {
         const res = await apiRequest(`${API_BASE}/appointments`, {
           method: "POST",
@@ -5186,8 +5246,8 @@ async function renderPatientBooking() {
         }
         setTimeout(() => {
           closeDrawer();
-          window.location.hash = "#appointments";
-          renderAppointments();
+          window.location.hash = "#doctor-dashboard?tab=appointments";
+          renderDoctorDashboard();
         }, 1400);
       } catch (err) {
         if (feedbackEl) {

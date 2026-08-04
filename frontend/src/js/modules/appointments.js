@@ -394,12 +394,21 @@ export async function showAppointmentForm(editId = null) {
   }
   const hintEl = document.getElementById("appointment-smart-hint");
   const timesEl = document.getElementById("appointment-smart-times");
+  let activeAvailableTimes = new Set();
+  let activeConflictingTimes = new Set();
+
   const renderSmartBookingHint = async () => {
     const doctorId = String(form.doctor?.value || "").trim();
     const date = String(form.date?.value || "").trim();
     if (!doctorId || !date) {
+      activeAvailableTimes.clear();
+      activeConflictingTimes.clear();
       if (hintEl) hintEl.style.display = "none";
       if (timesEl) timesEl.innerHTML = "";
+      if (form.time) {
+        form.time.removeAttribute("min");
+        form.time.removeAttribute("max");
+      }
       return;
     }
     try {
@@ -409,6 +418,8 @@ export async function showAppointmentForm(editId = null) {
       if (editId) url.searchParams.set("excludeAppointmentId", String(editId));
       const res = await apiRequest(url.toString());
       if (!res.ok) {
+        activeAvailableTimes.clear();
+        activeConflictingTimes.clear();
         if (hintEl) {
           hintEl.style.display = "block";
           hintEl.className = "feedback error";
@@ -421,13 +432,31 @@ export async function showAppointmentForm(editId = null) {
         return;
       }
       const info = await res.json();
+      const availableList = (Array.isArray(info.suggestedAvailableTimes) ? info.suggestedAvailableTimes : [])
+        .map((t) => normalizeTimeText(t))
+        .filter(Boolean);
+      const conflictList = (Array.isArray(info.conflictingTimes) ? info.conflictingTimes : [])
+        .map((t) => normalizeTimeText(t))
+        .filter(Boolean);
+
+      activeAvailableTimes = new Set(availableList);
+      activeConflictingTimes = new Set(conflictList);
+
+      if (form.time && availableList.length) {
+        const sorted = [...availableList].sort((a, b) => a.localeCompare(b));
+        form.time.min = sorted[0];
+        form.time.max = sorted[sorted.length - 1];
+      }
+
       if (hintEl) {
         hintEl.style.display = "block";
         hintEl.className =
-          Number(info.remainingSlots) > 0
+          Number(info.remainingSlots) > 0 && availableList.length
             ? "feedback booking-hint"
             : "feedback error booking-hint";
-        hintEl.textContent = String(info.hint || "");
+        hintEl.textContent = availableList.length
+          ? String(info.hint || "")
+          : "No available schedule slots for the selected date. Please pick another date.";
       }
       if (timesEl) {
         timesEl.innerHTML = buildBookingTimeGridHtml({
@@ -445,6 +474,8 @@ export async function showAppointmentForm(editId = null) {
         });
       });
     } catch (error) {
+      activeAvailableTimes.clear();
+      activeConflictingTimes.clear();
       if (hintEl) {
         hintEl.style.display = "block";
         hintEl.className = "feedback error";
@@ -477,6 +508,18 @@ export async function showAppointmentForm(editId = null) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const appointment = Object.fromEntries(new FormData(form));
+    const timeNorm = normalizeTimeText(appointment.time);
+
+    if (activeAvailableTimes.size > 0 && !activeAvailableTimes.has(timeNorm)) {
+      showToast("Selected time is outside the doctor's available schedule.", "error");
+      return;
+    }
+
+    if (activeConflictingTimes.has(timeNorm)) {
+      showToast("Selected time slot is already booked or conflicting.", "error");
+      return;
+    }
+
     try {
       const res = await apiRequest(
         `${API_BASE}/appointments${editId ? "/" + editId : ""}`,
