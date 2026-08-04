@@ -229,6 +229,17 @@ export async function renderUsers() {
   }
 }
 
+function normalizeFrontendRole(r) {
+  const roleStr = String(r || "").toLowerCase().trim();
+  if (roleStr === "admin" || roleStr === "hospital_admin" || roleStr === "hospitaladmin") {
+    return "hospital_admin";
+  }
+  if (roleStr === "superadmin" || roleStr === "super_admin") {
+    return "super_admin";
+  }
+  return roleStr;
+}
+
 export async function showUserForm(editId = null) {
   await ensureDoctorSpecialtiesLoaded();
   const modal = document.getElementById("user-form-modal");
@@ -237,7 +248,7 @@ export async function showUserForm(editId = null) {
   const roleStr = String(typeof getCurrentUserRole === "function" ? (getCurrentUserRole() || "") : "").toLowerCase();
   const isPlatformSuperAdmin = roleStr === "super_admin";
   const isSelfEdit = Boolean(editId && String(editId) === currentUserId);
-  const canEditRoleAndPlan = isPlatformSuperAdmin && !isSelfEdit;
+  const canEditRoleAndPlan = isPlatformSuperAdmin;
 
   modal.style.display = "block";
   modal.innerHTML = `
@@ -270,10 +281,10 @@ export async function showUserForm(editId = null) {
           <option value="pharmacist">Pharmacist</option>
           <option value="patient">Patient</option>
         </select>
-        ${isSelfEdit
-          ? `<small style="display:block; color:#64748b; margin-top:2px;">Self-editing of role or subscription plan is restricted to prevent accidental permission loss.</small>`
-          : (!isPlatformSuperAdmin
-            ? `<small style="display:block; color:#dc2626; margin-top:2px;">Only Super Admin can modify user roles or subscription tiers.</small>`
+        ${!isPlatformSuperAdmin
+          ? `<small style="display:block; color:#dc2626; margin-top:2px;">Only Super Admin can modify user roles or subscription tiers.</small>`
+          : (isSelfEdit
+            ? `<small style="display:block; color:#475569; margin-top:2px;">Super Admin self-edit mode active.</small>`
             : ""
           )
         }
@@ -284,12 +295,9 @@ export async function showUserForm(editId = null) {
           <option value="pro">Clinic Pro</option>
           <option value="enterprise">Enterprise</option>
         </select>
-        ${isSelfEdit
-          ? `<small style="display:block; color:#64748b; margin-top:2px;">Self-editing of subscription tier is restricted.</small>`
-          : (!isPlatformSuperAdmin
-            ? `<small style="display:block; color:#dc2626; margin-top:2px;">Only Super Admin can modify user roles or subscription tiers.</small>`
-            : ""
-          )
+        ${!isPlatformSuperAdmin
+          ? `<small style="display:block; color:#dc2626; margin-top:2px;">Subscription tier assignment is restricted to Super Admin manual verification.</small>`
+          : ""
         }
       </label>
       <label id="user-receptionist-type-wrap">Receptionist Type
@@ -349,9 +357,11 @@ export async function showUserForm(editId = null) {
       form.lastName.value = data.lastName || "";
       form.email.value = data.email || "";
       form.title.value = data.title || "";
-      if (form.role) form.role.value = data.role || "patient";
+      if (form.role) {
+        form.role.value = normalizeFrontendRole(data.role || "patient");
+      }
       if (form.subscriptionPlan) {
-        form.subscriptionPlan.value = data.subscriptionPlan || "starter";
+        form.subscriptionPlan.value = String(data.subscriptionPlan || "starter").toLowerCase();
       }
       if (form.receptionistType) form.receptionistType.value = data.receptionistType || "";
       if (form.specialty) form.specialty.value = data.specialty || "";

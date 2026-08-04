@@ -215,12 +215,7 @@ export const updateUser = async (req, res) => {
     const cleaned = sanitizeInput(req.body || {});
     const updates = { ...cleaned };
 
-    // Security & Privilege Escalation Protection
-    const isSelfEdit = String(id) === String(requesterId);
-    if (isSelfEdit && (cleaned.role || cleaned.subscriptionPlan)) {
-        return res.status(403).json({ error: 'Forbidden: Self-editing of role or subscription plan is restricted.' });
-    }
-
+    // Security & Privilege Escalation Protection: Only Super Admin can modify user roles or subscription tiers (including on self-edit)
     if (!isSuperAdmin) {
         if (cleaned.role || cleaned.subscriptionPlan) {
             return res.status(403).json({ error: 'Forbidden: Only Super Admin accounts can modify user roles or subscription tiers.' });

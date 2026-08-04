@@ -45,6 +45,11 @@ export function verifyJWT(req, res, next) {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         if (decoded && decoded.role) {
             decoded.role = normalizeRole(decoded.role);
+            if (decoded.role === 'super_admin') {
+                decoded.isSuperAdmin = true;
+                decoded.subscriptionPlan = decoded.subscriptionPlan || 'enterprise';
+                decoded.tier = decoded.tier || 'enterprise';
+            }
         }
         req.user = decoded;
         next();
@@ -64,6 +69,11 @@ export function hybridAuth(req, res, next) {
     if (req.isAuthenticated()) {
         if (req.user && req.user.role) {
             req.user.role = normalizeRole(req.user.role);
+            if (req.user.role === 'super_admin') {
+                req.user.isSuperAdmin = true;
+                req.user.subscriptionPlan = req.user.subscriptionPlan || 'enterprise';
+                req.user.tier = req.user.tier || 'enterprise';
+            }
         }
         return next();
     }
@@ -77,6 +87,11 @@ export function hybridAuth(req, res, next) {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
             if (decoded && decoded.role) {
                 decoded.role = normalizeRole(decoded.role);
+                if (decoded.role === 'super_admin') {
+                    decoded.isSuperAdmin = true;
+                    decoded.subscriptionPlan = decoded.subscriptionPlan || 'enterprise';
+                    decoded.tier = decoded.tier || 'enterprise';
+                }
             }
             req.user = decoded;
             return next();
