@@ -294,6 +294,33 @@ async function createOrGetConversation(patientId, doctorId) {
     return data.conversationId;
 }
 
+export async function startConversationWithRecipient(recipientUserId, shellRoot = null) {
+    const currentUserId = getCurrentUserId();
+    const role = getCurrentUserRole();
+    if (!currentUserId || !recipientUserId) return null;
+
+    const patientId = role === "patient" ? currentUserId : recipientUserId;
+    const doctorId = role === "patient" ? (await resolveDoctorIdForPatientMessaging()) : currentUserId;
+
+    try {
+        const convId = await createOrGetConversation(patientId, doctorId);
+        if (convId) {
+            dashboardState.activeConversationId = String(convId);
+            await loadConversations();
+            await loadMessages(convId);
+            const root = shellRoot || document.getElementById("floating-messenger-root");
+            if (root) {
+                renderMessengerConversationList(root);
+                renderMessengerThread(root);
+            }
+            return convId;
+        }
+    } catch (e) {
+        console.error("Failed to start conversation:", e);
+    }
+    return null;
+}
+
 export async function sendMessage(text, options = {}) {
     let conversationId =
         options.conversationId || dashboardState.activeConversationId;

@@ -136,9 +136,16 @@ window.closeDoctorForm = function () {
 
 // --- Doctors ---
 export async function renderDoctors() {
-  window.location.hash = "#doctor-dashboard?tab=settings";
   const mainContent = document.getElementById("main-content");
   if (!mainContent) return;
+
+  if (getCurrentUserRole() === "doctor") {
+    if (typeof window.showClinicalTab === "function" && document.getElementById("clinical-tab-panel")) {
+      void window.showClinicalTab("settings");
+      return;
+    }
+    window.location.hash = "#doctor-dashboard?tab=settings";
+  }
 
   setPageTone("doctors");
   mainContent.innerHTML =
@@ -706,7 +713,7 @@ export async function showDoctorForm(editId = null) {
       }
 
       modal.style.display = "none";
-      if (typeof window.showClinicalTab === "function" && document.getElementById("clinical-panel")) {
+      if (typeof window.showClinicalTab === "function" && document.getElementById("clinical-tab-panel")) {
         void window.showClinicalTab("settings");
       } else if (typeof renderDoctors === "function") {
         renderDoctors();
