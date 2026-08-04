@@ -628,6 +628,8 @@ window.closePatientForm = function () {
 export async function showPatientForm(editId = null, familyMode = false) {
   const plan = localStorage.getItem("subscription_plan") || "starter";
   const role = getCurrentUserRole();
+  const normalizedRole = String(role || "").toLowerCase();
+  const isClinicalStaff = ["doctor", "nurse", "receptionist", "hospital_admin", "admin", "super_admin", "billing_specialist", "lab_technician", "pharmacist"].includes(normalizedRole);
 
   if (!editId && plan === "starter" && ["doctor", "receptionist"].includes(role)) {
     try {
