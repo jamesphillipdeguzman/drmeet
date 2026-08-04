@@ -1154,6 +1154,16 @@ async function showClinicalTab(tab) {
       return;
     }
 
+    if (tab === "calendar") {
+      panel.innerHTML = `<div id="clinical-calendar-container" class="clinical-calendar-wrap"></div>`;
+      const calContainer = document.getElementById("clinical-calendar-container");
+      if (calContainer && typeof renderCalendar === "function") {
+        await renderCalendar(calContainer);
+      }
+      doctorDashUI.loaded.calendar = true;
+      return;
+    }
+
     if (tab === "documents") {
       const [res, pres] = await Promise.all([
         apiRequest(`${API_BASE}/doctors/me/documents`),
@@ -2065,6 +2075,7 @@ function renderDoctorDashboard() {
     { id: "overview", label: "Overview" },
     { id: "patients", label: "Patients" },
     { id: "appointments", label: "Appointments" },
+    { id: "calendar", label: "Calendar" },
     { id: "billing", label: "Billing" },
     { id: "documents", label: "Documents" },
     ...(isDoctor ? [{ id: "settings", label: "Staff & Practice" }] : []),
@@ -2076,7 +2087,7 @@ function renderDoctorDashboard() {
         <div class="clinical-dash-identity">
           <p class="clinical-dash-kicker">Clinical workspace</p>
           <h2 class="clinical-dash-title">Doctor dashboard</h2>
-          <p class="clinical-muted">Overview, patients, visits, billing, and documents — all in one place.</p>
+          <p class="clinical-muted">Overview, patients, visits, calendar, billing, and documents — all in one place.</p>
         </div>
       </header>
       <nav class="clinical-dash-tabs" role="tablist" aria-label="Clinical sections">

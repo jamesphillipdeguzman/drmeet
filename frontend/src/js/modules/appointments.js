@@ -588,8 +588,8 @@ export function initAppointmentsModuleWithAvailability(config = {}) {
 // We assign to the exported name
 initAppointmentsModule = initAppointmentsModuleWithAvailability;
 
-export async function renderCalendar() {
-  const mainContent = document.getElementById("main-content");
+export async function renderCalendar(container) {
+  const mainContent = container || document.getElementById("main-content");
   if (!mainContent) return;
 
   setPageTone("appointments");
@@ -755,27 +755,27 @@ export async function renderCalendar() {
       </section>
     `;
     document.getElementById("calendar-refresh")?.addEventListener("click", () => {
-      void renderCalendar();
+      void renderCalendar(container);
     });
     document.getElementById("calendar-prev-month")?.addEventListener("click", () => {
       const viewDate = new Date(window.__calendarViewYear, window.__calendarViewMonth - 1, 1);
       window.__calendarViewYear = viewDate.getFullYear();
       window.__calendarViewMonth = viewDate.getMonth();
-      renderCalendar();
+      renderCalendar(container);
     });
     document.getElementById("calendar-next-month")?.addEventListener("click", () => {
       const viewDate = new Date(window.__calendarViewYear, window.__calendarViewMonth + 1, 1);
       window.__calendarViewYear = viewDate.getFullYear();
       window.__calendarViewMonth = viewDate.getMonth();
-      renderCalendar();
+      renderCalendar(container);
     });
     document.getElementById("calendar-month-select")?.addEventListener("change", (event) => {
       window.__calendarViewMonth = Number(event.target.value);
-      renderCalendar();
+      renderCalendar(container);
     });
     document.getElementById("calendar-year-select")?.addEventListener("change", (event) => {
       window.__calendarViewYear = Number(event.target.value);
-      renderCalendar();
+      renderCalendar(container);
     });
     const openCalendarAppointmentDetails = (appointmentId) => {
       const appointment = appointments.find(

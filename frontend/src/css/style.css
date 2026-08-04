@@ -2798,6 +2798,12 @@ body.theme-dark .avatar-preset-label {
   min-height: 160px;
 }
 
+.clinical-calendar-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 .clinical-overview-rows {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

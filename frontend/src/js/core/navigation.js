@@ -24,6 +24,7 @@ export function createNavigation({
       "overview",
       "patients",
       "appointments",
+      "calendar",
       "documents",
       "settings",
       "billing",
