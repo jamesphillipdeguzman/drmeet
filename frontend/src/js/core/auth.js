@@ -237,17 +237,29 @@ export async function refreshCurrentUserCacheFromApi() {
 }
 
 export function getSidebarRoleLabel(role) {
-  switch (String(role || "").toLowerCase()) {
-    case "patient":
-      return "I'm a patient";
-    case "doctor":
-      return "I'm a doctor";
-    case "receptionist":
-      return "I'm a receptionist";
+  const r = String(role || "").toLowerCase();
+  switch (r) {
+    case "super_admin":
+      return "Super Admin";
+    case "hospital_admin":
     case "admin":
-      return "I'm an admin";
+      return "Hospital Admin";
+    case "doctor":
+      return "Doctor";
+    case "nurse":
+      return "Nurse";
+    case "receptionist":
+      return "Receptionist";
+    case "billing_specialist":
+      return "Billing Specialist";
+    case "lab_technician":
+      return "Lab Technician";
+    case "pharmacist":
+      return "Pharmacist";
+    case "patient":
+      return "Patient";
     default:
-      return "My Account";
+      return "User";
   }
 }
 
@@ -272,7 +284,14 @@ export function updateSidebarAccountInfo() {
 
   const avatarNameEl = document.querySelector(".sidebar-avatar-name");
   if (avatarNameEl) {
-    avatarNameEl.textContent = signedIn ? fullName || "My Account" : "My Account";
+    if (signedIn) {
+      avatarNameEl.innerHTML = `
+        <span class="sidebar-user-name">${escapeHtml(fullName || "My Account")}</span>
+        <span class="sidebar-role-badge">${escapeHtml(roleLabel)}</span>
+      `;
+    } else {
+      avatarNameEl.textContent = "My Account";
+    }
   }
 
   const accountMetaEl = document.getElementById("sidebar-account-meta");
