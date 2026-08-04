@@ -391,10 +391,7 @@ export async function renderPatients(targetContainer = null) {
               <td>
                 <div class="patient-name-cell" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: nowrap; white-space: nowrap;">
                   ${renderPatientAvatarHtml(p)}
-                  <div style="display: flex; flex-direction: column; gap: 0.2rem;">
-                    <span class="patient-name-text" style="font-weight: 600; white-space: nowrap;">${escapeHtml(formatPatientDisplayName(p))}</span>
-                    ${p.isPrimaryProfile ? '<span class="patient-type-badge patient-type-badge-primary">Account Owner</span>' : '<span class="patient-type-badge patient-type-badge-family">Family Member</span>'}
-                  </div>
+                  <span class="patient-name-text" style="font-weight: 600; white-space: nowrap;">${escapeHtml(formatPatientDisplayName(p))}</span>
                 </div>
               </td>
               <td>${p.isPrimaryProfile ? "Account Owner" : "Family Member"}</td>
@@ -639,7 +636,13 @@ export async function showPatientForm(editId = null, familyMode = false) {
     } catch (e) { }
   }
 
-  const modal = document.getElementById("patient-form-modal");
+  let modal = document.getElementById("patient-form-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "patient-form-modal";
+    modal.className = "patient-form-modal-host";
+    document.body.appendChild(modal);
+  }
   const canAttachExisting =
     !editId && (role === "doctor" || role === "receptionist");
   await ensureAvatarPresetsLoaded();
