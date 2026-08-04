@@ -422,7 +422,13 @@ export async function renderDoctors() {
 }
 
 export async function showDoctorForm(editId = null) {
-  const modal = document.getElementById("doctor-form-modal");
+  let modal = document.getElementById("doctor-form-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "doctor-form-modal";
+    modal.style.display = "none";
+    document.body.appendChild(modal);
+  }
   await ensureDoctorSpecialtiesLoaded();
   await ensureAvatarPresetsLoaded();
   modal.style.display = "block";
@@ -565,8 +571,12 @@ export async function showDoctorForm(editId = null) {
           data.prcExpirationDate || "",
         );
         const prcIdFileInput = form.querySelector('[name="prcIdFile"]');
-        if (prcIdFileInput && data.prcIdFileUrl) {
+        const prcExpInput = form.querySelector('[name="prcExpirationDate"]');
+        if (prcIdFileInput && (data.prcIdFileUrl || data.prcLicenseNumber || data.licenseNumber)) {
           prcIdFileInput.required = false;
+        }
+        if (prcExpInput && data.prcExpirationDate) {
+          prcExpInput.required = false;
         }
         if (data.photoUrl) {
           const preview = document.getElementById("doctor-photo-preview");
@@ -715,4 +725,11 @@ export async function deleteDoctor(id) {
   } catch (err) {
     showToast(err.message, "error");
   }
+}
+
+// Ensure global window bindings are available immediately when module loads
+if (typeof window !== "undefined") {
+  window.showDoctorForm = showDoctorForm;
+  window.editDoctor = editDoctor;
+  window.deleteDoctor = deleteDoctor;
 }

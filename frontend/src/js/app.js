@@ -89,6 +89,7 @@ export { formatPatientDisplayName, formatPatientFullNameOnly };
 import {
   initDoctorsModule,
   renderDoctors,
+  showDoctorForm,
   formatDoctorDisplayName,
   ensureDoctorSpecialtiesLoaded,
   getDoctorSpecialties,
@@ -1419,8 +1420,11 @@ async function showClinicalTab(tab) {
       `;
 
       document.getElementById("clinical-edit-doctor-btn")?.addEventListener("click", () => {
-        if (myDoctor && typeof window.showDoctorForm === "function") {
-          window.showDoctorForm(myDoctor._id);
+        const docId = myDoctor?._id || myDoctor?.id || null;
+        if (typeof showDoctorForm === "function") {
+          showDoctorForm(docId);
+        } else if (typeof window.showDoctorForm === "function") {
+          window.showDoctorForm(docId);
         }
       });
 
