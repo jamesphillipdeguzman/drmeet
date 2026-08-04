@@ -122,11 +122,6 @@ export function createNavigation({
         action: () => navigateTo("#patients"),
       },
       {
-        id: "appointments",
-        label: "Go to Appointments",
-        action: () => navigateTo("#appointments"),
-      },
-      {
         id: "medical-reference",
         label: "Open Medical Reference",
         action: () => window.open("https://medreftool.netlify.app", "_blank", "noopener,noreferrer"),
@@ -242,7 +237,6 @@ export function createNavigation({
       { hash: "#doctor-dashboard", label: "Clinical" },
       { hash: "#book", label: "Book" },
       { hash: "#patients", label: "Patients" },
-      { hash: "#appointments", label: "Appointments" },
       ...(userRole !== "patient" ? [{ hash: "#pricing", label: "Pricing" }] : []),
       ...(staffRoles.has(userRole)
         ? [
@@ -374,7 +368,8 @@ export function createNavigation({
         renderers.renderDoctorDashboard();
         break;
       case "#appointments":
-        renderers.renderAppointments();
+        window.location.hash = "#doctor-dashboard?tab=appointments";
+        renderers.renderDoctorDashboard();
         break;
       case "#calendar":
         renderers.renderCalendar();
