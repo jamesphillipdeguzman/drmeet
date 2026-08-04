@@ -56,14 +56,85 @@ function minutesToText(total) {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-function buildSuggestedTimes(usedTimes = [], max = 8) {
+function resolveDoctorDayWindow(doctor, dateStr) {
+    if (!doctor) return null;
+    const slots = Array.isArray(doctor.availability) ? doctor.availability : [];
+    let textRules = String(doctor.availabilityRules || doctor.availabilityText || '').trim();
+
+    let dayName = '';
+    if (dateStr) {
+        const d = new Date(dateStr);
+        if (!Number.isNaN(d.getTime())) {
+            dayName = d.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        }
+    }
+
+    for (const slot of slots) {
+        if (!slot) continue;
+        const slotDay = String(slot.day || '').toLowerCase();
+        if (dayName && slotDay && !slotDay.includes(dayName) && !dayName.includes(slotDay)) {
+            continue;
+        }
+        let sMins = null;
+        let eMins = null;
+        if (slot.startTime && slot.endTime) {
+            sMins = toMinutes(slot.startTime);
+            eMins = toMinutes(slot.endTime);
+        } else if (slot.timeRange) {
+            const parts = slot.timeRange.split('-').map((p) => p.trim());
+            if (parts.length === 2) {
+                sMins = toMinutes(parts[0]);
+                eMins = toMinutes(parts[1]);
+            }
+        }
+        if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
+            return { startMins: sMins, endMins: eMins };
+        }
+    }
+
+    if (textRules) {
+        const lines = textRules.split('\n').map((l) => l.trim()).filter(Boolean);
+        for (const line of lines) {
+            const m = line.match(/^(.+?)\s+(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
+            if (m) {
+                const lineDay = m[1].toLowerCase();
+                if (dayName && !lineDay.includes(dayName) && !lineDay.includes(dayName)) {
+                    // skip if non-matching day
+                }
+                const sMins = toMinutes(m[2]);
+                const eMins = toMinutes(m[3]);
+                if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
+                    return { startMins: sMins, endMins: eMins };
+                }
+            }
+        }
+    }
+
+    return { startMins: 8 * 60, endMins: 12 * 60 };
+}
+
+function buildSuggestedTimes(usedTimes = [], max = 10, doctor = null, dateStr = '') {
     const used = new Set(
         usedTimes
             .map((t) => toMinutes(t))
             .filter((v) => typeof v === 'number'),
     );
+
+    let startMins = 8 * 60;
+    let endMins = 12 * 60;
+    const slotDuration = 30;
+
+    if (doctor) {
+        const win = resolveDoctorDayWindow(doctor, dateStr);
+        if (win) {
+            startMins = win.startMins;
+            endMins = win.endMins;
+        }
+    }
+
     const suggestions = [];
-    for (let mins = 8 * 60; mins <= 18 * 60; mins += 30) {
+    // Strict boundary enforcement: slotStartTime + slotDuration <= shiftEndTime
+    for (let mins = startMins; mins + slotDuration <= endMins; mins += slotDuration) {
         if (used.has(mins)) continue;
         suggestions.push(minutesToText(mins));
         if (suggestions.length >= max) break;
@@ -299,7 +370,8 @@ export const getBookingHints = async (req, res) => {
         ].sort((a, b) => (toMinutes(a) || 0) - (toMinutes(b) || 0));
         const bookedCount = existing.length;
         const remainingSlots = Math.max(maxPatientsPerDay - bookedCount, 0);
-        const suggestedAvailableTimes = buildSuggestedTimes(conflictingTimes, 10);
+        const doctor = await Doctor.findById(doctorId).lean();
+        const suggestedAvailableTimes = buildSuggestedTimes(conflictingTimes, 10, doctor, date);
 
         return res.status(200).json({
             doctorId,
