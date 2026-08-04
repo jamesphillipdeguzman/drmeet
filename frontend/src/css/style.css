@@ -2243,48 +2243,71 @@ body.theme-dark .patient-profile-missing .btn {
   overflow: hidden;
 }
 
-/* Hero Text Container Layout Stability */
-.hero-text-content {
-  min-height: 180px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+/* Hero Heading CSS-Only Typewriter Effect */
+.hero-heading,
+.hero-text-content .home-section-title {
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  border-right: 3px solid #3b82f6;
+  max-width: fit-content;
+  animation: 
+    typewriter 2.5s steps(18) forwards,
+    blinkCursor 0.75s step-end infinite;
+}
+
+/* Hero Paragraph Body Text Fade-In */
+.hero-text-content p {
   opacity: 0;
-  animation: fadeInHero 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeInBody 0.8s ease-out 2.5s forwards;
 }
 
 /* Hero Image Fade-In (drmeet_pic1.webp wrapper/img) */
 .hero-image-container,
 .why-drmeet-media {
   opacity: 0;
-  animation: fadeInHero 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
+  animation: fadeInBody 0.8s ease-out 0.2s forwards;
   will-change: opacity;
 }
 
-@keyframes fadeInHero {
-  0% {
-    opacity: 0;
+@keyframes typewriter {
+  from {
+    width: 0;
   }
-  100% {
-    opacity: 1;
+  to {
+    width: 100%;
   }
-}
-
-/* Typewriter Cursor Styling */
-.typewriter-cursor::after {
-  content: '|';
-  color: #3b82f6;
-  display: inline-block;
-  animation: blinkCursor 0.6s infinite;
-  margin-left: 2px;
 }
 
 @keyframes blinkCursor {
-  0%, 100% {
+  50% {
+    border-color: transparent;
+  }
+}
+
+@keyframes fadeInBody {
+  from {
+    opacity: 0;
+  }
+  to {
     opacity: 1;
   }
-  50% {
-    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-heading,
+  .hero-text-content .home-section-title {
+    animation: none !important;
+    width: auto !important;
+    border-right: none !important;
+    white-space: normal !important;
+  }
+
+  .hero-text-content p,
+  .hero-image-container,
+  .why-drmeet-media {
+    animation: none !important;
+    opacity: 1 !important;
   }
 }
 
