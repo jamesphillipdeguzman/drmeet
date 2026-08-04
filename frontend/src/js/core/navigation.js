@@ -122,11 +122,6 @@ export function createNavigation({
         action: () => navigateTo("#patients"),
       },
       {
-        id: "doctors",
-        label: "Go to Doctors",
-        action: () => navigateTo("#doctors"),
-      },
-      {
         id: "appointments",
         label: "Go to Appointments",
         action: () => navigateTo("#appointments"),
@@ -247,7 +242,6 @@ export function createNavigation({
       { hash: "#doctor-dashboard", label: "Clinical" },
       { hash: "#book", label: "Book" },
       { hash: "#patients", label: "Patients" },
-      { hash: "#doctors", label: "Doctors" },
       { hash: "#appointments", label: "Appointments" },
       ...(userRole !== "patient" ? [{ hash: "#pricing", label: "Pricing" }] : []),
       ...(staffRoles.has(userRole)
@@ -376,7 +370,8 @@ export function createNavigation({
         renderers.renderPatients();
         break;
       case "#doctors":
-        renderers.renderDoctors();
+        window.location.hash = "#doctor-dashboard?tab=settings";
+        renderers.renderDoctorDashboard();
         break;
       case "#appointments":
         renderers.renderAppointments();
