@@ -384,6 +384,10 @@ export async function renderPatients(targetContainer = null) {
     };
 
     const renderRows = (list) => {
+      if (!list || !list.length) {
+        bodyEl.innerHTML = `<tr><td colspan="${isClinicalStaff ? 8 : 7}" class="feedback" style="text-align: center; padding: 1.5rem;">No patient records found.</td></tr>`;
+        return;
+      }
       bodyEl.innerHTML = list
         .map(
           (p) => `
@@ -606,7 +610,7 @@ export async function renderPatients(targetContainer = null) {
       fileInput.click();
     };
   } catch (err) {
-    mainContent.innerHTML = `<h2>Patients</h2><div class="feedback error">${err.message}</div>`;
+    container.innerHTML = `<h2 class="page-title page-title-patients">Patients</h2><div class="feedback error">${escapeHtml(err?.message || err)}</div>`;
   }
 }
 
