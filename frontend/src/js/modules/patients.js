@@ -37,6 +37,9 @@ let buildAvatarPresetGridHtml = null;
 let wireAvatarPresetGrid = null;
 let showDangerConfirm = null;
 let ensureAvatarPresetsLoaded = null;
+let applyUserRecordToLocalCache = null;
+let refreshCurrentUserCacheFromApi = null;
+let updateSidebarAccountInfoAndPlan = null;
 
 export function initPatientsModule(handlers = {}) {
   apiRequest = handlers.apiRequest || null;
@@ -60,6 +63,9 @@ export function initPatientsModule(handlers = {}) {
   wireAvatarPresetGrid = handlers.wireAvatarPresetGrid || null;
   showDangerConfirm = handlers.showDangerConfirm || null;
   ensureAvatarPresetsLoaded = handlers.ensureAvatarPresetsLoaded || null;
+  applyUserRecordToLocalCache = handlers.applyUserRecordToLocalCache || null;
+  refreshCurrentUserCacheFromApi = handlers.refreshCurrentUserCacheFromApi || null;
+  updateSidebarAccountInfoAndPlan = handlers.updateSidebarAccountInfoAndPlan || null;
 }
 
 // Helpers
@@ -875,6 +881,36 @@ export async function showPatientForm(editId = null, familyMode = false) {
           await getApiErrorMessage(res, "Failed to save patient"),
         );
       }
+      const savedPatient = await res.json().catch(() => null);
+
+      // Immediately sync local user state and update sidebar header avatar if editing own patient profile
+      const currentUserId = typeof getCurrentUserId === "function" ? getCurrentUserId() : null;
+      const currentRole = typeof getCurrentUserRole === "function" ? getCurrentUserRole() : null;
+
+      const isMyPatientProfile =
+        (savedPatient?.userId && currentUserId && String(savedPatient.userId) === String(currentUserId)) ||
+        (currentRole === "patient" && (editId || !editId));
+
+      if (isMyPatientProfile && savedPatient) {
+        const newPhoto = savedPatient.photoUrl || savedPatient.avatarUrl || savedPatient.picture || patient.photoUrl || "";
+        if (newPhoto && typeof applyUserRecordToLocalCache === "function") {
+          applyUserRecordToLocalCache({
+            _id: currentUserId,
+            firstName: savedPatient.firstName || "",
+            lastName: savedPatient.lastName || "",
+            photoUrl: newPhoto,
+            picture: newPhoto,
+            avatarUrl: newPhoto,
+          });
+        }
+        if (typeof refreshCurrentUserCacheFromApi === "function") {
+          await refreshCurrentUserCacheFromApi();
+        }
+        if (typeof updateSidebarAccountInfoAndPlan === "function") {
+          updateSidebarAccountInfoAndPlan();
+        }
+      }
+
       modal.style.display = "none";
       const sendDocDoctorSelect = document.getElementById(
         "patient-send-doc-doctor",
