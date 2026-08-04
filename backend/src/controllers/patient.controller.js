@@ -48,13 +48,15 @@ import {
 import { ensurePatientDoctorConversation } from './message.controller.js';
 import { sendDoctorPatientDocumentEmail } from '../services/emailService.js';
 
+import { normalizeRole } from '../middlewares/auth.middleware.js';
+
 function authUserId(req) {
   const id = req.user?._id || req.user?.id;
   return id ? String(id) : null;
 }
 
 function authRole(req) {
-  return String(req.user?.role || '').toLowerCase();
+  return normalizeRole(req.user?.role || '');
 }
 
 function normalizePatientDocEntry(d) {
@@ -72,8 +74,8 @@ function filterDocumentsForRequester(req, plain) {
   const raw = Array.isArray(plain.documents) ? plain.documents : [];
   const uid = authUserId(req);
   const role = authRole(req);
-  if (role === 'admin') {
-    return raw.map(normalizePatientDocEntry);
+  if (['hospital_admin', 'admin', 'super_admin', 'billing_specialist', 'receptionist'].includes(role)) {
+    return []; // Block PHI documents from administrative / non-clinical staff
   }
   return raw
     .filter((d) => {
@@ -103,11 +105,14 @@ const mapPatientForClient = (patient, req = null) => {
           .filter(Boolean)
           .join(', ');
 
-  const documents = req
+  const role = req ? authRole(req) : '';
+  const isClinicalRole = ['doctor', 'nurse', 'lab_technician', 'patient'].includes(role);
+
+  const documents = (req && isClinicalRole)
     ? filterDocumentsForRequester(req, plain)
-    : Array.isArray(plain.documents)
-      ? plain.documents.map(normalizePatientDocEntry)
-      : [];
+    : [];
+
+  const medicalHistory = isClinicalRole && Array.isArray(plain.medicalHistory) ? plain.medicalHistory : [];
 
   return {
     ...plain,
@@ -119,6 +124,7 @@ const mapPatientForClient = (patient, req = null) => {
     familyHeadName: plain.familyHeadName || '',
     isCareTeamLinked: Array.isArray(plain.careTeamDoctorIds) && plain.careTeamDoctorIds.length > 0,
     documents,
+    medicalHistory,
     isInsured: Boolean(plain.isInsured),
     hmoProvider: plain.isInsured ? String(plain.hmoProvider || '').trim() : '',
     registrationFacility: String(plain.registrationFacility || '').trim(),
@@ -222,26 +228,15 @@ async function getScopedPatients(req) {
   const uid = authUserId(req);
   const orgId = req.user?.organizationId ? String(req.user.organizationId) : null;
 
+  if (role === 'super_admin') {
+    return null; // Block Super Admin from patient directory
+  }
+
   let patients = [];
-  if (role === 'admin') {
+  if (role === 'hospital_admin' || role === 'admin') {
     patients = await findAllPatients();
-  } else if (role === 'receptionist' && uid) {
-    const receptionist = await User.findById(uid).select('linkedDoctorId').lean();
-    const linkedDoctorId = receptionist?.linkedDoctorId
-      ? String(receptionist.linkedDoctorId)
-      : '';
-    if (!linkedDoctorId) return [];
-    const [appts, linkedPatients] = await Promise.all([
-      findAppointmentsByDoctor(linkedDoctorId),
-      findPatientsByDoctorCareTeam(linkedDoctorId),
-    ]);
-    const patientIds = [...new Set([
-      ...appts.map((a) => a.patient).filter(Boolean),
-      ...linkedPatients.map((p) => p._id),
-    ])]
-      .map((id) => String(id))
-      .filter((id) => mongoose.Types.ObjectId.isValid(id));
-    patients = await findPatientsByIds(patientIds);
+  } else if (['receptionist', 'nurse', 'billing_specialist', 'lab_technician', 'pharmacist'].includes(role) && uid) {
+    patients = await findAllPatients();
   } else if (role === 'patient' && uid) {
     const [primary, dependents] = await Promise.all([
       findPatientsByUserId(uid),
@@ -285,17 +280,10 @@ async function patientVisibleToRequester(req, patientDoc) {
   if (!patientDoc) return false;
   const role = authRole(req);
   const uid = authUserId(req);
-  const pid = String(patientDoc._id);
 
-  if (role === 'admin') return true;
-
-  if (role === 'receptionist' && uid) {
-    const receptionist = await User.findById(uid).select('linkedDoctorId').lean();
-    const linkedDoctorId = receptionist?.linkedDoctorId
-      ? String(receptionist.linkedDoctorId)
-      : '';
-    if (!linkedDoctorId) return false;
-    return doctorMayAccessPatientDoctorScope(linkedDoctorId, patientDoc);
+  if (role === 'super_admin') return false;
+  if (['hospital_admin', 'admin', 'receptionist', 'nurse', 'billing_specialist', 'lab_technician', 'pharmacist'].includes(role)) {
+    return true;
   }
 
   if (role === 'patient' && uid) {
@@ -320,9 +308,16 @@ async function patientVisibleToRequester(req, patientDoc) {
  */
 export const getAllPatients = async (req, res) => {
   try {
+    const role = authRole(req);
+    if (role === 'super_admin') {
+      return res.status(403).json({ error: 'Access Denied: Super Admin privacy restriction blocks access to patient records and directories.' });
+    }
     const patients = await getScopedPatients(req);
+    if (patients === null) {
+      return res.status(403).json({ error: 'Access Denied: Privacy restriction blocks access to patient records.' });
+    }
     let normalizedPatients = patients.map((p) => mapPatientForClient(p, req));
-    if (authRole(req) === 'doctor' || authRole(req) === 'receptionist' || authRole(req) === 'admin') {
+    if (['doctor', 'receptionist', 'hospital_admin', 'admin', 'nurse', 'billing_specialist'].includes(role)) {
       const ownerIds = [
         ...new Set(
           patients

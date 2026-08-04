@@ -24,6 +24,31 @@ export function initUsersModule(config = {}) {
   setPageTone = config.setPageTone || null;
 }
 
+function formatRoleBadge(r) {
+  const roleStr = String(r || "").toLowerCase();
+  switch (roleStr) {
+    case "super_admin":
+      return '<span class="status-badge badge-super-admin" style="background:#4f46e5; color:#fff; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.75rem;">SUPER ADMIN</span>';
+    case "hospital_admin":
+    case "admin":
+      return '<span class="status-badge badge-hospital-admin" style="background:#0284c7; color:#fff; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.75rem;">HOSPITAL ADMIN</span>';
+    case "doctor":
+      return '<span class="status-badge" style="background:#059669; color:#fff; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.75rem;">DOCTOR</span>';
+    case "nurse":
+      return '<span class="status-badge" style="background:#0d9488; color:#fff; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.75rem;">NURSE</span>';
+    case "billing_specialist":
+      return '<span class="status-badge" style="background:#d97706; color:#fff; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.75rem;">BILLING SPECIALIST</span>';
+    case "receptionist":
+      return '<span class="status-badge" style="background:#65a30d; color:#fff; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.75rem;">RECEPTIONIST</span>';
+    case "lab_technician":
+      return '<span class="status-badge" style="background:#7c3aed; color:#fff; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.75rem;">LAB TECHNICIAN</span>';
+    case "pharmacist":
+      return '<span class="status-badge" style="background:#db2777; color:#fff; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.75rem;">PHARMACIST</span>';
+    default:
+      return '<span class="status-badge" style="background:#64748b; color:#fff; padding:2px 8px; border-radius:4px; font-weight:600; font-size:0.75rem;">PATIENT</span>';
+  }
+}
+
 // --- Users ---
 export async function renderUsers() {
   const el = mainContent || document.getElementById("main-content");
@@ -33,13 +58,18 @@ export async function renderUsers() {
   el.innerHTML =
     '<h2 class="page-title page-title-users">Users</h2><div class="feedback">Loading...</div>';
   try {
-    const role = getCurrentUserRole();
-    if (!["doctor", "receptionist", "admin"].includes(String(role || ""))) {
-      el.innerHTML = `<h2 class="page-title page-title-users">Users</h2><div class="feedback error">The Users directory is available to doctor, receptionist, and admin accounts.</div>`;
+    const role = String(getCurrentUserRole() || "").toLowerCase();
+    const isSuperAdmin = role === "super_admin";
+    const isHospitalAdmin = role === "hospital_admin" || role === "admin";
+    const isDoctor = role === "doctor";
+    const isReceptionist = role === "receptionist";
+    const canManageUsers = isSuperAdmin || isHospitalAdmin;
+
+    if (!canManageUsers && !isDoctor && !isReceptionist) {
+      el.innerHTML = `<h2 class="page-title page-title-users">Users</h2><div class="feedback error">The Users directory is available to administrators and authorized staff accounts.</div>`;
       return;
     }
-    const isAdminUser = role === "admin";
-    const isReceptionist = role === "receptionist";
+
     const res = await apiRequest(`${API_BASE}/users`);
     if (!res.ok) throw new Error("Failed to fetch users");
     const users = await res.json();
@@ -47,7 +77,7 @@ export async function renderUsers() {
       <h2 class="page-title page-title-users">Users</h2>
       <div class="appointments-toolbar">
         <button type="button" class="btn btn-secondary" id="users-refresh-btn">Refresh</button>
-        ${isReceptionist ? "" : '<button class="cta-primary" onclick="window.showUserForm()">Add User</button>'}
+        ${canManageUsers ? '<button class="cta-primary" onclick="window.showUserForm()">Add User</button>' : ''}
       </div>
       <hr class="section-divider" />
       <div class="list-filters" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
@@ -85,15 +115,12 @@ export async function renderUsers() {
             <tr>
               <td>${u.title ? `${u.title} ` : ""}${u.firstName} ${u.lastName}</td>
               <td>${u.email || ""}</td>
-              <td>${u.role || ""}</td>
+              <td>${formatRoleBadge(u.role)}</td>
               <td>${u.phone || ""}</td>
               <td>
-                ${isReceptionist
-              ? "—"
-              : `<button type="button" class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button>${isAdminUser
-                ? `<button type="button" class="btn btn-action-delete" onclick="window.deleteUser('${u._id}')">Delete</button>`
-                : ""
-              }`
+                ${canManageUsers
+              ? `<button type="button" class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button><button type="button" class="btn btn-action-delete" onclick="window.deleteUser('${u._id}')">Delete</button>`
+              : "—"
             }
               </td>
             </tr>
@@ -112,15 +139,12 @@ export async function renderUsers() {
             <tr>
               <td>${u.title ? `${u.title} ` : ""}${u.firstName} ${u.lastName}</td>
               <td>${u.email || ""}</td>
-              <td>${u.role || ""}</td>
+              <td>${formatRoleBadge(u.role)}</td>
               <td>${u.phone || ""}</td>
               <td>
-                ${isReceptionist
-              ? "—"
-              : `<button type="button" class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button>${isAdminUser
-                ? `<button type="button" class="btn btn-action-delete" onclick="window.deleteUser('${u._id}')">Delete</button>`
-                : ""
-              }`
+                ${canManageUsers
+              ? `<button type="button" class="btn btn-secondary btn-action-edit" onclick="window.editUser('${u._id}')">Edit</button><button type="button" class="btn btn-action-delete" onclick="window.deleteUser('${u._id}')">Delete</button>`
+              : "—"
             }
               </td>
             </tr>
@@ -153,30 +177,40 @@ export async function renderUsers() {
           );
         })
         .sort((a, b) => {
-          const left = `${a.firstName || ""} ${a.lastName || ""}`.trim().toLowerCase();
-          const right = `${b.firstName || ""} ${b.lastName || ""}`.trim().toLowerCase();
-          return sortQ === "za" ? right.localeCompare(left) : left.localeCompare(right);
+          const nameA = `${a.firstName || ""} ${a.lastName || ""}`.toLowerCase();
+          const nameB = `${b.firstName || ""} ${b.lastName || ""}`.toLowerCase();
+          return sortQ === "za" ? nameB.localeCompare(nameA) : nameA.localeCompare(nameB);
         });
       renderUserRows(filtered);
     };
     userSearchInput?.addEventListener("input", applyUserFilters);
     userSearchClear?.addEventListener("click", () => {
-      if (userSearchInput) {
-        userSearchInput.value = "";
-        applyUserFilters();
-        userSearchInput.focus();
-      }
+      if (userSearchInput) userSearchInput.value = "";
+      applyUserFilters();
     });
     document.getElementById("user-sort-name")?.addEventListener("change", applyUserFilters);
-    document.getElementById("users-refresh-btn")?.addEventListener("click", () => {
-      void renderUsers();
-    });
-    applyUserFilters();
+    document.getElementById("users-refresh-btn")?.addEventListener("click", renderUsers);
+    
     window.showUserForm = showUserForm;
-    window.editUser = editUser;
-    window.deleteUser = deleteUser;
+    window.editUser = (id) => showUserForm(id);
+    window.deleteUser = async (id) => {
+      if (!showDangerConfirm) {
+        if (!confirm("Are you sure you want to delete this user?")) return;
+      } else {
+        const ok = await showDangerConfirm("Delete User", "Are you sure you want to delete this user?");
+        if (!ok) return;
+      }
+      try {
+        const res = await apiRequest(`${API_BASE}/users/${id}`, { method: "DELETE" });
+        if (!res.ok) throw new Error("Failed to delete user");
+        if (showToast) showToast("User deleted successfully.");
+        renderUsers();
+      } catch (err) {
+        alert(err.message);
+      }
+    };
   } catch (err) {
-    el.innerHTML = `<h2>Users</h2><div class="feedback error">${err.message}</div>`;
+    el.innerHTML = `<h2 class="page-title page-title-users">Users</h2><div class="feedback error">${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -205,10 +239,15 @@ export async function showUserForm(editId = null) {
       <label>Email <input name="email" type="email" required /></label>
       <label>Role
         <select name="role" required>
-          <option value="patient">Patient</option>
+          <option value="hospital_admin">Hospital Admin</option>
+          <option value="super_admin">Super Admin</option>
           <option value="doctor">Doctor</option>
+          <option value="nurse">Nurse</option>
           <option value="receptionist">Receptionist</option>
-          <option value="admin">Admin</option>
+          <option value="billing_specialist">Billing Specialist</option>
+          <option value="lab_technician">Lab Technician</option>
+          <option value="pharmacist">Pharmacist</option>
+          <option value="patient">Patient</option>
         </select>
       </label>
       <label id="user-receptionist-type-wrap">Receptionist Type

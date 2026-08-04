@@ -21,6 +21,15 @@ body {
   color: var(--ink);
 }
 
+body.auth-loading .nav-links li {
+  visibility: hidden !important;
+}
+
+body.auth-loading #main-content {
+  opacity: 0.25;
+  pointer-events: none;
+}
+
 .app-shell {
   min-height: 100vh;
   display: grid;

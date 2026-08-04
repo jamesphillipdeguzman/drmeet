@@ -238,13 +238,13 @@ export async function renderPatients(targetContainer = null) {
         : ""
       }
       <hr class="section-divider" />
-      <div class="list-filters patients-list-controls" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
+      <div class="list-filters" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
         <div class="relative w-full max-w-xl" style="position: relative; flex: 1; min-width: 280px; max-width: 36rem; display: flex; align-items: center;">
           <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; display: flex; align-items: center;">🔍</span>
           <input 
             type="text" 
             id="patients-unified-search" 
-            placeholder="Search patients by name, email, phone, DOB, records, or profile type..." 
+            placeholder="Search patients by name, email, relationship, or phone..." 
             class="search-input-unified"
             style="width: 100%; padding: 8px 36px 8px 48px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
           />
@@ -267,7 +267,7 @@ export async function renderPatients(targetContainer = null) {
         </label>
       </div>
       <table>
-        <thead><tr><th>Name</th><th>Profile Type</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Added</th>${!isAdminUser ? "<th>Records</th>" : ""}<th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Profile Type</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Added</th>${isClinicalStaff ? "<th>Records</th>" : ""}<th>Actions</th></tr></thead>
         <tbody id="patients-table-body"></tbody>
       </table>
       <div id="patient-form-modal" class="patient-form-modal-host" style="display:none"></div>
@@ -405,7 +405,7 @@ export async function renderPatients(targetContainer = null) {
               <td>${p.phone || ""}</td>
               <td>${formatDateForInput(p.birthdate)}</td>
               <td>${formatCreatedDateHelper(p.createdAt || p.added)}</td>
-              ${!isAdminUser ? `<td>${renderRecordsCell(p)}</td>` : ""}
+              ${isClinicalStaff ? `<td>${renderRecordsCell(p)}</td>` : ""}
               <td>
                 <button type="button" class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
                 ${isAdminUser ? `<button type="button" class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>` : ""}
@@ -739,7 +739,7 @@ export async function showPatientForm(editId = null, familyMode = false) {
         <label>Relationship to Account Holder <input name="relationshipToAccountHolder" placeholder="e.g. Son, Daughter, Spouse" /></label>
       </div>
       <label>Notes <textarea name="notes" placeholder="Medical notes or reminders"></textarea></label>
-      ${staffRole ? `
+      ${isClinicalStaff ? `
         <label>Medical History
           <textarea name="medicalHistory" placeholder="One item per line (e.g. Hypertension, Diabetes)"></textarea>
         </label>

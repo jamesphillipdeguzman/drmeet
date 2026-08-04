@@ -14,18 +14,38 @@ export const ensureAuth = (req, res, next) => {
     });
 };
 
+export function normalizeRole(role) {
+    if (!role) return '';
+    const r = String(role).trim().toLowerCase();
+    if (r === 'admin' || r === 'hospital_admin' || r === 'hospitaladmin') {
+        return 'hospital_admin';
+    }
+    if (r === 'superadmin' || r === 'super_admin') {
+        return 'super_admin';
+    }
+    if (r === 'billing' || r === 'billing_specialist' || r === 'billingspecialist') {
+        return 'billing_specialist';
+    }
+    if (r === 'lab' || r === 'lab_technician' || r === 'labtechnician') {
+        return 'lab_technician';
+    }
+    return r;
+}
+
 export function verifyJWT(req, res, next) {
     const authHeader = req.headers.authorization;
     if (!authHeader)
         return res.status(401).json({ message: 'Missing Authorization' });
 
-    // Use regex to extract token safely (for edge cases)
     const tokenMatch = authHeader.match(/^Bearer (.+)$/);
     const token = tokenMatch ? tokenMatch[1] : null;
     if (!token) return res.status(401).json({ message: 'Missing token' });
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded && decoded.role) {
+            decoded.role = normalizeRole(decoded.role);
+        }
         req.user = decoded;
         next();
     } catch (err) {
@@ -41,10 +61,12 @@ export function verifyJWT(req, res, next) {
 }
 
 export function hybridAuth(req, res, next) {
-    console.log('AUTH CHECK - Headers:', req.headers);
-    console.log('AUTH CHECK - Session:', req.session);
-    console.log('AUTH CHECK - req.user before check:', req.user);
-    if (req.isAuthenticated()) return next();
+    if (req.isAuthenticated()) {
+        if (req.user && req.user.role) {
+            req.user.role = normalizeRole(req.user.role);
+        }
+        return next();
+    }
 
     const authHeader = req.headers.authorization;
     if (authHeader) {
@@ -52,11 +74,15 @@ export function hybridAuth(req, res, next) {
         const token = tokenMatch ? tokenMatch[1] : null;
 
         try {
-            req.user = jwt.verify(token, process.env.JWT_SECRET);
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            if (decoded && decoded.role) {
+                decoded.role = normalizeRole(decoded.role);
+            }
+            req.user = decoded;
             return next();
         } catch (err) {
             const expired = err?.name === 'TokenExpiredError';
-            res.status(401).json({
+            return res.status(401).json({
                 message: expired
                     ? 'Session expired. Please log in again.'
                     : 'Invalid token',
@@ -66,19 +92,23 @@ export function hybridAuth(req, res, next) {
         }
     }
 
-    res.status(401).json({
+    return res.status(401).json({
         message: 'You are not authorized to view/use this resource',
     });
 }
 
 export function requireRoles(roles = []) {
-    const allowed = new Set(roles.map((r) => String(r).toLowerCase()));
+    const allowed = new Set(roles.map(normalizeRole));
     return (req, res, next) => {
-        const role = String(req.user?.role || '').toLowerCase();
+        const role = normalizeRole(req.user?.role || '');
         const orgRole = String(req.user?.orgRole || '').toLowerCase();
-        const isSuperAdmin = req.user?.isSuperAdmin === true || role === 'superadmin' || orgRole === 'org_admin';
+        const isSuperAdmin = req.user?.isSuperAdmin === true || role === 'super_admin' || orgRole === 'org_admin';
 
-        if (allowed.has('admin') && (role === 'admin' || isSuperAdmin)) {
+        if (allowed.has('hospital_admin') && (role === 'hospital_admin' || role === 'admin')) {
+            return next();
+        }
+
+        if (isSuperAdmin && (allowed.has('super_admin') || allowed.has('hospital_admin'))) {
             return next();
         }
 

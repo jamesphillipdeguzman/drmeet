@@ -637,25 +637,39 @@ export async function renderSignup() {
     mainContent.innerHTML = `<div class="feedback success">You are already logged in.</div>`;
     return;
   }
-  const selectedRole = getSignupRoleFromHash();
-  const signupTitle =
-    selectedRole === "doctor"
-      ? "Create your doctor account"
-      : "Create your patient account";
-  const signupLead =
-    selectedRole === "doctor"
-      ? "Doctor sign-up gives you access to schedule, patient communication, and care workflows."
-      : "New accounts are registered as patients so you can book visits and message your care team.";
-  const titleOptions =
-    selectedRole === "doctor"
-      ? `<option value="">(blank)</option><option value="Dr.">Dr.</option><option value="Dra.">Dra.</option>`
-      : `<option value="">(blank)</option><option value="Mr.">Mr.</option><option value="Ms.">Ms.</option><option value="Mrs.">Mrs.</option>`;
+  const signupRoleArg = getSignupRoleFromHash();
+  const isProviderFlow = signupRoleArg === "doctor" || signupRoleArg === "provider";
+
+  const signupTitle = isProviderFlow
+    ? "Create Provider / Staff Account"
+    : "Create your patient account";
+  const signupLead = isProviderFlow
+    ? "Register as a healthcare provider or clinical staff member to access schedule and clinical workflows."
+    : "New accounts are registered as patients so you can book visits and message your care team.";
+
   mainContent.innerHTML = `
     <h2>${signupTitle}</h2>
     <p class="signup-lead">${signupLead}</p>
     <form id="signup-form">
+      ${isProviderFlow ? `
+        <label>Provider Role
+          <select name="role" id="signup-provider-role" required>
+            <option value="doctor">Doctor</option>
+            <option value="nurse">Nurse</option>
+            <option value="lab_technician">Lab Technician</option>
+            <option value="pharmacist">Pharmacist</option>
+          </select>
+        </label>
+      ` : `<input type="hidden" name="role" value="patient" />`}
       <label>Title
-        <select name="title">${titleOptions}</select>
+        <select name="title">
+          <option value="">(blank)</option>
+          <option value="Dr.">Dr.</option>
+          <option value="Dra.">Dra.</option>
+          <option value="Mr.">Mr.</option>
+          <option value="Ms.">Ms.</option>
+          <option value="Mrs.">Mrs.</option>
+        </select>
       </label>
       <label>First Name <input name="firstName" required /></label>
       <label>Last Name <input name="lastName" required /></label>
@@ -671,13 +685,28 @@ export async function renderSignup() {
         <small>Digits only, 10-11 numbers.</small>
       </label>
       <label>Address <input name="address" /></label>
-      ${selectedRole === "doctor"
-      ? `<label><span class="label-text-row" data-tooltip="Set the primary board-certified specialty used for profile matching.">Primary Specialty</span><input name="specialty" list="doctor-specialties-signup" required placeholder="e.g. Cardiology" /></label>
-             <datalist id="doctor-specialties-signup">
-               ${[...new Set(getDoctorSpecialties())].map((s) => `<option value="${s}"></option>`).join("")}
-             </datalist>`
-      : ""
-    }
+      
+      <div id="signup-specialty-wrap" style="display:none">
+        <label><span class="label-text-row" data-tooltip="Set primary board-certified specialty.">Primary Specialty</span>
+          <input name="specialty" id="signup-specialty-input" list="doctor-specialties-signup" placeholder="e.g. Cardiology" />
+        </label>
+        <datalist id="doctor-specialties-signup">
+          ${[...new Set(getDoctorSpecialties())].map((s) => `<option value="${s}"></option>`).join("")}
+        </datalist>
+      </div>
+
+      <div id="signup-department-wrap" style="display:none">
+        <label>Department
+          <input name="department" id="signup-department-input" placeholder="e.g. Inpatient Ward, Pathology Lab" />
+        </label>
+      </div>
+
+      <div id="signup-license-wrap" style="display:none">
+        <label>Medical / Professional License Number
+          <input name="licenseNumber" id="signup-license-input" placeholder="e.g. PRC-1234567" />
+        </label>
+      </div>
+
       <div class="signup-actions">
         <button type="submit" class="btn btn-primary">Create Account</button>
         <button type="button" class="btn btn-secondary" id="signup-start-over">Start Over</button>
@@ -686,7 +715,63 @@ export async function renderSignup() {
     <p class="signup-lead" style="margin-top:0.75rem;">Already registered? <a href="#login">Go to Login</a></p>
     <div id="signup-feedback"></div>
   `;
+
   const form = document.getElementById("signup-form");
+  const providerRoleSelect = document.getElementById("signup-provider-role");
+  const specialtyWrap = document.getElementById("signup-specialty-wrap");
+  const specialtyInput = document.getElementById("signup-specialty-input");
+  const departmentWrap = document.getElementById("signup-department-wrap");
+  const departmentInput = document.getElementById("signup-department-input");
+  const licenseWrap = document.getElementById("signup-license-wrap");
+  const licenseInput = document.getElementById("signup-license-input");
+
+  const syncProviderRoleFields = () => {
+    if (!isProviderFlow) return;
+    const r = String(providerRoleSelect?.value || "doctor").toLowerCase();
+    
+    // Doctor: Specialty & License Number required
+    if (r === "doctor") {
+      specialtyWrap.style.display = "block";
+      if (specialtyInput) specialtyInput.required = true;
+      departmentWrap.style.display = "none";
+      if (departmentInput) departmentInput.required = false;
+      licenseWrap.style.display = "block";
+      if (licenseInput) licenseInput.required = true;
+    }
+    // Nurse: Department & License Number required
+    else if (r === "nurse") {
+      specialtyWrap.style.display = "none";
+      if (specialtyInput) specialtyInput.required = false;
+      departmentWrap.style.display = "block";
+      if (departmentInput) departmentInput.required = true;
+      licenseWrap.style.display = "block";
+      if (licenseInput) licenseInput.required = true;
+    }
+    // Lab Tech: Department required
+    else if (r === "lab_technician") {
+      specialtyWrap.style.display = "none";
+      if (specialtyInput) specialtyInput.required = false;
+      departmentWrap.style.display = "block";
+      if (departmentInput) departmentInput.required = true;
+      licenseWrap.style.display = "none";
+      if (licenseInput) licenseInput.required = false;
+    }
+    // Pharmacist: License Number required
+    else if (r === "pharmacist") {
+      specialtyWrap.style.display = "none";
+      if (specialtyInput) specialtyInput.required = false;
+      departmentWrap.style.display = "none";
+      if (departmentInput) departmentInput.required = false;
+      licenseWrap.style.display = "block";
+      if (licenseInput) licenseInput.required = true;
+    }
+  };
+
+  if (providerRoleSelect) {
+    providerRoleSelect.addEventListener("change", syncProviderRoleFields);
+    syncProviderRoleFields();
+  }
+
   if (form) {
     addInlineTooltips(form);
     enforcePhoneInputs(form);
@@ -719,7 +804,18 @@ export async function renderSignup() {
       if (submitBtn) submitBtn.disabled = true;
       if (feedback) feedback.textContent = "Signing up...";
       const user = Object.fromEntries(new FormData(form));
-      if (selectedRole) user.role = selectedRole;
+
+      // Block self-registration for administrative roles
+      const restrictedRoles = new Set(["super_admin", "hospital_admin", "admin", "billing_specialist", "receptionist"]);
+      if (restrictedRoles.has(String(user.role || "").toLowerCase())) {
+        if (feedback) {
+          feedback.textContent = "Administrative roles cannot self-register. Please contact your organization administrator.";
+          feedback.className = "feedback error";
+        }
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+
       try {
         const res = await fetch(`${API_ORIGIN}/auth/signup`, {
           method: "POST",
