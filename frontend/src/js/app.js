@@ -946,6 +946,9 @@ async function getDoctorOverviewForUi() {
 }
 
 async function showClinicalTab(tab) {
+  if (typeof window !== "undefined") {
+    window.showClinicalTab = showClinicalTab;
+  }
   const panel = document.getElementById("clinical-tab-panel");
   if (!panel) return;
   const reuseClinicalPatientSearch =

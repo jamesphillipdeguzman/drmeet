@@ -706,7 +706,11 @@ export async function showDoctorForm(editId = null) {
       }
 
       modal.style.display = "none";
-      renderDoctors();
+      if (typeof window.showClinicalTab === "function" && document.getElementById("clinical-panel")) {
+        void window.showClinicalTab("settings");
+      } else if (typeof renderDoctors === "function") {
+        renderDoctors();
+      }
     } catch (err) {
       showToast(err.message, "error");
     }
