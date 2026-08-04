@@ -16,6 +16,7 @@ export const validatePatient = [
         .notEmpty()
         .withMessage('Last name is required.'),
     body('email')
+        .optional({ values: 'falsy' })
         .isEmail()
         .withMessage('A valid email is required.'),
     body('birthdate')
@@ -42,7 +43,7 @@ export const validatePatientUpdate = [
         .withMessage('Last name is required')
         .trim(),
     body('email')
-        .optional()
+        .optional({ values: 'falsy' })
         .isEmail()
         .withMessage('Valid email is required')
         .trim()

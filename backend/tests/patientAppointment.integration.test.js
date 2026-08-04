@@ -92,5 +92,13 @@ describe('Integration Tests: Patient & Appointment Routes Security & Operations'
       expect(res.statusCode).toBe(400);
       expect(res.body).toHaveProperty('error', 'Invalid patient ID format');
     });
+
+    test('should reject PUT /api/patients/:id when unauthorized user tries to edit', async () => {
+      const res = await request(app)
+        .put('/api/patients/507f1f77bcf86cd799439011')
+        .send({ firstName: 'Hacker' });
+
+      expect(res.statusCode).toBe(401);
+    });
   });
 });
