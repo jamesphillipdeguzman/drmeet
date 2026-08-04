@@ -552,6 +552,7 @@ window.addEventListener("DOMContentLoaded", () => {
     getApiErrorMessage,
     getCurrentUserRole,
     getCurrentUserId,
+    getCurrentLinkedDoctorId,
     getCurrentReceptionistType,
     isAllowedPresetImageUrl,
     buildAvatarPresetGridHtml,
@@ -564,6 +565,9 @@ window.addEventListener("DOMContentLoaded", () => {
     buildDoctorAvailabilityLabel,
     formatDateForInput,
     renderPatientBooking,
+    applyUserRecordToLocalCache,
+    refreshCurrentUserCacheFromApi,
+    updateSidebarAccountInfoAndPlan,
   });
 
   initShell({ updateAuthNav, renderLogin });
