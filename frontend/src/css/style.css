@@ -2242,6 +2242,44 @@ body.theme-dark .patient-profile-missing .btn {
   align-items: center;
 }
 
+@keyframes slideInFromLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromLeftText {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-text-content {
+    opacity: 0;
+    animation: slideInFromLeftText 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+  }
+
+  .hero-image-container {
+    opacity: 0;
+    animation: slideInFromLeft 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+  }
+}
+
 .why-drmeet-media {
   width: 100%;
   border-radius: 14px;
