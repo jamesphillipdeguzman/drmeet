@@ -2245,30 +2245,39 @@ body.theme-dark .patient-profile-missing .btn {
 
 /* Hero Text Section Container */
 .hero-text-content {
-  min-height: 220px;
+  min-height: 200px;
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 
-/* Hero Image Fade-In */
-.hero-image-container,
+/* Hero Image Fade & Slide Entry */
 .why-drmeet-media {
-  opacity: 0;
-  animation: fadeInHeroMedia 0.8s ease-out 0.2s forwards;
-  will-change: opacity;
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid #d5def3;
+  box-shadow: 0 10px 24px rgba(21, 36, 80, 0.16);
+  animation: heroImageSlideIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-@keyframes fadeInHeroMedia {
-  from {
+.why-drmeet-media:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 32px rgba(21, 36, 80, 0.22);
+}
+
+@keyframes heroImageSlideIn {
+  0% {
     opacity: 0;
+    transform: translateY(12px) scale(0.98);
   }
-  to {
+  100% {
     opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
 
-/* Typewriter Cursor Indicator */
+/* Typewriter Cursor Caret */
 .typewriter-cursor::after {
   content: '|';
   color: #3b82f6;
@@ -2292,7 +2301,6 @@ body.theme-dark .typewriter-cursor::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-image-container,
   .why-drmeet-media {
     animation: none !important;
     opacity: 1 !important;
