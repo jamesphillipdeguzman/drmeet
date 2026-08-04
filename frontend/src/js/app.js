@@ -4293,12 +4293,14 @@ function renderHome() {
       </div>
     </section>
     <section class="why-drmeet card">
-      <div>
+      <div class="hero-text-content">
         <h3 class="home-section-title">Why Choose DrMeet</h3>
         <p>DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates.</p>
         <p>Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.</p>
       </div>
-      <img class="why-drmeet-media" src="/images/drmeet-pic1.webp" alt="DrMeet technology in action" />
+      <div class="hero-image-container">
+        <img class="why-drmeet-media" src="/images/drmeet-pic1.webp" alt="DrMeet technology in action" />
+      </div>
     </section>
     <section class="role-select card role-select-highlight">
       <h3 class="home-cta-title">Please select your profile type below</h3>
