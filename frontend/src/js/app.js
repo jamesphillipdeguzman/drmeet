@@ -668,6 +668,10 @@ function updateAuthNav() {
   if (doctorDashLi) {
     doctorDashLi.style.display = signedIn && role === "doctor" ? "" : "none";
   }
+  const nonDoctorApptLi = document.querySelector(".nav-li-non-doctor");
+  if (nonDoctorApptLi) {
+    nonDoctorApptLi.style.display = signedIn && role !== "doctor" ? "" : "none";
+  }
   const staffNavLis = document.querySelectorAll(".nav-li-staff-only");
   const staffNavRoles = new Set(["doctor", "receptionist", "admin"]);
   staffNavLis.forEach((li) => {
