@@ -2727,7 +2727,9 @@ async function renderEnterpriseView() {
     return;
   }
 
-  const isAdminUser = isEnterpriseAdminUser();
+  const isPlatformSuperAdmin = getCurrentUserRole() === "super_admin";
+  const isHospitalFacilityAdmin = getCurrentUserRole() === "hospital_admin" || getCurrentUserRole() === "admin";
+  const isAdminUser = isPlatformSuperAdmin || isHospitalFacilityAdmin;
 
   // On initial load of Enterprise Hospital Hierarchy page, reset active org id state if no hospital slug in hash
   const hashMatch = (typeof window !== "undefined" && window.location.hash) ? window.location.hash.match(/#?\/?hospital\/([^/?#]+)/i) : null;
@@ -2747,8 +2749,10 @@ async function renderEnterpriseView() {
       </div>
       <div style="display:flex; gap:0.5rem; flex-wrap: wrap; align-items: center;">
         <button type="button" class="btn btn-secondary" id="enterprise-refresh-btn">Refresh Tree</button>
-        ${isAdminUser ? `
+        ${isPlatformSuperAdmin ? `
           <button type="button" class="btn btn-secondary" id="enterprise-add-hospital-top-btn">+ Add New Hospital</button>
+        ` : ""}
+        ${isAdminUser ? `
           <button type="button" class="cta-primary" id="enterprise-add-dept-top-btn" disabled style="opacity:0.5; cursor:not-allowed;">+ Add Department</button>
         ` : ""}
       </div>

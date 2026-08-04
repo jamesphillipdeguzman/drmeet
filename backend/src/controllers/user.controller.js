@@ -206,12 +206,32 @@ export const updateUser = async (req, res) => {
     const { id } = req.params;
     const requesterId = String(req.user?._id || req.user?.id || '');
     const requesterRole = normalizeRole(req.user?.role || '');
+    const isSuperAdmin = requesterRole === 'super_admin';
     const isAdmin = ['hospital_admin', 'super_admin', 'admin'].includes(requesterRole);
     if (!isAdmin && requesterId !== String(id)) {
         return res.status(403).json({ error: 'Forbidden.' });
     }
     const cleaned = sanitizeInput(req.body || {});
     const updates = { ...cleaned };
+
+    // Security & Privilege Escalation Protection
+    if (cleaned.role && String(id) === String(requesterId)) {
+        return res.status(403).json({ error: 'Security Restriction: Users cannot modify their own role.' });
+    }
+
+    if (!isSuperAdmin) {
+        if (cleaned.role) {
+            delete updates.role; // Only Super Admin can modify user roles
+        }
+        if (cleaned.subscriptionPlan) {
+            delete updates.subscriptionPlan; // Only Super Admin can modify subscription tiers
+        }
+    }
+
+    if (cleaned.role && normalizeRole(cleaned.role) === 'super_admin' && !isSuperAdmin) {
+        return res.status(403).json({ error: 'Security Restriction: Only Super Admin accounts can assign Super Admin privilege.' });
+    }
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid user ID format.' });
     }
