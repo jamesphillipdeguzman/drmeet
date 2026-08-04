@@ -4420,6 +4420,74 @@ function renderHome() {
       renderPatientBooking();
     });
 
+  // Trigger typewriter typing animation for Why Choose DrMeet section
+  runTypewriterAnimation();
+}
+
+function runTypewriterAnimation() {
+  const container = document.querySelector(".why-drmeet .hero-text-content");
+  if (!container) return;
+
+  const titleText = "Why Choose DrMeet";
+  const p1Text = "DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates.";
+  const p2Text = "Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.";
+
+  // Respect user accessibility preference
+  if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    container.innerHTML = `
+      <h3 class="home-section-title">${escapeHtml(titleText)}</h3>
+      <p>${escapeHtml(p1Text)}</p>
+      <p>${escapeHtml(p2Text)}</p>
+    `;
+    return;
+  }
+
+  // Clear any existing active typewriter timers to ensure clean re-entry on route switch
+  if (window._heroTypewriterTimeouts && Array.isArray(window._heroTypewriterTimeouts)) {
+    window._heroTypewriterTimeouts.forEach((t) => clearTimeout(t));
+  }
+  window._heroTypewriterTimeouts = [];
+
+  container.innerHTML = `
+    <h3 class="home-section-title" id="typewriter-title"></h3>
+    <p id="typewriter-p1"></p>
+    <p id="typewriter-p2"></p>
+  `;
+
+  const titleEl = container.querySelector("#typewriter-title");
+  const p1El = container.querySelector("#typewriter-p1");
+  const p2El = container.querySelector("#typewriter-p2");
+
+  function typeText(element, text, speed, onComplete) {
+    if (!element) return;
+    let index = 0;
+    element.classList.add("typewriter-cursor");
+
+    function step() {
+      if (index < text.length) {
+        element.textContent += text.charAt(index);
+        index++;
+        const timer = setTimeout(step, speed);
+        window._heroTypewriterTimeouts.push(timer);
+      } else {
+        element.classList.remove("typewriter-cursor");
+        if (typeof onComplete === "function") {
+          onComplete();
+        }
+      }
+    }
+    step();
+  }
+
+  // Sequence: Title (~45ms) -> P1 (~18ms) -> P2 (~18ms)
+  typeText(titleEl, titleText, 45, () => {
+    typeText(p1El, p1Text, 18, () => {
+      typeText(p2El, p2Text, 18, () => {
+        // Full sequence complete: remove any remaining cursor classes
+        container.querySelectorAll(".typewriter-cursor").forEach((el) => el.classList.remove("typewriter-cursor"));
+      });
+    });
+  });
 }
 
 export function createSkeletonRows(total = 3) {
