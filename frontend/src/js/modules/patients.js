@@ -267,7 +267,7 @@ export async function renderPatients(targetContainer = null) {
         </label>
       </div>
       <table>
-        <thead><tr><th>Name</th><th>Profile Type</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Added</th><th>Records</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Profile Type</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Added</th>${!isAdminUser ? "<th>Records</th>" : ""}<th>Actions</th></tr></thead>
         <tbody id="patients-table-body"></tbody>
       </table>
       <div id="patient-form-modal" class="patient-form-modal-host" style="display:none"></div>
@@ -389,10 +389,10 @@ export async function renderPatients(targetContainer = null) {
           (p) => `
             <tr>
               <td>
-                <div class="patient-name-cell" style="display: flex; align-items: center; gap: 0.75rem;">
+                <div class="patient-name-cell" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: nowrap; white-space: nowrap;">
                   ${renderPatientAvatarHtml(p)}
                   <div style="display: flex; flex-direction: column; gap: 0.2rem;">
-                    <span class="patient-name-text" style="font-weight: 600;">${escapeHtml(formatPatientDisplayName(p))}</span>
+                    <span class="patient-name-text" style="font-weight: 600; white-space: nowrap;">${escapeHtml(formatPatientDisplayName(p))}</span>
                     ${p.isPrimaryProfile ? '<span class="patient-type-badge patient-type-badge-primary">Account Owner</span>' : '<span class="patient-type-badge patient-type-badge-family">Family Member</span>'}
                   </div>
                 </div>
@@ -402,11 +402,10 @@ export async function renderPatients(targetContainer = null) {
               <td>${p.phone || ""}</td>
               <td>${formatDateForInput(p.birthdate)}</td>
               <td>${formatCreatedDateHelper(p.createdAt || p.added)}</td>
-              <td>${renderRecordsCell(p)}</td>
+              ${!isAdminUser ? `<td>${renderRecordsCell(p)}</td>` : ""}
               <td>
                 <button type="button" class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
                 ${isAdminUser ? `<button type="button" class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>` : ""}
-                ${!isPatient ? `<button type="button" class="btn btn-secondary btn-action-edit" onclick="window.openPatientMessagingContext('${p._id}')">Message</button>` : ""}
               </td>
             </tr>
           `,
@@ -726,12 +725,14 @@ export async function showPatientForm(editId = null, familyMode = false) {
       ${buildAvatarPresetGridHtml("patient")}
       ${familyMode ? `<label>Relationship to Account Holder <input name="relationshipToAccountHolder" required placeholder="e.g. Son, Daughter, Spouse" /></label>` : ""}
       <label>Notes <textarea name="notes" placeholder="Medical notes or reminders"></textarea></label>
-      <label>Medical History
-        <textarea name="medicalHistory" placeholder="One item per line"></textarea>
-      </label>
-      <label><span class="label-text-row" data-tooltip="Accepted formats: PDF, DOCX, JPG, PNG. Images and PDFs upload to secure storage.">Upload Records</span>
-        <input name="documentFile" type="file" accept="image/*,.pdf,.doc,.docx,.txt" />
-      </label>
+      ${!isAdminUser ? `
+        <label>Medical History
+          <textarea name="medicalHistory" placeholder="One item per line"></textarea>
+        </label>
+        <label><span class="label-text-row" data-tooltip="Accepted formats: PDF, DOCX, JPG, PNG. Images and PDFs upload to secure storage.">Upload Records</span>
+          <input name="documentFile" type="file" accept="image/*,.pdf,.doc,.docx,.txt" />
+        </label>
+      ` : ""}
       <datalist id="patient-reg-facility-datalist"></datalist>
       <div class="modal-form-actions">
         <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
@@ -876,9 +877,11 @@ export async function showPatientForm(editId = null, familyMode = false) {
         form.gender.value = data.gender || "";
         form.address.value = data.address || "";
         form.notes.value = data.notes || "";
-        form.medicalHistory.value = Array.isArray(data.medicalHistory)
-          ? data.medicalHistory.join("\n")
-          : "";
+        if (form.medicalHistory) {
+          form.medicalHistory.value = Array.isArray(data.medicalHistory)
+            ? data.medicalHistory.join("\n")
+            : "";
+        }
         const regFacilityInput = form.querySelector(
           '[name="registrationFacility"]',
         );
