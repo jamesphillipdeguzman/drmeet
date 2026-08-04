@@ -4008,6 +4008,32 @@ function showPricingModal(title, contentHtml, onFormSubmit) {
   dialog.showModal();
 }
 
+let isCheckoutRedirecting = false;
+
+function resetCheckoutButtonState() {
+  isCheckoutRedirecting = false;
+  const proBtn = document.getElementById("pricing-btn-pro");
+  if (proBtn) {
+    proBtn.disabled = false;
+    const plan = isLoggedIn() ? (localStorage.getItem("subscription_plan") || "starter") : null;
+    proBtn.innerHTML = plan === "pro" ? "✓ Current Plan (Manage)" : "Upgrade to Pro";
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("focus", () => {
+    if (isCheckoutRedirecting) {
+      resetCheckoutButtonState();
+    }
+  });
+
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted || isCheckoutRedirecting) {
+      resetCheckoutButtonState();
+    }
+  });
+}
+
 async function initiatePayMongoCheckout(btnElement) {
   if (!isLoggedIn()) {
     showToast("Please register or login to subscribe to Pro.", "info");
@@ -4016,6 +4042,7 @@ async function initiatePayMongoCheckout(btnElement) {
     return;
   }
 
+  isCheckoutRedirecting = true;
   const btn = btnElement || document.getElementById("pricing-btn-pro");
   const originalHtml = btn ? btn.innerHTML : "Upgrade to Pro";
   if (btn) {
