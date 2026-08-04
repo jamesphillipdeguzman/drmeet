@@ -2243,107 +2243,172 @@ body.theme-dark .patient-profile-missing .btn {
   overflow: hidden;
 }
 
-/* CodingDesign CSS Typewriter Layout & Animation */
+/* ============================================================
+   WHY DRMEET HERO ANIMATIONS
+   ============================================================ */
+
+/* ---------- Layout ---------- */
+
 .hero-text-content {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   justify-content: center;
-  min-height: 200px;
+  align-items: flex-start;
+  min-height: 220px;
 }
+
+/* ============================================================
+   TYPEWRITER
+   ============================================================ */
 
 .typing-text {
   display: inline-block;
   overflow: hidden;
   white-space: nowrap;
+
+  width: 0;
+
   border-right: 3px solid #3b82f6;
-  width: 0%;
+
   animation:
-    typing 2s steps(18) forwards,
-    blinkCursor 0.75s step-end infinite;
-}
-
-/* Hero Paragraph Body Text Fade-In */
-.hero-text-content p {
-  opacity: 0;
-  animation: fadeInBody 0.8s ease-out 2.1s forwards;
-}
-
-/* Hero Image Entry Animation */
-.why-drmeet-media {
-  width: 100%;
-  border-radius: 14px;
-  border: 1px solid #d5def3;
-  box-shadow: 0 10px 24px rgba(21, 36, 80, 0.16);
-  animation: fadeInBody 0.8s ease-out 0.2s forwards;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.why-drmeet-media:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 32px rgba(21, 36, 80, 0.22);
+    typing 2s steps(18, end) forwards,
+    blinkCursor .8s step-end infinite;
 }
 
 @keyframes typing {
+
   from {
-    width: 0%;
+    width: 0;
   }
+
   to {
     width: 100%;
   }
+
 }
 
 @keyframes blinkCursor {
+
   50% {
-    border-right-color: transparent;
+    border-color: transparent;
   }
+
 }
 
-@keyframes fadeInBody {
+/* ============================================================
+   BODY TEXT
+   ============================================================ */
+
+.hero-text-content p {
+
+  opacity: 0;
+
+  transform: translateY(12px);
+
+  animation:
+    fadeUp .8s ease 2s forwards;
+
+}
+
+@keyframes fadeUp {
+
   from {
+
     opacity: 0;
+    transform: translateY(12px);
+
   }
+
   to {
+
     opacity: 1;
-  }
-}
+    transform: translateY(0);
 
-@media (prefers-reduced-motion: reduce) {
-  .typing-text {
-    animation: none !important;
-    width: 100% !important;
-    border-right: none !important;
-    white-space: normal !important;
   }
 
-  .hero-text-content p,
-  .why-drmeet-media {
-    animation: none !important;
-    opacity: 1 !important;
-  }
 }
+
+/* ============================================================
+   IMAGE
+   ============================================================ */
 
 .why-drmeet-media {
+
   width: 100%;
+
   border-radius: 14px;
+
   border: 1px solid #d5def3;
-  box-shadow: 0 10px 24px rgba(21, 36, 80, 0.16);
-  transition: transform 0.4s ease, box-shadow 0.4s ease;
+
+  box-shadow: 0 10px 24px rgba(21, 36, 80, .16);
+
+  opacity: 0;
+
+  transform: translateX(-60px);
+
+  animation:
+    slideInLeft .9s ease .35s forwards;
+
+  transition:
+    transform .35s ease,
+    box-shadow .35s ease;
+
+}
+
+@keyframes slideInLeft {
+
+  from {
+
+    opacity: 0;
+    transform: translateX(-60px);
+
+  }
+
+  to {
+
+    opacity: 1;
+    transform: translateX(0);
+
+  }
+
 }
 
 .why-drmeet-media:hover {
-  transform: translateY(-4px) scale(1.01);
-  box-shadow: 0 16px 36px rgba(21, 36, 80, 0.22);
+
+  transform: translateY(-4px) scale(1.02);
+
+  box-shadow: 0 18px 36px rgba(21, 36, 80, .22);
+
 }
 
+/* ============================================================
+   ACCESSIBILITY
+   ============================================================ */
+
 @media (prefers-reduced-motion: reduce) {
-  .hero-text-content,
-  .why-drmeet-text,
-  .hero-image-container {
+
+  .typing-text,
+  .hero-text-content p,
+  .why-drmeet-media {
+
     animation: none !important;
+
     opacity: 1 !important;
+
     transform: none !important;
+
   }
+
+  .typing-text {
+
+    width: auto !important;
+
+    border-right: none;
+
+    white-space: normal;
+
+  }
+
 }
 
 .role-select {
