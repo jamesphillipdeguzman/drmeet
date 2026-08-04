@@ -24,6 +24,7 @@ let apiRequest = null;
 let getApiErrorMessage = null;
 let getCurrentUserRole = null;
 let getCurrentUserId = null;
+let getCurrentLinkedDoctorId = null;
 let getCurrentReceptionistType = null;
 let isAllowedPresetImageUrl = null;
 let buildAvatarPresetGridHtml = null;
@@ -36,12 +37,16 @@ let loadFacilities = null;
 let buildDoctorAvailabilityLabel = null;
 let formatDateForInput = null;
 let renderPatientBooking = null;
+let applyUserRecordToLocalCache = null;
+let refreshCurrentUserCacheFromApi = null;
+let updateSidebarAccountInfoAndPlan = null;
 
 export function initDoctorsModule(handlers = {}) {
   apiRequest = handlers.apiRequest || null;
   getApiErrorMessage = handlers.getApiErrorMessage || null;
   getCurrentUserRole = handlers.getCurrentUserRole || null;
   getCurrentUserId = handlers.getCurrentUserId || null;
+  getCurrentLinkedDoctorId = handlers.getCurrentLinkedDoctorId || null;
   getCurrentReceptionistType = handlers.getCurrentReceptionistType || null;
   isAllowedPresetImageUrl = handlers.isAllowedPresetImageUrl || null;
   buildAvatarPresetGridHtml = handlers.buildAvatarPresetGridHtml || null;
@@ -54,6 +59,9 @@ export function initDoctorsModule(handlers = {}) {
   buildDoctorAvailabilityLabel = handlers.buildDoctorAvailabilityLabel || null;
   formatDateForInput = handlers.formatDateForInput || null;
   renderPatientBooking = handlers.renderPatientBooking || null;
+  applyUserRecordToLocalCache = handlers.applyUserRecordToLocalCache || null;
+  refreshCurrentUserCacheFromApi = handlers.refreshCurrentUserCacheFromApi || null;
+  updateSidebarAccountInfoAndPlan = handlers.updateSidebarAccountInfoAndPlan || null;
 }
 
 // State variable
@@ -652,6 +660,38 @@ export async function showDoctorForm(editId = null) {
       if (!res.ok) {
         throw new Error(await getApiErrorMessage(res, "Failed to save doctor"));
       }
+      const savedDoctor = await res.json().catch(() => null);
+
+      // Immediately sync local user state and update sidebar header avatar if editing own doctor profile
+      const currentUserId = typeof getCurrentUserId === "function" ? getCurrentUserId() : null;
+      const linkedDoctorId = typeof getCurrentLinkedDoctorId === "function" ? getCurrentLinkedDoctorId() : null;
+      const currentRole = typeof getCurrentUserRole === "function" ? getCurrentUserRole() : null;
+
+      const isMyDoctorProfile =
+        (savedDoctor?.userId && currentUserId && String(savedDoctor.userId) === String(currentUserId)) ||
+        (linkedDoctorId && savedDoctor?._id && String(savedDoctor._id) === String(linkedDoctorId)) ||
+        (currentRole === "doctor" && (editId || !editId));
+
+      if (isMyDoctorProfile && savedDoctor) {
+        const newPhoto = savedDoctor.photoUrl || savedDoctor.avatarUrl || savedDoctor.picture || doctorPayload.photoUrl || "";
+        if (typeof applyUserRecordToLocalCache === "function") {
+          applyUserRecordToLocalCache({
+            _id: currentUserId,
+            firstName: savedDoctor.firstName || "",
+            lastName: savedDoctor.lastName || "",
+            photoUrl: newPhoto,
+            picture: newPhoto,
+            avatarUrl: newPhoto,
+          });
+        }
+        if (typeof refreshCurrentUserCacheFromApi === "function") {
+          await refreshCurrentUserCacheFromApi();
+        }
+        if (typeof updateSidebarAccountInfoAndPlan === "function") {
+          updateSidebarAccountInfoAndPlan();
+        }
+      }
+
       modal.style.display = "none";
       renderDoctors();
     } catch (err) {
