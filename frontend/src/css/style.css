@@ -1783,13 +1783,29 @@ body.theme-dark .assigned-doctor-badge {
 /* 1. Standardize both Inputs and Selects in Light Mode */
 select,
 .search-input-unified {
-  background: #ffffff;
-  color: #1d2740;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
   border: 1px solid #cbd5e1;
 }
 
 .search-input-unified::placeholder {
-  color: #64748b;
+  color: #64748b !important;
+  opacity: 1;
+}
+
+.search-input-unified:focus {
+  outline: none;
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15) !important;
+}
+
+/* Autofill legibility fix */
+.search-input-unified:-webkit-autofill,
+.search-input-unified:-webkit-autofill:hover,
+.search-input-unified:-webkit-autofill:focus {
+  -webkit-text-fill-color: #0f172a !important;
+  -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 /* 2. Standardize both Inputs, Selects, and Options in Dark Mode */
@@ -1803,6 +1819,13 @@ body.theme-dark .search-input-unified {
 
 body.theme-dark .search-input-unified::placeholder {
   color: #94a3b8 !important;
+}
+
+body.theme-dark .search-input-unified:-webkit-autofill,
+body.theme-dark .search-input-unified:-webkit-autofill:hover,
+body.theme-dark .search-input-unified:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f8fafc !important;
+  -webkit-box-shadow: 0 0 0px 1000px #0f172a inset !important;
 }
 
 body.theme-dark .modal-sheet label,

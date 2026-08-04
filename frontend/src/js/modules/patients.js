@@ -401,12 +401,12 @@ export async function renderPatients(targetContainer = null) {
                 </div>
               </td>
               <td>${(() => {
-                const isPrimary = typeof p.isPrimaryProfile !== "undefined"
-                  ? p.isPrimaryProfile
-                  : (!p.relationshipToAccountHolder && (!p.accountOwnerId || String(p.userId || "") === String(p.accountOwnerId || "")));
-                if (isPrimary) return "Account Owner";
-                return p.relationshipToAccountHolder ? `Family Member (${escapeHtml(p.relationshipToAccountHolder)})` : "Family Member";
-              })()}</td>
+              const isPrimary = typeof p.isPrimaryProfile !== "undefined"
+                ? p.isPrimaryProfile
+                : (!p.relationshipToAccountHolder && (!p.accountOwnerId || String(p.userId || "") === String(p.accountOwnerId || "")));
+              if (isPrimary) return "Account Owner";
+              return p.relationshipToAccountHolder ? `Family Member (${escapeHtml(p.relationshipToAccountHolder)})` : "Family Member";
+            })()}</td>
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
               <td>${formatDateForInput(p.birthdate)}</td>
@@ -679,8 +679,9 @@ export async function showPatientForm(editId = null, familyMode = false) {
               type="text" 
               id="patient-existing-search" 
               placeholder="Type at least 2 characters..." 
-              class="w-full pl-9 pr-9 py-2 border border-gray-300 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-900 dark:text-white"
-              style="width: 100%; padding: 8px 36px 8px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.875rem;"
+              class="search-input-unified"
+              style="width: 100%; padding: 8px 36px 8px 40px; border-radius: 8px; font-size: 0.875rem;"
+              autocomplete="off"
             />
             <button 
               type="button" 
