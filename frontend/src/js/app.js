@@ -3168,8 +3168,14 @@ async function loadEnterpriseTree(
   }
 }
 
+function isEnterpriseAdminUser() {
+  const role = String(typeof getCurrentUserRole === "function" ? getCurrentUserRole() : "").toLowerCase();
+  return ["super_admin", "hospital_admin", "admin", "superadmin"].includes(role);
+}
+
 if (typeof window !== "undefined") {
   window.fetchAndRenderOrgTree = loadEnterpriseTree;
+  window.isEnterpriseAdminUser = isEnterpriseAdminUser;
 }
 
 function buildDepartmentCardHtml(dept) {
