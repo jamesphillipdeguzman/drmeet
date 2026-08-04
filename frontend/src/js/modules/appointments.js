@@ -130,13 +130,15 @@ export function resolveAppointmentDoctorName(a, doctorLookup) {
 }
 
 // --- Appointments ---
-export async function renderAppointments() {
-  const mainContent = document.getElementById("main-content");
-  if (!mainContent) return;
+export async function renderAppointments(targetContainer = null) {
+  const container = targetContainer || document.getElementById("main-content");
+  if (!container) return;
 
+  if (!targetContainer) {
+    window.location.hash = "#doctor-dashboard?tab=appointments";
+  }
   setPageTone("appointments");
-  mainContent.innerHTML =
-    '<h2 class="page-title page-title-appointments">Appointments</h2><div class="feedback">Loading...</div>';
+  container.innerHTML = '<div class="feedback">Loading...</div>';
   try {
     const [res, doctorRes, patientRes] = await Promise.all([
       apiRequest(`${API_BASE}/appointments`),
@@ -162,14 +164,12 @@ export async function renderAppointments() {
     const patientById = new Map(
       patients.map((patient) => [String(patient._id), patient]),
     );
-    mainContent.innerHTML = `
-      <h2 class="page-title page-title-appointments">Appointments</h2>
-      <div class="appointments-toolbar">
-        <button type="button" class="btn btn-secondary" id="appointments-refresh-btn">Refresh</button>
+    container.innerHTML = `
+      <div class="appointments-toolbar" style="margin-bottom: 1rem; display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary" id="appointments-refresh-btn">Refresh List</button>
         <button class="cta-primary" onclick="window.showAppointmentForm()">Add Appointment</button>
         ${getCurrentUserRole() === "admin" ? '<button class="cta-primary btn-secondary" id="export-appointments-csv">Export CSV</button>' : ""}
       </div>
-      <hr class="section-divider" />
       <div class="relative w-full max-w-xl mb-4" style="position: relative; width: 100%; max-width: 36rem; margin-bottom: 1rem; display: flex; align-items: center;">
         <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; display: flex; align-items: center;">🔍</span>
         <input 
@@ -266,9 +266,11 @@ export async function renderAppointments() {
       }
     });
     renderRows(appointments);
-    document.getElementById("appointments-refresh-btn")?.addEventListener("click", () => {
-      void renderAppointments();
-    });
+    document
+      .getElementById("appointments-refresh-btn")
+      ?.addEventListener("click", () => {
+        void renderAppointments(targetContainer);
+      });
     document
       .getElementById("export-appointments-csv")
       ?.addEventListener("click", () => {
@@ -297,8 +299,13 @@ export async function renderAppointments() {
 }
 
 export async function showAppointmentForm(editId = null) {
-  const modal = document.getElementById("appointment-form-modal");
-  if (!modal) return;
+  let modal = document.getElementById("appointment-form-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "appointment-form-modal";
+    modal.style.display = "none";
+    document.body.appendChild(modal);
+  }
   modal.style.display = "block";
   modal.innerHTML = `<div class="feedback">Loading form...</div>`;
   let doctors = [];
@@ -837,4 +844,18 @@ export async function renderCalendar() {
   } catch (error) {
     mainContent.innerHTML = `<h2>Calendar</h2><div class="feedback error">${error.message}</div>`;
   }
+}
+
+// Ensure global window bindings are available immediately when module loads
+if (typeof window !== "undefined") {
+  window.showAppointmentForm = showAppointmentForm;
+  window.editAppointment = editAppointment;
+  window.deleteAppointment = deleteAppointment;
+  window.closeAppointmentForm = function () {
+    const modal = document.getElementById("appointment-form-modal");
+    if (modal) {
+      modal.style.display = "none";
+      modal.innerHTML = "";
+    }
+  };
 }

@@ -1105,6 +1105,12 @@ async function showClinicalTab(tab) {
             </table>
           </div>
         </section>
+
+        <hr class="section-divider" style="margin: 2rem 0;" />
+        <section class="card clinical-appt-mgmt-section">
+          <h4 style="margin-bottom: 1rem;">Appointments Management</h4>
+          <div id="clinical-appointments-mgmt-container"></div>
+        </section>
       `;
 
       document.getElementById("clinical-appt-refresh")?.addEventListener("click", () => {
@@ -1136,6 +1142,12 @@ async function showClinicalTab(tab) {
           }
         });
       });
+
+      const mgmtContainer = document.getElementById("clinical-appointments-mgmt-container");
+      if (mgmtContainer && typeof renderAppointments === "function") {
+        await renderAppointments(mgmtContainer);
+      }
+
       doctorDashUI.loaded.appointments = true;
       return;
     }
