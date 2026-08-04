@@ -271,6 +271,12 @@ export function createNavigation({
         { hash: "#appointments", label: "Appointments" },
         { hash: "#pricing", label: "Pricing" },
       ];
+    } else if (isPatient) {
+      pages = [
+        { hash: "#home", label: "Home" },
+        { hash: "#book", label: "Book" },
+        { hash: "#appointments", label: "Appointments" },
+      ];
     } else {
       pages = [
         { hash: "#home", label: "Home" },
@@ -285,8 +291,15 @@ export function createNavigation({
       el.style.display = isDoctor ? "" : "none";
     });
 
-    document.querySelectorAll(".nav-li-non-doctor-patients").forEach((el) => {
-      el.style.display = (isDoctor || isSuperAdmin) ? "none" : "";
+    document.querySelectorAll('a[href="#book"]').forEach((el) => {
+      const parentLi = el.closest("li") || el;
+      const isAllowedBook = isPatient || isDoctor || isNurse || isReceptionist;
+      parentLi.style.display = isAllowedBook ? "" : "none";
+    });
+
+    document.querySelectorAll('.nav-li-non-doctor-patients, a[href="#patients"]').forEach((el) => {
+      const parentLi = el.closest("li") || el;
+      parentLi.style.display = (isPatient || isSuperAdmin) ? "none" : "";
     });
 
     document.querySelectorAll(".nav-li-non-doctor").forEach((el) => {
@@ -401,7 +414,7 @@ export function createNavigation({
         return;
       }
     } else if (role === "patient") {
-      const allowed = new Set(["#home", "#book", "#patients", "#appointments", "#settings", "#privacy", "#login", "#signup"]);
+      const allowed = new Set(["#home", "#book", "#appointments", "#settings", "#privacy", "#login", "#signup"]);
       if (!allowed.has(route)) {
         window.location.hash = "#home";
         return;

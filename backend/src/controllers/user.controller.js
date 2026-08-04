@@ -12,7 +12,7 @@ import { findDoctorByUserId } from '../services/doctor.service.js';
 import { sanitizeInput } from '../utils/inputSanitizer.js';
 import Doctor from '../models/doctor.model.js';
 import Patient from '../models/patient.model.js';
-import { uploadToCloudinary } from '../services/cloudinary.service.js';
+import { normalizeRole } from '../middlewares/auth.middleware.js';
 
 function csvEscape(val) {
     const s = String(val ?? '');
@@ -26,8 +26,8 @@ function csvEscape(val) {
  */
 export const exportUsersCsv = async (req, res) => {
     try {
-        const role = String(req.user?.role || '').toLowerCase();
-        if (role !== 'admin') {
+        const role = normalizeRole(req.user?.role || '');
+        if (!['hospital_admin', 'super_admin', 'admin'].includes(role)) {
             return res.status(403).json({ error: 'Forbidden.' });
         }
         let users = await findAllUsers();
@@ -63,7 +63,7 @@ export const exportUsersCsv = async (req, res) => {
  */
 export const getAllUsers = async (req, res) => {
     try {
-        const role = String(req.user?.role || '').toLowerCase();
+        const role = normalizeRole(req.user?.role || '');
         const requesterId = String(req.user?._id || req.user?.id || '');
         let users = await findAllUsers();
         if (role === 'doctor' && requesterId) {
@@ -75,7 +75,7 @@ export const getAllUsers = async (req, res) => {
                 users = users.filter(
                     (u) =>
                         String(u._id) === requesterId ||
-                        (String(u.role || '').toLowerCase() === 'receptionist' &&
+                        (normalizeRole(u.role) === 'receptionist' &&
                             String(u.linkedDoctorId || '') === doctorId),
                 );
             }
@@ -93,7 +93,7 @@ export const getAllUsers = async (req, res) => {
                 || (linkedDoctorUserId && String(u._id) === linkedDoctorUserId),
             );
         }
-        if (role !== 'admin' && role !== 'doctor' && role !== 'receptionist') {
+        if (!['hospital_admin', 'super_admin', 'admin', 'doctor', 'receptionist'].includes(role)) {
             users = users.filter((u) => String(u._id) === requesterId);
         }
 
@@ -173,8 +173,8 @@ export const getUserById = async (req, res) => {
  */
 export const postUser = async (req, res) => {
     try {
-        const requesterRole = String(req.user?.role || '').toLowerCase();
-        if (requesterRole !== 'admin') {
+        const requesterRole = normalizeRole(req.user?.role || '');
+        if (!['hospital_admin', 'super_admin', 'admin'].includes(requesterRole)) {
             return res.status(403).json({ error: 'Forbidden.' });
         }
         const userData = sanitizeInput(req.body || {});
@@ -205,8 +205,9 @@ export const postUser = async (req, res) => {
 export const updateUser = async (req, res) => {
     const { id } = req.params;
     const requesterId = String(req.user?._id || req.user?.id || '');
-    const requesterRole = String(req.user?.role || '').toLowerCase();
-    if (requesterRole !== 'admin' && requesterId !== String(id)) {
+    const requesterRole = normalizeRole(req.user?.role || '');
+    const isAdmin = ['hospital_admin', 'super_admin', 'admin'].includes(requesterRole);
+    if (!isAdmin && requesterId !== String(id)) {
         return res.status(403).json({ error: 'Forbidden.' });
     }
     const cleaned = sanitizeInput(req.body || {});
@@ -251,8 +252,9 @@ export const updateUser = async (req, res) => {
 export const deleteUser = async (req, res) => {
     const { id } = req.params;
     const requesterId = String(req.user?._id || req.user?.id || '');
-    const requesterRole = String(req.user?.role || '').toLowerCase();
-    if (requesterRole !== 'admin' && requesterId !== String(id)) {
+    const requesterRole = normalizeRole(req.user?.role || '');
+    const isAdmin = ['hospital_admin', 'super_admin', 'admin'].includes(requesterRole);
+    if (!isAdmin && requesterId !== String(id)) {
         return res.status(403).json({ error: 'Forbidden.' });
     }
     if (!mongoose.Types.ObjectId.isValid(id)) {
