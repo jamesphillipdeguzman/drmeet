@@ -383,7 +383,6 @@ export const getBookingHints = async (req, res) => {
             ...new Set(existing.map((a) => String(a.time || '').trim()).filter(Boolean)),
         ].sort((a, b) => (toMinutes(a) || 0) - (toMinutes(b) || 0));
         const bookedCount = existing.length;
-        const remainingSlots = Math.max(maxPatientsPerDay - bookedCount, 0);
         const doctor = await Doctor.findById(doctorId).lean();
         let suggestedAvailableTimes = buildSuggestedTimes(conflictingTimes, 10, doctor, date);
 
@@ -399,12 +398,19 @@ export const getBookingHints = async (req, res) => {
             });
         }
 
+        const availableSlotsCount = suggestedAvailableTimes.length;
+        const remainingSlots = Math.min(
+            Math.max(maxPatientsPerDay - bookedCount, 0),
+            availableSlotsCount
+        );
+
         return res.status(200).json({
             doctorId,
             date: dayStart.toISOString(),
             maxPatientsPerDay,
             bookedCount,
             remainingSlots,
+            availableSlotsCount,
             conflictingTimes,
             suggestedAvailableTimes,
             hint: `Booked ${bookedCount}/${maxPatientsPerDay}. ${remainingSlots > 0 ? `${remainingSlots} slot(s) left.` : 'No slots left for this day.'}`,

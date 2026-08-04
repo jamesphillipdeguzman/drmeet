@@ -607,14 +607,17 @@ export async function showAppointmentForm(editId = null) {
         }
       }
 
+      const availableSlotsCount = upcomingAvailable.length;
+      const displayRemaining = typeof info.remainingSlots === "number" ? Math.min(info.remainingSlots, availableSlotsCount) : availableSlotsCount;
+
       if (hintEl) {
         hintEl.style.display = "block";
         hintEl.className =
-          Number(info.remainingSlots) > 0 && upcomingAvailable.length
+          displayRemaining > 0 && availableSlotsCount > 0
             ? "feedback booking-hint"
             : "feedback error booking-hint";
-        hintEl.textContent = upcomingAvailable.length
-          ? String(info.hint || "")
+        hintEl.textContent = availableSlotsCount > 0
+          ? `Booked ${info.bookedCount ?? 0}/${info.maxPatientsPerDay ?? 10}. ${displayRemaining} slot(s) left.`
           : "No upcoming available schedule slots for the selected date. Please pick another date.";
       }
       if (timesEl) {
