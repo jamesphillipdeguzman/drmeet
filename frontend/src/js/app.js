@@ -4288,7 +4288,8 @@ function renderPricing() {
   const searchParams = new URLSearchParams(window.location.search);
   const hashQueryIndex = window.location.hash.indexOf("?");
   const hashParams = hashQueryIndex !== -1 ? new URLSearchParams(window.location.hash.substring(hashQueryIndex)) : new URLSearchParams();
-  const isSuccess = searchParams.get("success") === "true" || hashParams.get("success") === "true";
+  const isSuccess = searchParams.get("success") === "true" || hashParams.get("success") === "true" || searchParams.get("status") === "success" || hashParams.get("status") === "success";
+  const isCancelled = searchParams.get("status") === "cancelled" || hashParams.get("status") === "cancelled" || searchParams.get("cancelled") === "true" || hashParams.get("cancelled") === "true";
 
   if (isSuccess) {
     localStorage.setItem("subscription_plan", "pro");
@@ -4297,6 +4298,11 @@ function renderPricing() {
     const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + cleanHash;
     window.history.replaceState({ path: cleanUrl }, "", cleanUrl);
     updateSidebarAccountInfoAndPlan();
+  } else if (isCancelled) {
+    showToast("Checkout cancelled. You can retry upgrading whenever you are ready.", "info");
+    const cleanHash = window.location.hash.split("?")[0] || "#pricing";
+    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + cleanHash;
+    window.history.replaceState({ path: cleanUrl }, "", cleanUrl);
   }
 
   document.getElementById("pricing-btn-pro")?.addEventListener("click", (e) => {
