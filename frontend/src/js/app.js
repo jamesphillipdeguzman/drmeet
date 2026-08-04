@@ -4419,6 +4419,76 @@ function renderHome() {
       renderPatientBooking();
     });
 
+  // Trigger typewriter typing animation for Why Choose DrMeet section
+  runTypewriterAnimation();
+}
+
+function runTypewriterAnimation() {
+  const container = document.querySelector(".why-drmeet .hero-text-content");
+  if (!container) return;
+
+  const titleEl = container.querySelector(".home-section-title") || container.querySelector("h3") || container.querySelector("h2");
+  const bodyEl = container.querySelector("p");
+  if (!titleEl || !bodyEl) return;
+
+  // Clear any previous typewriter timers on re-entry/navigation
+  if (Array.isArray(window.typewriterTimers)) {
+    window.typewriterTimers.forEach(clearTimeout);
+  }
+  window.typewriterTimers = [];
+
+  const titleText = "Why Choose DrMeet";
+  const bodyText = "DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates. Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.";
+
+  // Respect accessibility preferences
+  if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    titleEl.textContent = titleText;
+    bodyEl.textContent = bodyText;
+    titleEl.classList.remove("typewriter-cursor");
+    bodyEl.classList.remove("typewriter-cursor");
+    return;
+  }
+
+  // Initial state: empty text on both elements
+  titleEl.textContent = "";
+  bodyEl.textContent = "";
+  titleEl.classList.remove("typewriter-cursor");
+  bodyEl.classList.remove("typewriter-cursor");
+
+  // Step 1: Type Title
+  titleEl.classList.add("typewriter-cursor");
+  let tIndex = 0;
+
+  function typeTitleStep() {
+    if (tIndex < titleText.length) {
+      titleEl.textContent += titleText.charAt(tIndex);
+      tIndex++;
+      const timer = setTimeout(typeTitleStep, 45);
+      window.typewriterTimers.push(timer);
+    } else {
+      // Step 2: Title finished -> Move cursor to Body Paragraph & start typing
+      titleEl.classList.remove("typewriter-cursor");
+      bodyEl.classList.add("typewriter-cursor");
+      let bIndex = 0;
+
+      function typeBodyStep() {
+        if (bIndex < bodyText.length) {
+          bodyEl.textContent += bodyText.charAt(bIndex);
+          bIndex++;
+          const timer = setTimeout(typeBodyStep, 18);
+          window.typewriterTimers.push(timer);
+        } else {
+          // Step 3: Finished typing body text -> Remove cursor completely
+          bodyEl.classList.remove("typewriter-cursor");
+        }
+      }
+
+      const pauseTimer = setTimeout(typeBodyStep, 180);
+      window.typewriterTimers.push(pauseTimer);
+    }
+  }
+
+  typeTitleStep();
 }
 
 export function createSkeletonRows(total = 3) {
