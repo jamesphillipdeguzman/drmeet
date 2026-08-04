@@ -2243,46 +2243,39 @@ body.theme-dark .patient-profile-missing .btn {
   overflow: hidden;
 }
 
+@keyframes heroSlideInLeft {
+  0% {
+    opacity: 0;
+    transform: translateX(-35px) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+}
+
+@keyframes heroSlideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(35px) translateY(10px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+  }
+}
+
 .hero-text-content,
 .why-drmeet-text {
-  opacity: 0;
-  transform: translateY(20px) translateX(-20px);
-  transition: opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1), transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: heroSlideInLeft 0.85s cubic-bezier(0.16, 1, 0.3, 1) both;
   will-change: transform, opacity;
   backface-visibility: hidden;
 }
 
 .hero-image-container {
-  opacity: 0;
-  transform: translateY(20px) translateX(20px) scale(0.97);
-  transition: opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1) 0.12s, transform 0.85s cubic-bezier(0.16, 1, 0.3, 1) 0.12s;
+  animation: heroSlideInRight 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
   will-change: transform, opacity;
   backface-visibility: hidden;
-}
-
-.why-drmeet.is-visible .hero-text-content,
-.why-drmeet.is-visible .why-drmeet-text,
-.hero-text-content.is-visible,
-.hero-text-content.hero-text-entry {
-  opacity: 1 !important;
-  transform: translateY(0) translateX(0) !important;
-}
-
-.why-drmeet.is-visible .hero-image-container,
-.hero-image-container.is-visible,
-.hero-image-container.hero-img-entry {
-  opacity: 1 !important;
-  transform: translateY(0) translateX(0) scale(1) !important;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-text-content,
-  .why-drmeet-text,
-  .hero-image-container {
-    opacity: 1 !important;
-    transform: none !important;
-    transition: none !important;
-  }
 }
 
 .why-drmeet-media {
@@ -2290,6 +2283,22 @@ body.theme-dark .patient-profile-missing .btn {
   border-radius: 14px;
   border: 1px solid #d5def3;
   box-shadow: 0 10px 24px rgba(21, 36, 80, 0.16);
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+}
+
+.why-drmeet-media:hover {
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 16px 36px rgba(21, 36, 80, 0.22);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-text-content,
+  .why-drmeet-text,
+  .hero-image-container {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 .role-select {
