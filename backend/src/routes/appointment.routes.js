@@ -152,6 +152,20 @@ router.put(
   validateAppointment,
   updateAppointment,
 );
+router.patch(
+  '/:id/status',
+  hybridAuth,
+  validateMongoIdParam,
+  validateAppointment,
+  updateAppointment,
+);
+router.patch(
+  '/:id',
+  hybridAuth,
+  validateMongoIdParam,
+  validateAppointment,
+  updateAppointment,
+);
 
 /**
  * @swagger

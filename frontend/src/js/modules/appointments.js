@@ -726,24 +726,37 @@ export async function deleteAppointment(id) {
   }
 }
 
-export async function cancelAppointment(id) {
+export async function cancelAppointment(id, appointmentData = null) {
   if (!id) return;
   if (!(await showDangerConfirm("Are you sure you want to cancel this appointment?"))) return;
   try {
+    let payload = { status: "cancelled" };
+
+    if (appointmentData && typeof appointmentData === "object") {
+      payload = {
+        doctor: appointmentData.doctor?._id || appointmentData.doctor || "",
+        patient: appointmentData.patient?._id || appointmentData.patient || "",
+        date: formatDateForInput(appointmentData.date) || appointmentData.date || "",
+        time: appointmentData.time || "",
+        status: "cancelled",
+        notes: appointmentData.notes || appointmentData.reason || "",
+      };
+    }
+
     const res = await apiRequest(`${API_BASE}/appointments/${id}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "cancelled" }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const fallbackRes = await apiRequest(`${API_BASE}/appointments/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "cancelled" }),
+        body: JSON.stringify(payload),
       });
       if (!fallbackRes.ok) throw new Error(await getApiErrorMessage(fallbackRes, "Failed to cancel appointment"));
     }
-    showToast("Appointment cancelled successfully.");
+    showToast("Appointment successfully cancelled.");
     void renderAppointments();
   } catch (err) {
     showToast(err?.message || "Unable to cancel appointment", "error");
