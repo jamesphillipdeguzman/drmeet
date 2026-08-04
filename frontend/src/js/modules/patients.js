@@ -345,6 +345,42 @@ export async function renderPatients(targetContainer = null) {
       return `<div class="patient-table-avatar-fallback" style="width: 36px; height: 36px; border-radius: 50%; background-color: #3b82f6; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem; flex-shrink: 0; border: 1px solid #2563eb;" title="${displayName}">${initials}</div>`;
     };
 
+    const renderRecordsCell = (p) => {
+      const docs = Array.isArray(p.documents) ? p.documents : [];
+      if (!docs.length) return "—";
+
+      const renderSingleDoc = (d) => {
+        const docId = d._id || d.id;
+        const docName = escapeHtml(d.name || d.fileUrl || d.url || "Document");
+        const senderRole = resolveDocumentSenderLabel(d);
+        const senderBadge = senderRole === "patient"
+          ? `<span class="patient-type-badge patient-type-badge-family" style="font-size:0.65rem; margin-left:4px;">Patient</span>`
+          : `<span class="patient-type-badge patient-type-badge-primary" style="font-size:0.65rem; margin-left:4px;">Doctor</span>`;
+
+        const fileUrl = d.fileUrl || d.url || "";
+        if (fileUrl) {
+          return `<div style="display:block; margin-bottom:4px;"><a href="${escapeHtml(fileUrl)}" target="_blank" rel="noopener noreferrer" download class="patient-doc-link text-blue-600 hover:underline" data-doc-id="${docId || ""}">${docName}</a>${senderBadge}</div>`;
+        }
+        return `<div style="display:block; margin-bottom:4px;"><a href="javascript:void(0);" class="patient-doc-link text-blue-600 hover:underline" data-doc-id="${docId || ""}">${docName}</a>${senderBadge}</div>`;
+      };
+
+      if (docs.length <= 2) {
+        return docs.map(renderSingleDoc).join("");
+      }
+
+      const firstTwoHtml = docs.slice(0, 2).map(renderSingleDoc).join("");
+      const remainingHtml = docs.slice(2).map(renderSingleDoc).join("");
+      const patientId = String(p._id);
+
+      return `
+        <div class="patient-records-wrap" id="patient-records-wrap-${patientId}">
+          <div class="patient-records-initial">${firstTwoHtml}</div>
+          <div class="patient-records-expanded" id="patient-records-more-${patientId}" style="display:none;">${remainingHtml}</div>
+          <button type="button" class="patient-records-toggle-btn text-xs font-semibold" style="background:none; border:none; padding:0; margin-top:2px; cursor:pointer; color:#2563eb;" data-toggle-patient="${patientId}">+ ${docs.length - 2} more</button>
+        </div>
+      `;
+    };
+
     const renderRows = (list) => {
       bodyEl.innerHTML = list
         .map(
@@ -364,27 +400,7 @@ export async function renderPatients(targetContainer = null) {
               <td>${p.phone || ""}</td>
               <td>${formatDateForInput(p.birthdate)}</td>
               <td>${formatCreatedDateHelper(p.createdAt || p.added)}</td>
-              <td>
-                ${Array.isArray(p.documents) && p.documents.length
-              ? p.documents
-                .map((d) => {
-                  const docId = d._id || d.id;
-                  const docName = escapeHtml(d.name || d.fileUrl || d.url || "Document");
-                  const senderRole = resolveDocumentSenderLabel(d);
-                  const senderBadge = senderRole === "patient"
-                    ? `<span class="patient-type-badge patient-type-badge-family" style="font-size:0.65rem; margin-left:4px;">Patient</span>`
-                    : `<span class="patient-type-badge patient-type-badge-primary" style="font-size:0.65rem; margin-left:4px;">Doctor</span>`;
-
-                  const fileUrl = d.fileUrl || d.url || "";
-                  if (fileUrl) {
-                    return `<div style="display:inline-block; margin-right:6px; margin-bottom:4px;"><a href="${escapeHtml(fileUrl)}" target="_blank" rel="noopener noreferrer" download class="patient-doc-link text-blue-600 hover:underline" data-doc-id="${docId || ""}">${docName}</a>${senderBadge}</div>`;
-                  }
-                  return `<div style="display:inline-block; margin-right:6px; margin-bottom:4px;"><a href="javascript:void(0);" class="patient-doc-link text-blue-600 hover:underline" data-doc-id="${docId || ""}">${docName}</a>${senderBadge}</div>`;
-                })
-                .join("")
-              : "—"
-            }
-              </td>
+              <td>${renderRecordsCell(p)}</td>
               <td>
                 <button type="button" class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
                 ${isAdminUser ? `<button type="button" class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>` : ""}
@@ -394,6 +410,23 @@ export async function renderPatients(targetContainer = null) {
           `,
         )
         .join("");
+
+      bodyEl.querySelectorAll(".patient-records-toggle-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const pid = btn.getAttribute("data-toggle-patient");
+          const moreEl = document.getElementById(`patient-records-more-${pid}`);
+          if (!moreEl) return;
+          const isHidden = moreEl.style.display === "none";
+          if (isHidden) {
+            moreEl.style.display = "block";
+            btn.textContent = "See less";
+          } else {
+            moreEl.style.display = "none";
+            const count = moreEl.querySelectorAll(".patient-doc-link").length;
+            btn.textContent = `+ ${count} more`;
+          }
+        });
+      });
 
       bodyEl.querySelectorAll(".patient-doc-link").forEach((link) => {
         link.addEventListener("click", (e) => {
