@@ -4420,46 +4420,6 @@ function renderHome() {
       renderPatientBooking();
     });
 
-  // Automatically trigger smooth slide & fade animation on mount and scroll
-  triggerHeroAnimation();
-}
-
-function triggerHeroAnimation() {
-  const section = document.querySelector(".why-drmeet");
-  if (!section) return;
-
-  const textEl = section.querySelector(".hero-text-content") || section.querySelector(".why-drmeet-text");
-  const imgEl = section.querySelector(".hero-image-container");
-
-  const activate = () => {
-    section.classList.add("is-visible");
-    if (textEl) textEl.classList.add("is-visible", "hero-text-entry");
-    if (imgEl) imgEl.classList.add("is-visible", "hero-img-entry");
-  };
-
-  // Immediate frame trigger
-  requestAnimationFrame(() => {
-    requestAnimationFrame(activate);
-  });
-
-  // Safety timer fallback to guarantee animation triggers
-  setTimeout(activate, 100);
-
-  // IntersectionObserver for scroll-driven entry
-  if (typeof IntersectionObserver !== "undefined") {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            activate();
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-    observer.observe(section);
-  }
 }
 
 export function createSkeletonRows(total = 3) {
