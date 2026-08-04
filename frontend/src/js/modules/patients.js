@@ -124,10 +124,12 @@ function setPageTone(tone) {
 
 // --- Patients ---
 export async function renderPatients(targetContainer = null) {
-  const container = targetContainer || document.getElementById("main-content");
+  const mgmtContainer = document.getElementById("clinical-patients-mgmt-container");
+  const container = targetContainer || mgmtContainer || document.getElementById("main-content");
   if (!container) return;
 
-  if (!targetContainer && getCurrentUserRole() === "doctor") {
+  const isInsideClinical = Boolean(targetContainer || mgmtContainer);
+  if (!isInsideClinical && getCurrentUserRole() === "doctor") {
     window.location.hash = "#doctor-dashboard?tab=patients";
   }
   setPageTone("patients");
@@ -986,7 +988,12 @@ export async function showPatientForm(editId = null, familyMode = false) {
         "patient-send-doc-doctor",
       );
       if (sendDocDoctorSelect) sendDocDoctorSelect.value = "";
-      renderPatients();
+      const mgmtContainer = document.getElementById("clinical-patients-mgmt-container");
+      if (mgmtContainer) {
+        void renderPatients(mgmtContainer);
+      } else {
+        void renderPatients();
+      }
     } catch (err) {
       showToast(err.message, "error");
       if (err.message && err.message.includes("Starter plan limit")) {
