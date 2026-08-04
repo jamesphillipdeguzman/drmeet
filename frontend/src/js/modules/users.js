@@ -10,6 +10,7 @@ import { ensureDoctorSpecialtiesLoaded, getDoctorSpecialties } from "./doctors.j
 // Global environment handlers injected from app.js
 let apiRequest = null;
 let getCurrentUserRole = null;
+let getCurrentUserId = null;
 let showToast = null;
 let showDangerConfirm = null;
 let mainContent = null;
@@ -18,6 +19,7 @@ let setPageTone = null;
 export function initUsersModule(config = {}) {
   apiRequest = config.apiRequest || null;
   getCurrentUserRole = config.getCurrentUserRole || null;
+  getCurrentUserId = config.getCurrentUserId || null;
   showToast = config.showToast || null;
   showDangerConfirm = config.showDangerConfirm || null;
   mainContent = config.mainContent || document.getElementById("main-content");
@@ -231,8 +233,9 @@ export async function showUserForm(editId = null) {
   await ensureDoctorSpecialtiesLoaded();
   const modal = document.getElementById("user-form-modal");
   if (!modal) return;
-  const currentUserId = String(getCurrentUserId() || "");
-  const isPlatformSuperAdmin = String(getCurrentUserRole() || "").toLowerCase() === "super_admin";
+  const currentUserId = String(typeof getCurrentUserId === "function" ? (getCurrentUserId() || "") : "");
+  const roleStr = String(typeof getCurrentUserRole === "function" ? (getCurrentUserRole() || "") : "").toLowerCase();
+  const isPlatformSuperAdmin = roleStr === "super_admin";
   const isSelfEdit = Boolean(editId && String(editId) === currentUserId);
   const canEditRoleAndPlan = isPlatformSuperAdmin && !isSelfEdit;
 

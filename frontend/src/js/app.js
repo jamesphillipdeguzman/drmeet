@@ -659,6 +659,7 @@ window.addEventListener("DOMContentLoaded", () => {
   initUsersModule({
     apiRequest,
     getCurrentUserRole,
+    getCurrentUserId,
     showToast,
     showDangerConfirm,
     mainContent,
