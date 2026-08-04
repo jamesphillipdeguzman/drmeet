@@ -123,13 +123,15 @@ function setPageTone(tone) {
 }
 
 // --- Patients ---
-export async function renderPatients() {
-  const mainContent = document.getElementById("main-content");
-  if (!mainContent) return;
+export async function renderPatients(targetContainer = null) {
+  const container = targetContainer || document.getElementById("main-content");
+  if (!container) return;
 
+  if (!targetContainer && getCurrentUserRole() === "doctor") {
+    window.location.hash = "#doctor-dashboard?tab=patients";
+  }
   setPageTone("patients");
-  mainContent.innerHTML =
-    '<h2 class="page-title page-title-patients">Patients</h2><div class="feedback">Loading...</div>';
+  container.innerHTML = '<div class="feedback">Loading patients...</div>';
   try {
     const res = await apiRequest(`${API_BASE}/patients`);
     if (!res.ok) throw new Error("Failed to fetch patients");
@@ -197,8 +199,7 @@ export async function renderPatients() {
     if (clearDoctorDropdown) {
       localStorage.removeItem(CLEAR_SEND_DOC_DOCTOR_KEY);
     }
-    mainContent.innerHTML = `
-      <h2 class="page-title page-title-patients">Patients</h2>
+    container.innerHTML = `
       <div class="patients-toolbar">
         <button type="button" class="cta-primary btn-secondary" id="patients-refresh-btn" title="Reload list">Refresh</button>
         <button class="cta-primary" onclick="window.showPatientForm()">Add Patient</button>
@@ -416,11 +417,9 @@ export async function renderPatients() {
     document
       .getElementById("patient-sort-order")
       ?.addEventListener("change", applyPatientFilters);
-    document
-      .getElementById("patients-refresh-btn")
-      ?.addEventListener("click", () => {
-        renderPatients();
-      });
+    document.getElementById("patients-refresh-btn")?.addEventListener("click", () => {
+      void renderPatients(targetContainer);
+    });
     document
       .getElementById("patient-switch-profile")
       ?.addEventListener("change", (event) => {
@@ -943,4 +942,18 @@ export async function deletePatient(id) {
   } catch (err) {
     showToast(err.message, "error");
   }
+}
+
+// Ensure global window bindings are available immediately when module loads
+if (typeof window !== "undefined") {
+  window.showPatientForm = showPatientForm;
+  window.editPatient = editPatient;
+  window.deletePatient = deletePatient;
+  window.closePatientForm = function () {
+    const modal = document.getElementById("patient-form-modal") || document.querySelector(".patient-form-modal-host");
+    if (modal) {
+      modal.style.display = "none";
+      modal.innerHTML = "";
+    }
+  };
 }

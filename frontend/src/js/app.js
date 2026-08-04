@@ -668,6 +668,10 @@ function updateAuthNav() {
   if (doctorDashLi) {
     doctorDashLi.style.display = signedIn && role === "doctor" ? "" : "none";
   }
+  const nonDoctorPatientsLi = document.querySelector(".nav-li-non-doctor-patients");
+  if (nonDoctorPatientsLi) {
+    nonDoctorPatientsLi.style.display = role !== "doctor" ? "" : "none";
+  }
   const nonDoctorApptLi = document.querySelector(".nav-li-non-doctor");
   if (nonDoctorApptLi) {
     nonDoctorApptLi.style.display = signedIn && role !== "doctor" ? "" : "none";
@@ -1006,12 +1010,18 @@ async function showClinicalTab(tab) {
         if (ul) ul.innerHTML = listItemsHtml;
       } else {
         panel.innerHTML = `
-        <label class="clinical-search-label">Search patients
+        <label class="clinical-search-label">Search assigned patients
           <input type="search" id="clinical-patient-search" class="clinical-search-input" placeholder="Name or email" value="${escapeHtml(q)}" />
         </label>
         <ul class="clinical-patient-list">
           ${listItemsHtml}
         </ul>
+
+        <hr class="section-divider" style="margin: 2rem 0;" />
+        <section class="card clinical-patient-mgmt-section">
+          <h4 style="margin-bottom: 1rem;">Patient Management & Directory</h4>
+          <div id="clinical-patients-mgmt-container"></div>
+        </section>
       `;
         const search = document.getElementById("clinical-patient-search");
         let clinicalPatientSearchTimer = null;
@@ -1041,6 +1051,12 @@ async function showClinicalTab(tab) {
           );
         });
       });
+
+      const mgmtContainer = document.getElementById("clinical-patients-mgmt-container");
+      if (mgmtContainer && typeof renderPatients === "function") {
+        await renderPatients(mgmtContainer);
+      }
+
       doctorDashUI.loaded.patients = true;
       return;
     }
