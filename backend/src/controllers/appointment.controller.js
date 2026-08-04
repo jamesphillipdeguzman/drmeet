@@ -359,7 +359,7 @@ export const getAppointmentById = async (req, res) => {
 export const getBookingHints = async (req, res) => {
     try {
         const role = authRole(req);
-        if (!['patient', 'doctor', 'receptionist', 'admin'].includes(role)) {
+        if (!['patient', 'doctor', 'nurse', 'receptionist', 'hospital_admin', 'admin', 'super_admin'].includes(role)) {
             return res.status(403).json({ error: 'Forbidden.' });
         }
         const doctorId = String(req.query.doctorId || '').trim();

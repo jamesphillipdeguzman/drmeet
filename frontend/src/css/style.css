@@ -4369,3 +4369,48 @@ body.theme-dark .sidebar-role-badge {
   color: #60a5fa;
   background: rgba(96, 165, 250, 0.2);
 }
+
+/* Booking Time Slot Hints Grid */
+.booking-time-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.booking-time-chip {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.booking-time-chip.is-available {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.booking-time-chip.is-available:hover {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.booking-time-chip.is-taken {
+  background: rgba(239, 68, 68, 0.1);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  cursor: not-allowed;
+  opacity: 0.65;
+  text-decoration: line-through;
+}
+
+.booking-time-chip.is-selected {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
+}

@@ -3463,6 +3463,85 @@ function wireEnterpriseTreeEvents(container) {
   });
 }
 
+function showAddHospitalModal() {
+  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const modalHtml = `
+    <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
+      <div class="modal-sheet card" style="display:block; max-width: 480px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
+        <button type="button" class="modal-close-x" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">&times;</button>
+        <h3 style="margin-top:0; color: #0284c7; display: flex; align-items: center; gap: 0.5rem;">
+          <span>🏥</span> Add New Hospital Facility
+        </h3>
+        <form id="add-hospital-form">
+          <label>Hospital / Facility Name
+            <input type="text" name="name" required placeholder="e.g. St. Luke's Medical Center — Global City" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px;" />
+          </label>
+          <label style="margin-top:1rem; display:block;">Hospital URL Slug (optional)
+            <input type="text" name="slug" placeholder="e.g. st-lukes-global" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px;" />
+          </label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-top:1rem;">
+            <label>Max Doctor Seats
+              <input type="number" name="maxDoctorSeats" value="150" min="1" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px;" />
+            </label>
+            <label>Max Rooms
+              <input type="number" name="maxRooms" value="50" min="1" style="width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:6px; margin-top:4px;" />
+            </label>
+          </div>
+          <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem;">
+            <button type="button" class="btn btn-secondary" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">Cancel</button>
+            <button type="submit" class="cta-primary">Create Facility</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  container.innerHTML = modalHtml;
+  container.style.display = "block";
+  wireModalEscAndBackdrop(container);
+
+  const form = document.getElementById("add-hospital-form");
+  if (form) {
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const name = String(fd.get("name") || "").trim();
+      const slug = String(fd.get("slug") || "").trim();
+      const maxDoctorSeats = Number(fd.get("maxDoctorSeats")) || 150;
+      const maxRooms = Number(fd.get("maxRooms")) || 50;
+
+      try {
+        const res = await apiRequest(`${API_BASE}/organization`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, slug, maxDoctorSeats, maxRooms }),
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to create hospital facility.");
+        }
+        const data = await res.json();
+        showToast(data.message || `Hospital '${name}' created successfully.`);
+        closeEnterpriseModal();
+        const createdOrgId = data.organization?._id || "";
+        if (createdOrgId) {
+          window.activeOrgId = String(createdOrgId);
+          window._selectedOrgId = String(createdOrgId);
+          if (typeof localStorage !== "undefined") {
+            localStorage.setItem("drmeet_active_org_id", String(createdOrgId));
+          }
+        }
+        await loadEnterpriseTree(window.activeOrgId);
+      } catch (err) {
+        showToast(err.message, "error");
+      }
+    };
+  }
+}
+
+if (typeof window !== "undefined") {
+  window.showAddHospitalModal = showAddHospitalModal;
+}
+
 function showDeleteHospitalModal(hospitalName, hospitalId) {
   const container = document.getElementById("enterprise-modal-container") || document.body;
   const modalHtml = `

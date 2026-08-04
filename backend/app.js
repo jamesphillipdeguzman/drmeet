@@ -182,6 +182,7 @@ app.use('/api/prescriptions', prescriptionRoutes);
 app.use('/api/medical-history', medicalHistoryRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/organization', organizationRoutes);
+app.use('/api/organizations', organizationRoutes);
 app.use('/api/admin', adminRoutes);
 
 // ========================
