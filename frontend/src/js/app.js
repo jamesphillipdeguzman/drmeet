@@ -4419,6 +4419,20 @@ function renderHome() {
       window.location.hash = "#book";
       renderPatientBooking();
     });
+
+  // Automatically trigger slide & fade animation utility classes on mount
+  const heroTextEl = mainContent.querySelector(".hero-text-content");
+  const heroImgEl = mainContent.querySelector(".hero-image-container");
+  if (heroTextEl && heroImgEl) {
+    heroTextEl.classList.remove("hero-text-entry");
+    heroImgEl.classList.remove("hero-img-entry");
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        heroTextEl?.classList.add("hero-text-entry");
+        heroImgEl?.classList.add("hero-img-entry");
+      });
+    });
+  }
 }
 
 export function createSkeletonRows(total = 3) {
