@@ -20,6 +20,8 @@ import {
   userMayAccessConversationType,
 } from './src/utils/conversationAccess.js';
 
+import User from './src/models/user.model.js';
+
 // Define PORT from environment variables
 const PORT = process.env.PORT || 3001;
 
@@ -35,6 +37,16 @@ const startServer = async () => {
       }
     } else {
       console.log('[DrMeet] MongoDB connection ready.');
+      User.updateMany(
+        { role: { $in: ['admin', 'ADMIN', 'hospitaladmin', 'HOSPITAL_ADMIN'] } },
+        { role: 'hospital_admin' },
+      )
+        .then((res) => {
+          if (res.modifiedCount > 0) {
+            console.log(`[DrMeet Migration] Migrated ${res.modifiedCount} legacy admin user(s) to hospital_admin.`);
+          }
+        })
+        .catch((err) => console.warn('[DrMeet Migration] Role migration warning:', err?.message));
     }
 
     const httpServer = http.createServer(app);

@@ -238,33 +238,37 @@ export function createNavigation({
     const route = getHashRoute();
     const userRole = String(getCurrentUserRole() || "").toLowerCase();
 
-    const isSuperAdmin = userRole === "super_admin" || userRole === "admin";
-    const isClinicAdmin = userRole === "clinic_admin" || userRole === "receptionist";
+    const isSuperAdmin = userRole === "super_admin";
+    const isHospitalAdmin = userRole === "hospital_admin" || userRole === "admin";
     const isDoctor = userRole === "doctor";
     const isPatient = userRole === "patient";
+    const isReceptionist = userRole === "receptionist";
+    const isNurse = userRole === "nurse";
+    const isStaff = isDoctor || isNurse || isReceptionist || isHospitalAdmin || isSuperAdmin;
 
     let pages = [];
     if (isSuperAdmin) {
       pages = [
         { hash: "#home", label: "Home" },
-        { hash: "#patients", label: "Patients" },
         { hash: "#users", label: "Users" },
-        { hash: "#pricing", label: "Pricing" },
+        { hash: "#enterprise", label: "Enterprise" },
+        { hash: "#settings", label: "Settings" },
       ];
-    } else if (isClinicAdmin) {
+    } else if (isHospitalAdmin) {
       pages = [
         { hash: "#home", label: "Home" },
         { hash: "#patients", label: "Patients" },
         { hash: "#appointments", label: "Appointments" },
         { hash: "#calendar", label: "Calendar" },
         { hash: "#users", label: "Users" },
-        { hash: "#pricing", label: "Pricing" },
+        { hash: "#settings", label: "Settings" },
       ];
     } else if (isDoctor) {
       pages = [
         { hash: "#home", label: "Home" },
         { hash: "#doctor-dashboard", label: "Clinical" },
-        { hash: "#book", label: "Book" },
+        { hash: "#patients", label: "Patients" },
+        { hash: "#appointments", label: "Appointments" },
         { hash: "#pricing", label: "Pricing" },
       ];
     } else {
@@ -282,26 +286,26 @@ export function createNavigation({
     });
 
     document.querySelectorAll(".nav-li-non-doctor-patients").forEach((el) => {
-      el.style.display = isDoctor ? "none" : "";
+      el.style.display = (isDoctor || isSuperAdmin) ? "none" : "";
     });
 
     document.querySelectorAll(".nav-li-non-doctor").forEach((el) => {
-      el.style.display = (isPatient || isClinicAdmin) ? "" : "none";
+      el.style.display = (isDoctor || isSuperAdmin) ? "none" : "";
     });
 
     document.querySelectorAll(".nav-li-staff-only").forEach((el) => {
       if (el.querySelector('a[href="#calendar"]')) {
-        el.style.display = isClinicAdmin ? "" : "none";
+        el.style.display = (isHospitalAdmin || isReceptionist || isNurse || isDoctor) ? "" : "none";
       } else if (el.querySelector('a[href="#users"]')) {
-        el.style.display = (isSuperAdmin || isClinicAdmin) ? "" : "none";
+        el.style.display = (isSuperAdmin || isHospitalAdmin) ? "" : "none";
       } else {
-        el.style.display = (isSuperAdmin || isClinicAdmin) ? "" : "none";
+        el.style.display = (isSuperAdmin || isHospitalAdmin) ? "" : "none";
       }
     });
 
     document.querySelectorAll('a[href="#pricing"]').forEach((el) => {
       const parentLi = el.closest("li") || el;
-      parentLi.style.display = isPatient ? "none" : "";
+      parentLi.style.display = (isPatient || isSuperAdmin) ? "none" : "";
     });
 
     const crumbs = pages
@@ -381,6 +385,34 @@ export function createNavigation({
   function renderPage() {
     const raw = window.location.hash || "";
     const route = getHashRoute();
+    const role = String(getCurrentUserRole() || "").toLowerCase();
+
+    // Strict Role-Based Route Protection Guard
+    if (role === "super_admin") {
+      const allowed = new Set(["#home", "#users", "#enterprise", "#pricing", "#settings", "#privacy", "#login", "#signup"]);
+      if (!allowed.has(route)) {
+        window.location.hash = "#users";
+        return;
+      }
+    } else if (role === "hospital_admin" || role === "admin") {
+      const allowed = new Set(["#home", "#users", "#patients", "#appointments", "#calendar", "#enterprise", "#pricing", "#settings", "#privacy", "#login", "#signup"]);
+      if (!allowed.has(route)) {
+        window.location.hash = "#patients";
+        return;
+      }
+    } else if (role === "patient") {
+      const allowed = new Set(["#home", "#book", "#patients", "#appointments", "#settings", "#privacy", "#login", "#signup"]);
+      if (!allowed.has(route)) {
+        window.location.hash = "#home";
+        return;
+      }
+    } else if (role === "doctor") {
+      const allowed = new Set(["#home", "#doctor-dashboard", "#patients", "#appointments", "#calendar", "#book", "#pricing", "#settings", "#privacy", "#login", "#signup"]);
+      if (!allowed.has(route)) {
+        window.location.hash = "#doctor-dashboard";
+        return;
+      }
+    }
 
     if (raw.includes("hospital/")) {
       setActiveNav("#enterprise");
@@ -389,6 +421,7 @@ export function createNavigation({
         if (typeof renderers.renderEnterpriseView === "function") {
           renderers.renderEnterpriseView();
         }
+        document.body.classList.remove("auth-loading");
       });
       return;
     }
@@ -408,8 +441,8 @@ export function createNavigation({
         void renderers.renderSettings();
         break;
       case "#pricing":
-        if (String(getCurrentUserRole() || "").toLowerCase() === "patient") {
-          window.location.hash = "#book";
+        if (role === "patient" || role === "super_admin") {
+          window.location.hash = role === "patient" ? "#book" : "#users";
           renderPage();
           return;
         }
@@ -426,7 +459,7 @@ export function createNavigation({
         renderers.renderDoctorDashboard();
         break;
       case "#appointments":
-        if (getCurrentUserRole() === "doctor") {
+        if (role === "doctor") {
           window.location.hash = "#doctor-dashboard?tab=appointments";
           renderers.renderDoctorDashboard();
         } else {
@@ -451,6 +484,7 @@ export function createNavigation({
       default:
         renderers.renderHome();
     }
+    document.body.classList.remove("auth-loading");
   }
 
   function registerNavigationEvents() {

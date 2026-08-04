@@ -4547,10 +4547,10 @@ function renderHome() {
               I am a Provider
               <span class="info-tooltip-trigger" tabindex="0">
                 <img src="/images/info-i.svg" alt="Info" class="info-tooltip-icon" />
-                <span class="info-tooltip-bubble">Register as a Doctor to manage your practice.</span>
+                <span class="info-tooltip-bubble">Register as a healthcare provider or clinical staff member.</span>
               </span>
             </h4>
-            <p class="role-card-description">Register as a Doctor to manage your practice.</p>
+            <p class="role-card-description">Register as a healthcare provider or clinical staff member.</p>
           </div>
           <div class="role-card-cta">
             <span class="role-card-cta-text">Get Started</span>
