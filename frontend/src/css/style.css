@@ -2385,32 +2385,6 @@ body.theme-dark .patient-profile-missing .btn {
    ACCESSIBILITY
    ============================================================ */
 
-@media (prefers-reduced-motion: reduce) {
-
-  .typing-text,
-  .hero-text-content p,
-  .why-drmeet-media {
-
-    animation: none !important;
-
-    opacity: 1 !important;
-
-    transform: none !important;
-
-  }
-
-  .typing-text {
-
-    width: auto !important;
-
-    border-right: none;
-
-    white-space: normal;
-
-  }
-
-}
-
 .role-select {
   margin-top: 1.5rem;
 }
