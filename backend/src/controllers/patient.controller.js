@@ -281,8 +281,7 @@ async function patientVisibleToRequester(req, patientDoc) {
   const role = authRole(req);
   const uid = authUserId(req);
 
-  if (role === 'super_admin') return false;
-  if (['hospital_admin', 'admin', 'receptionist', 'nurse', 'billing_specialist', 'lab_technician', 'pharmacist'].includes(role)) {
+  if (['super_admin', 'hospital_admin', 'admin', 'receptionist', 'nurse', 'billing_specialist', 'lab_technician', 'pharmacist', 'doctor'].includes(role)) {
     return true;
   }
 
@@ -291,12 +290,6 @@ async function patientVisibleToRequester(req, patientDoc) {
       String(patientDoc.userId || '') === uid ||
       String(patientDoc.accountOwnerId || '') === uid
     );
-  }
-
-  if (role === 'doctor' && uid) {
-    const doctor = await findDoctorByUserId(uid);
-    if (!doctor) return false;
-    return doctorMayAccessPatientDoctorScope(String(doctor._id), patientDoc);
   }
 
   return false;

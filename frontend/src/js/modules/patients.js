@@ -206,9 +206,9 @@ export async function renderPatients(targetContainer = null) {
     container.innerHTML = `
       <div class="patients-toolbar">
         <button type="button" class="cta-primary btn-secondary" id="patients-refresh-btn" title="Reload list">Refresh</button>
-        <button class="cta-primary" onclick="window.showPatientForm()">Add Patient</button>
-        ${isPatient ? '<button class="cta-primary" onclick="window.showFamilyMemberForm()">Register Family Member</button>' : ""}
-        ${isAdminUser ? '<button class="cta-primary btn-secondary" id="export-patients-csv">Export CSV</button>' : ""}
+        ${isClinicalStaff ? '<button type="button" class="cta-primary" onclick="window.showPatientForm()">+ Add Patient</button>' : ""}
+        ${isPatient ? '<button type="button" class="cta-primary" onclick="window.showFamilyMemberForm()">Register Family Member</button>' : ""}
+        ${isAdminUser ? '<button type="button" class="cta-primary btn-secondary" id="export-patients-csv">Export CSV</button>' : ""}
       </div>
       ${isPatient
         ? `<section class="card patient-send-doc-card">
