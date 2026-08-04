@@ -206,6 +206,20 @@ async function getDoctorBookingsForDay({ doctorId, date, excludeAppointmentId = 
 
 async function assertSmartBookingOrThrow({ doctorId, date, time, excludeAppointmentId = '' }) {
     if (!doctorId || !date || !time) return;
+
+    if (date && time) {
+        const d = new Date(date);
+        const m = String(time).trim().match(/^(\d{1,2}):(\d{2})$/);
+        if (!Number.isNaN(d.getTime()) && m) {
+            const apptDate = new Date(d.getFullYear(), d.getMonth(), d.getDate(), Number(m[1]), Number(m[2]));
+            if (apptDate < new Date()) {
+                const err = new Error('Cannot book appointments in the past.');
+                err.statusCode = 400;
+                throw err;
+            }
+        }
+    }
+
     const maxPatientsPerDay = await getDoctorDailyBookingLimit(doctorId);
     const existing = await getDoctorBookingsForDay({
         doctorId,
@@ -369,9 +383,26 @@ export const getBookingHints = async (req, res) => {
             ...new Set(existing.map((a) => String(a.time || '').trim()).filter(Boolean)),
         ].sort((a, b) => (toMinutes(a) || 0) - (toMinutes(b) || 0));
         const bookedCount = existing.length;
-        const remainingSlots = Math.max(maxPatientsPerDay - bookedCount, 0);
         const doctor = await Doctor.findById(doctorId).lean();
-        const suggestedAvailableTimes = buildSuggestedTimes(conflictingTimes, 10, doctor, date);
+        let suggestedAvailableTimes = buildSuggestedTimes(conflictingTimes, 10, doctor, date);
+
+        const now = new Date();
+        const isToday = dayStart.getFullYear() === now.getFullYear() &&
+                        dayStart.getMonth() === now.getMonth() &&
+                        dayStart.getDate() === now.getDate();
+        if (isToday) {
+            const currentMins = now.getHours() * 60 + now.getMinutes();
+            suggestedAvailableTimes = suggestedAvailableTimes.filter((t) => {
+                const tm = toMinutes(t);
+                return typeof tm === 'number' && tm >= currentMins;
+            });
+        }
+
+        const availableSlotsCount = suggestedAvailableTimes.length;
+        const remainingSlots = Math.min(
+            Math.max(maxPatientsPerDay - bookedCount, 0),
+            availableSlotsCount
+        );
 
         return res.status(200).json({
             doctorId,
@@ -379,6 +410,7 @@ export const getBookingHints = async (req, res) => {
             maxPatientsPerDay,
             bookedCount,
             remainingSlots,
+            availableSlotsCount,
             conflictingTimes,
             suggestedAvailableTimes,
             hint: `Booked ${bookedCount}/${maxPatientsPerDay}. ${remainingSlots > 0 ? `${remainingSlots} slot(s) left.` : 'No slots left for this day.'}`,

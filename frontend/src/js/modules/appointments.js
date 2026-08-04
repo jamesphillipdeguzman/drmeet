@@ -596,27 +596,36 @@ export async function showAppointmentForm(editId = null) {
       activeAvailableTimes = new Set(availableList);
       activeConflictingTimes = new Set(conflictList);
 
-      if (form.time && availableList.length) {
-        const sorted = [...availableList].sort((a, b) => a.localeCompare(b));
+      const upcomingAvailable = availableList.filter((t) => !isPastSlot(date, t, 0));
+
+      if (form.time && upcomingAvailable.length) {
+        const sorted = [...upcomingAvailable].sort((a, b) => a.localeCompare(b));
         form.time.min = sorted[0];
         form.time.max = sorted[sorted.length - 1];
+        if (!form.time.value || isPastSlot(date, form.time.value, 0) || !upcomingAvailable.includes(form.time.value)) {
+          form.time.value = sorted[0];
+        }
       }
+
+      const availableSlotsCount = upcomingAvailable.length;
+      const displayRemaining = typeof info.remainingSlots === "number" ? Math.min(info.remainingSlots, availableSlotsCount) : availableSlotsCount;
 
       if (hintEl) {
         hintEl.style.display = "block";
         hintEl.className =
-          Number(info.remainingSlots) > 0 && availableList.length
+          displayRemaining > 0 && availableSlotsCount > 0
             ? "feedback booking-hint"
             : "feedback error booking-hint";
-        hintEl.textContent = availableList.length
-          ? String(info.hint || "")
-          : "No available schedule slots for the selected date. Please pick another date.";
+        hintEl.textContent = availableSlotsCount > 0
+          ? `Booked ${info.bookedCount ?? 0}/${info.maxPatientsPerDay ?? 10}. ${displayRemaining} slot(s) left.`
+          : "No upcoming available schedule slots for the selected date. Please pick another date.";
       }
       if (timesEl) {
         timesEl.innerHTML = buildBookingTimeGridHtml({
           suggestedAvailableTimes: info.suggestedAvailableTimes,
           conflictingTimes: info.conflictingTimes,
           selectedTime: form.time?.value || "",
+          selectedDate: date,
         });
       }
       timesEl?.querySelectorAll("[data-smart-time]").forEach((btn) => {
@@ -663,6 +672,11 @@ export async function showAppointmentForm(editId = null) {
     e.preventDefault();
     const appointment = Object.fromEntries(new FormData(form));
     const timeNorm = normalizeTimeText(appointment.time);
+
+    if (isPastSlot(appointment.date, timeNorm)) {
+      showToast("Cannot book appointments in the past.", "error");
+      return;
+    }
 
     if (activeAvailableTimes.size > 0 && !activeAvailableTimes.has(timeNorm)) {
       showToast("Selected time is outside the doctor's available schedule.", "error");
