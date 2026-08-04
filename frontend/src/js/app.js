@@ -2530,6 +2530,16 @@ async function renderEnterpriseView() {
 
   const isAdminUser = isEnterpriseAdminUser();
 
+  // On initial load of Enterprise Hospital Hierarchy page, reset active org id state if no hospital slug in hash
+  const hashMatch = (typeof window !== "undefined" && window.location.hash) ? window.location.hash.match(/#?\/?hospital\/([^/?#]+)/i) : null;
+  if (!hashMatch) {
+    window.activeOrgId = "";
+    window._selectedOrgId = "";
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("drmeet_active_org_id");
+    }
+  }
+
   mainContent.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
       <div>
@@ -2540,7 +2550,7 @@ async function renderEnterpriseView() {
         <button type="button" class="btn btn-secondary" id="enterprise-refresh-btn">Refresh Tree</button>
         ${isAdminUser ? `
           <button type="button" class="btn btn-secondary" id="enterprise-add-hospital-top-btn">+ Add New Hospital</button>
-          <button type="button" class="cta-primary" id="enterprise-add-dept-top-btn">+ Add Department</button>
+          <button type="button" class="cta-primary" id="enterprise-add-dept-top-btn" disabled style="opacity:0.5; cursor:not-allowed;">+ Add Department</button>
         ` : ""}
       </div>
     </div>
@@ -2549,13 +2559,19 @@ async function renderEnterpriseView() {
     <div id="enterprise-modal-container" style="display:none;"></div>
   `;
 
-  document.getElementById("enterprise-refresh-btn")?.addEventListener("click", () => void loadEnterpriseTree());
+  document.getElementById("enterprise-refresh-btn")?.addEventListener("click", () => void loadEnterpriseTree(window.activeOrgId || ""));
   if (isAdminUser) {
     document.getElementById("enterprise-add-hospital-top-btn")?.addEventListener("click", () => showAddHospitalModal());
-    document.getElementById("enterprise-add-dept-top-btn")?.addEventListener("click", () => showAddDepartmentModal());
+    document.getElementById("enterprise-add-dept-top-btn")?.addEventListener("click", () => {
+      if (!window.activeOrgId) {
+        showToast("Please select a hospital facility first.", "warning");
+        return;
+      }
+      showAddDepartmentModal();
+    });
   }
 
-  await loadEnterpriseTree();
+  await loadEnterpriseTree(window.activeOrgId || "");
 
   if (isSuperAdminUser()) {
     await renderAdminSubscriptionsTable("enterprise-admin-subscriptions-container");
@@ -2563,7 +2579,7 @@ async function renderEnterpriseView() {
 }
 
 async function loadEnterpriseTree(
-  targetOrgId = window.activeOrgId || window._selectedOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : null),
+  targetOrgId = window.activeOrgId || "",
   preserveSelector = null,
 ) {
   const container = document.getElementById("enterprise-tree-container");
@@ -2603,12 +2619,102 @@ async function loadEnterpriseTree(
       }
     }
 
-    const activeOrgId = targetOrgId || slugOrgId || window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || window._selectedOrgId || "";
-    const orgIdQuery = activeOrgId ? `?orgId=${encodeURIComponent(activeOrgId)}` : "";
-    const [treeRes, allOrgsRes] = await Promise.all([
-      apiRequest(`${API_BASE}/organization/tree${orgIdQuery}`),
-      apiRequest(`${API_BASE}/organization/all`).catch(() => null),
-    ]);
+    const activeOrgId = targetOrgId || slugOrgId || window.activeOrgId || "";
+
+    // Fetch available organizations for switcher
+    const allOrgsRes = await apiRequest(`${API_BASE}/organization/all`).catch(() => null);
+    let allOrgs = [];
+    if (allOrgsRes && allOrgsRes.ok) {
+      allOrgs = await allOrgsRes.json().catch(() => []);
+    }
+
+    // Toggle top "+ Add Department" button based on selection state
+    const addDeptTopBtn = document.getElementById("enterprise-add-dept-top-btn");
+    if (addDeptTopBtn) {
+      if (activeOrgId) {
+        addDeptTopBtn.disabled = false;
+        addDeptTopBtn.style.opacity = "1";
+        addDeptTopBtn.style.cursor = "pointer";
+      } else {
+        addDeptTopBtn.disabled = true;
+        addDeptTopBtn.style.opacity = "0.5";
+        addDeptTopBtn.style.cursor = "not-allowed";
+      }
+    }
+
+    // --- EMPTY STATE VIEW (When no hospital is selected) ---
+    if (!activeOrgId) {
+      window.activeOrgId = "";
+      window._selectedOrgId = "";
+      if (typeof localStorage !== "undefined") {
+        localStorage.removeItem("drmeet_active_org_id");
+      }
+
+      container.innerHTML = `
+        <section class="card" style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%); border: 1px solid rgba(14, 165, 233, 0.2); margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.25rem;">
+                <h3 id="enterprise-header-facility-name" class="hospital-title-display hospital-name-display" style="margin: 0; font-size: 1.35rem; color: #0284c7;">🏥 Hospital Hierarchy</h3>
+                <select id="hospital-facility-switcher" class="hospital-switcher" style="font-size: 0.85rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #0284c7; background: #ffffff; color: #0284c7; font-weight: 600; cursor: pointer;">
+                  <option value="" disabled selected>-- Select a Hospital --</option>
+                  ${allOrgs.map((o) => `
+                    <option value="${o._id}">
+                      ${escapeHtml(o.name)}
+                    </option>
+                  `).join("")}
+                </select>
+                <button 
+                  type="button" 
+                  id="btn-delete-hospital" 
+                  class="btn btn-sm btn-delete-hospital" 
+                  disabled
+                  style="font-size: 0.8rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: transparent; color: #94a3b8; font-weight: 600; cursor: not-allowed; opacity: 0.5; transition: all 0.2s;"
+                  title="Select a hospital facility to enable deletion"
+                >
+                  🗑️ Delete Hospital
+                </button>
+              </div>
+              <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">Enterprise Tier</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="empty-workspace card p-8 text-center border-2 border-dashed border-gray-300 rounded-lg" style="padding: 3rem 1.5rem; text-align: center; margin-top: 1rem; border: 2px dashed #cbd5e1;">
+          <span style="font-size: 3rem; display: block; margin-bottom: 0.75rem;">🏥</span>
+          <h3 style="margin-bottom: 0.5rem; color: #0284c7;">No Hospital Selected</h3>
+          <p class="text-gray-500 font-medium" style="color: #64748b; font-weight: 500; margin: 0 auto; max-width: 540px; line-height: 1.5;">
+            Please select a hospital facility above to view its organizational hierarchy, departments, and consultation rooms.
+          </p>
+        </div>
+      `;
+
+      const hospitalSelect = document.getElementById("hospital-facility-switcher");
+      if (hospitalSelect) {
+        hospitalSelect.value = "";
+        hospitalSelect.addEventListener("change", async (e) => {
+          const selectedOrgId = e.target.value;
+          if (!selectedOrgId) return;
+
+          window.activeOrgId = selectedOrgId;
+          window._selectedOrgId = selectedOrgId;
+          if (typeof localStorage !== "undefined") {
+            localStorage.setItem("drmeet_active_org_id", selectedOrgId);
+          }
+
+          const treeContainer = document.querySelector("#enterprise-tree-container");
+          if (treeContainer) {
+            treeContainer.innerHTML = '<div class="feedback" style="padding: 2rem; text-align: center; color: #64748b;">Loading facility hierarchy...</div>';
+          }
+          await loadEnterpriseTree(selectedOrgId);
+        });
+      }
+      return;
+    }
+
+    // --- POPULATED STATE VIEW (When a hospital is selected) ---
+    const orgIdQuery = `?orgId=${encodeURIComponent(activeOrgId)}`;
+    const treeRes = await apiRequest(`${API_BASE}/organization/tree${orgIdQuery}`);
 
     if (!treeRes.ok) {
       const errData = await treeRes.json().catch(() => ({}));
@@ -2617,7 +2723,7 @@ async function loadEnterpriseTree(
     const tree = await treeRes.json();
     window._lastOrgTree = tree;
 
-    const currentOrgId = String(tree.organization?._id || tree._id || "");
+    const currentOrgId = String(tree.organization?._id || tree._id || activeOrgId);
     if (currentOrgId) {
       window.activeOrgId = currentOrgId;
       window._selectedOrgId = currentOrgId;
@@ -2626,10 +2732,6 @@ async function loadEnterpriseTree(
       }
     }
 
-    let allOrgs = [];
-    if (allOrgsRes && allOrgsRes.ok) {
-      allOrgs = await allOrgsRes.json().catch(() => []);
-    }
     if (!allOrgs || allOrgs.length === 0) {
       if (tree.organization) allOrgs = [tree.organization];
     }
@@ -2680,15 +2782,14 @@ async function loadEnterpriseTree(
           <div>
             <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap; margin-bottom:0.25rem;">
               <h3 id="enterprise-header-facility-name" class="hospital-title-display hospital-name-display" style="margin: 0; font-size: 1.35rem; color: #0284c7;">🏥 ${escapeHtml(facilityName)}</h3>
-              ${allOrgs.length > 0 ? `
-                <select id="hospital-facility-switcher" class="hospital-switcher" style="font-size: 0.85rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #0284c7; background: #ffffff; color: #0284c7; font-weight: 600; cursor: pointer;">
-                  ${allOrgs.map((o) => `
-                    <option value="${o._id}" ${String(o._id) === String(window.activeOrgId || currentOrgId) ? "selected" : ""}>
-                      ${escapeHtml(o.name)}
-                    </option>
-                  `).join("")}
-                </select>
-              ` : ""}
+              <select id="hospital-facility-switcher" class="hospital-switcher" style="font-size: 0.85rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #0284c7; background: #ffffff; color: #0284c7; font-weight: 600; cursor: pointer;">
+                <option value="" disabled>-- Select a Hospital --</option>
+                ${allOrgs.map((o) => `
+                  <option value="${o._id}" ${String(o._id) === String(currentOrgId) ? "selected" : ""}>
+                    ${escapeHtml(o.name)}
+                  </option>
+                `).join("")}
+              </select>
               <button 
                 type="button" 
                 id="btn-delete-hospital" 
@@ -2702,22 +2803,21 @@ async function loadEnterpriseTree(
             <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">Enterprise Tier</span>
           </div>
           <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
-          <div style="min-width: 140px;">
-            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;" class="enterprise-metric-title">Doctor Seats</div>
-            <strong style="font-size: 1.1rem;" class="enterprise-metric-value">${tree.activeDoctors || 0} / ${tree.maxDoctorSeats || 150}</strong>
-            <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;" class="enterprise-meter-bg">
-              <div style="width: ${doctorMeterPercent}%; background: #0284c7; height: 100%;"></div>
+            <div style="min-width: 140px;">
+              <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;" class="enterprise-metric-title">Doctor Seats</div>
+              <strong style="font-size: 1.1rem;" class="enterprise-metric-value">${tree.activeDoctors || 0} / ${tree.maxDoctorSeats || 150}</strong>
+              <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;" class="enterprise-meter-bg">
+                <div style="width: ${doctorMeterPercent}%; background: #0284c7; height: 100%;"></div>
+              </div>
+            </div>
+            <div style="min-width: 140px;">
+              <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;" class="enterprise-metric-title">Consultation Rooms</div>
+              <strong style="font-size: 1.1rem;" class="enterprise-metric-value">${tree.activeRooms || 0} / ${tree.maxRooms || 50}</strong>
+              <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;" class="enterprise-meter-bg">
+                <div style="width: ${roomMeterPercent}%; background: #6366f1; height: 100%;"></div>
+              </div>
             </div>
           </div>
-          <div style="min-width: 140px;">
-            <div style="font-size: 0.8rem; font-weight: 600; margin-bottom: 4px;" class="enterprise-metric-title">Consultation Rooms</div>
-            <strong style="font-size: 1.1rem;" class="enterprise-metric-value">${tree.activeRooms || 0} / ${tree.maxRooms || 50}</strong>
-            <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; margin-top: 4px; overflow: hidden;" class="enterprise-meter-bg">
-              <div style="width: ${roomMeterPercent}%; background: #6366f1; height: 100%;"></div>
-            </div>
-          </div>
-        </div>
-        </div>
         </div>
       </section>
 
@@ -2803,12 +2903,18 @@ async function loadEnterpriseTree(
 
     const hospitalSelect = document.getElementById("hospital-facility-switcher");
     if (hospitalSelect) {
-      if (window.activeOrgId || currentOrgId) {
-        hospitalSelect.value = window.activeOrgId || currentOrgId;
-      }
+      hospitalSelect.value = currentOrgId;
       hospitalSelect.addEventListener("change", async (e) => {
         const selectedOrgId = e.target.value;
-        if (!selectedOrgId) return;
+        if (!selectedOrgId) {
+          window.activeOrgId = "";
+          window._selectedOrgId = "";
+          if (typeof localStorage !== "undefined") {
+            localStorage.removeItem("drmeet_active_org_id");
+          }
+          await loadEnterpriseTree("");
+          return;
+        }
 
         // 1. Instantly update UI header title to match chosen hospital
         const chosenOptionText = e.target.options[e.target.selectedIndex]?.text || "";
@@ -2826,7 +2932,9 @@ async function loadEnterpriseTree(
         // 3. Store active org ID & fetch data specifically for this orgId and re-render
         window.activeOrgId = selectedOrgId;
         window._selectedOrgId = selectedOrgId;
-        localStorage.setItem("drmeet_active_org_id", selectedOrgId);
+        if (typeof localStorage !== "undefined") {
+          localStorage.setItem("drmeet_active_org_id", selectedOrgId);
+        }
         await loadEnterpriseTree(selectedOrgId);
       });
     }
@@ -3186,17 +3294,12 @@ function showDeleteHospitalModal(hospitalName, hospitalId) {
         closeEnterpriseModal();
         showToast(data.message || `Hospital '${hospitalName}' deleted successfully.`);
 
-        if (data.nextOrgId) {
-          window.activeOrgId = String(data.nextOrgId);
-          window._selectedOrgId = String(data.nextOrgId);
-          localStorage.setItem("drmeet_active_org_id", String(data.nextOrgId));
-          await loadEnterpriseTree(data.nextOrgId);
-        } else {
-          delete window.activeOrgId;
-          delete window._selectedOrgId;
+        delete window.activeOrgId;
+        delete window._selectedOrgId;
+        if (typeof localStorage !== "undefined") {
           localStorage.removeItem("drmeet_active_org_id");
-          await loadEnterpriseTree();
         }
+        await loadEnterpriseTree("");
       } catch (err) {
         showToast(err.message, "error");
       }

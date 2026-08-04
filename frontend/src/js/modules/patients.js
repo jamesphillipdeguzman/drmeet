@@ -254,7 +254,7 @@ export async function renderPatients() {
           <select id="patient-sort-order" style="padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem;">
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
-          </select>
+          </select> 
         </label>
       </div>
       <table>
