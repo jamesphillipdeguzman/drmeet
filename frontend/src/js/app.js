@@ -3700,65 +3700,6 @@ function wireModalEscAndBackdrop(container) {
   window.addEventListener("keydown", handleEsc);
 }
 
-function showAddHospitalModal() {
-  const container = document.getElementById("enterprise-modal-container") || document.body;
-  const modalHtml = `
-    <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
-      <div class="modal-sheet card" style="display:block; max-width: 460px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
-        <button type="button" class="modal-close-x" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">&times;</button>
-        <h3 style="margin-top:0;">🏥 Add New Hospital / Facility</h3>
-        <form id="add-hospital-form">
-          <label>Hospital / Facility Name
-            <input type="text" name="name" placeholder="e.g. Medical City West" required />
-          </label>
-          <label>Facility Slug / Code (Optional)
-            <input type="text" name="slug" placeholder="e.g. medical-city-west" />
-          </label>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-            <label>Max Doctor Seats
-              <input type="number" name="maxDoctorSeats" value="150" min="1" max="1000" required />
-            </label>
-            <label>Max Rooms
-              <input type="number" name="maxRooms" value="50" min="1" max="500" required />
-            </label>
-          </div>
-          <div style="display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.25rem;">
-            <button type="submit" class="btn btn-primary">Create Facility</button>
-            <button type="button" class="btn btn-secondary" data-action="close-enterprise-modal" onclick="closeEnterpriseModal()">Cancel</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  `;
-  container.innerHTML = modalHtml;
-  container.style.display = "block";
-  wireModalEscAndBackdrop(container);
-
-  const form = document.getElementById("add-hospital-form");
-  form.onsubmit = async (e) => {
-    e.preventDefault();
-    const data = Object.fromEntries(new FormData(form));
-    try {
-      const res = await apiRequest(`${API_BASE}/organization`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to create hospital facility."));
-      const result = await res.json();
-      showToast("New hospital facility created successfully.");
-      if (result.organization?._id) {
-        window._selectedOrgId = result.organization._id;
-        localStorage.setItem("drmeet_active_org_id", result.organization._id);
-      }
-      closeEnterpriseModal();
-      await loadEnterpriseTree();
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  };
-}
-
 function showAddDepartmentModal() {
   const container = document.getElementById("enterprise-modal-container") || document.body;
   const modalHtml = `
