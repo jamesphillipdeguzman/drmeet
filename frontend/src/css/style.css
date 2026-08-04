@@ -2243,21 +2243,39 @@ body.theme-dark .patient-profile-missing .btn {
   overflow: hidden;
 }
 
-/* Hero Text Section Container */
+/* CodingDesign CSS Typewriter Layout & Animation */
 .hero-text-content {
-  min-height: 200px;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   justify-content: center;
+  min-height: 200px;
 }
 
-/* Hero Image Fade & Slide Entry */
+.typing-text {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 3px solid #3b82f6;
+  width: 0%;
+  animation:
+    typing 2s steps(18) forwards,
+    blinkCursor 0.75s step-end infinite;
+}
+
+/* Hero Paragraph Body Text Fade-In */
+.hero-text-content p {
+  opacity: 0;
+  animation: fadeInBody 0.8s ease-out 2.1s forwards;
+}
+
+/* Hero Image Entry Animation */
 .why-drmeet-media {
   width: 100%;
   border-radius: 14px;
   border: 1px solid #d5def3;
   box-shadow: 0 10px 24px rgba(21, 36, 80, 0.16);
-  animation: heroImageSlideIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
+  animation: fadeInBody 0.8s ease-out 0.2s forwards;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -2266,41 +2284,39 @@ body.theme-dark .patient-profile-missing .btn {
   box-shadow: 0 16px 32px rgba(21, 36, 80, 0.22);
 }
 
-@keyframes heroImageSlideIn {
-  0% {
-    opacity: 0;
-    transform: translateY(12px) scale(0.98);
+@keyframes typing {
+  from {
+    width: 0%;
   }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+  to {
+    width: 100%;
   }
 }
 
-/* Typewriter Cursor Caret */
-.typewriter-cursor::after {
-  content: '|';
-  color: #3b82f6;
-  font-weight: 700;
-  display: inline-block;
-  animation: blinkCaret 0.65s infinite;
-  margin-left: 2px;
-}
-
-body.theme-dark .typewriter-cursor::after {
-  color: #38bdf8;
-}
-
-@keyframes blinkCaret {
-  0%, 100% {
-    opacity: 1;
-  }
+@keyframes blinkCursor {
   50% {
+    border-right-color: transparent;
+  }
+}
+
+@keyframes fadeInBody {
+  from {
     opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .typing-text {
+    animation: none !important;
+    width: 100% !important;
+    border-right: none !important;
+    white-space: normal !important;
+  }
+
+  .hero-text-content p,
   .why-drmeet-media {
     animation: none !important;
     opacity: 1 !important;
