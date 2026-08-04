@@ -403,10 +403,50 @@ function normalizeTimeText(value) {
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
+function isSameDay(d1, d2) {
+  if (!d1 || !d2) return false;
+  const date1 = new Date(d1);
+  const date2 = new Date(d2);
+  if (Number.isNaN(date1.getTime()) || Number.isNaN(date2.getTime())) return false;
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
+}
+
+function parseTimeToMinutes(timeText) {
+  const match = String(timeText || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hh = Number(match[1]);
+  const mm = Number(match[2]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  return hh * 60 + mm;
+}
+
+function isPastSlot(dateVal, timeText, bufferMinutes = 0) {
+  if (!dateVal || !timeText) return false;
+  const d = new Date(dateVal);
+  if (Number.isNaN(d.getTime())) return false;
+
+  const now = new Date();
+  if (isSameDay(d, now)) {
+    const slotMins = parseTimeToMinutes(timeText);
+    if (slotMins === null) return false;
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    return slotMins < (currentMins + bufferMinutes);
+  }
+
+  const dMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return dMidnight < nowMidnight;
+}
+
 function buildBookingTimeGridHtml({
   suggestedAvailableTimes = [],
   conflictingTimes = [],
   selectedTime = "",
+  selectedDate = "",
 }) {
   const selected = normalizeTimeText(selectedTime);
   const taken = new Set(
@@ -425,9 +465,11 @@ function buildBookingTimeGridHtml({
   return `<div class="booking-time-grid">
     ${times
       .map((timeVal) => {
-        const isTaken = taken.has(timeVal);
+        const isPast = isPastSlot(selectedDate, timeVal, 0);
+        const isTaken = taken.has(timeVal) || isPast;
         const isSelected = !isTaken && selected === timeVal;
-        return `<button type="button" class="btn btn-sm booking-time-chip ${isTaken ? "is-taken" : "is-available"} ${isSelected ? "is-selected" : ""}" data-smart-time="${escapeHtml(timeVal)}" ${isTaken ? "disabled" : ""}>${escapeHtml(timeVal)}${isTaken ? " (Taken)" : ""}</button>`;
+        const extraLabel = isPast ? " (Past)" : isTaken ? " (Taken)" : "";
+        return `<button type="button" class="btn btn-sm booking-time-chip ${isTaken ? "is-taken" : "is-available"} ${isSelected ? "is-selected" : ""}" data-smart-time="${escapeHtml(timeVal)}" ${isTaken ? "disabled" : ""}>${escapeHtml(timeVal)}${extraLabel}</button>`;
       })
       .join("")}
   </div>`;
@@ -5182,27 +5224,33 @@ async function renderPatientBooking() {
       activeAvailableTimes = new Set(availableList);
       activeConflictingTimes = new Set(conflictList);
 
-      if (bookingForm?.time && availableList.length) {
-        const sorted = [...availableList].sort((a, b) => a.localeCompare(b));
+      const upcomingAvailable = availableList.filter((t) => !isPastSlot(date, t, 0));
+
+      if (bookingForm?.time && upcomingAvailable.length) {
+        const sorted = [...upcomingAvailable].sort((a, b) => a.localeCompare(b));
         bookingForm.time.min = sorted[0];
         bookingForm.time.max = sorted[sorted.length - 1];
+        if (!bookingForm.time.value || isPastSlot(date, bookingForm.time.value, 0) || !upcomingAvailable.includes(bookingForm.time.value)) {
+          bookingForm.time.value = sorted[0];
+        }
       }
 
       if (smartHintEl) {
         smartHintEl.style.display = "block";
         smartHintEl.className =
-          Number(info.remainingSlots) > 0 && availableList.length
+          Number(info.remainingSlots) > 0 && upcomingAvailable.length
             ? "feedback booking-hint"
             : "feedback error booking-hint";
-        smartHintEl.textContent = availableList.length
+        smartHintEl.textContent = upcomingAvailable.length
           ? String(info.hint || "")
-          : "No available schedule slots for the selected date. Please pick another date.";
+          : "No upcoming available schedule slots for the selected date. Please pick another date.";
       }
       if (smartTimesEl) {
         smartTimesEl.innerHTML = buildBookingTimeGridHtml({
           suggestedAvailableTimes: info.suggestedAvailableTimes,
           conflictingTimes: info.conflictingTimes,
           selectedTime: bookingForm?.time?.value || "",
+          selectedDate: date,
         });
       }
       smartTimesEl?.querySelectorAll("[data-smart-time]").forEach((btn) => {
@@ -5248,6 +5296,17 @@ async function renderPatientBooking() {
           feedbackEl.className = "feedback error";
           feedbackEl.style.display = "block";
           feedbackEl.textContent = "Please select both a date and a valid time slot.";
+        }
+        return;
+      }
+
+      if (isPastSlot(date, time)) {
+        if (feedbackEl) {
+          feedbackEl.className = "feedback error";
+          feedbackEl.style.display = "block";
+          feedbackEl.textContent = "Cannot book appointments in the past.";
+        } else {
+          showToast("Cannot book appointments in the past.", "error");
         }
         return;
       }
