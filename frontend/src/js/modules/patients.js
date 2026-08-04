@@ -925,10 +925,14 @@ export async function showPatientForm(editId = null, familyMode = false) {
         patient.relationshipToAccountHolder || "",
       ).trim();
     }
-    patient.medicalHistory = String(patient.medicalHistory || "")
-      .split("\n")
-      .map((item) => item.trim())
-      .filter(Boolean);
+    if (form.medicalHistory) {
+      patient.medicalHistory = String(form.medicalHistory.value || "")
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    } else {
+      delete patient.medicalHistory;
+    }
     try {
       if (canAttachExisting) {
         const duplicateRes = await apiRequest(

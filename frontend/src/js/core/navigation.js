@@ -235,33 +235,72 @@ export function createNavigation({
     const container = document.getElementById("topbar-nav-tools");
     if (!container) return;
     const route = getHashRoute();
-    const staffRoles = new Set(["doctor", "receptionist", "admin"]);
     const userRole = String(getCurrentUserRole() || "").toLowerCase();
-    const pages = [
-      { hash: "#home", label: "Home" },
-      { hash: "#doctor-dashboard", label: "Clinical" },
-      { hash: "#book", label: "Book" },
-      { hash: "#patients", label: "Patients" },
-      ...(userRole !== "doctor" ? [{ hash: "#appointments", label: "Appointments" }] : []),
-      ...(userRole !== "patient" ? [{ hash: "#pricing", label: "Pricing" }] : []),
-      ...(staffRoles.has(userRole)
-        ? [
-            { hash: "#calendar", label: "Calendar" },
-            { hash: "#users", label: "Users" },
-          ]
-        : []),
-      ...(userRole !== "patient" && (localStorage.getItem("drmeet_enterprise_mode") === "true" || userRole === "admin" || userRole === "doctor")
-        ? [{ hash: "#enterprise", label: "Hospital Tree" }]
-        : []),
-      { hash: "#settings", label: "Settings" },
-    ];
 
-    // Hide sidebar links to #pricing and #enterprise for patient role
-    document.querySelectorAll('a[href="#pricing"]').forEach((el) => {
-      el.style.display = userRole === "patient" ? "none" : "";
+    const isSuperAdmin = userRole === "super_admin" || userRole === "admin";
+    const isClinicAdmin = userRole === "clinic_admin" || userRole === "receptionist";
+    const isDoctor = userRole === "doctor";
+    const isPatient = userRole === "patient";
+
+    let pages = [];
+    if (isSuperAdmin) {
+      pages = [
+        { hash: "#home", label: "Home" },
+        { hash: "#patients", label: "Patients" },
+        { hash: "#users", label: "Users" },
+        { hash: "#pricing", label: "Pricing" },
+      ];
+    } else if (isClinicAdmin) {
+      pages = [
+        { hash: "#home", label: "Home" },
+        { hash: "#patients", label: "Patients" },
+        { hash: "#appointments", label: "Appointments" },
+        { hash: "#calendar", label: "Calendar" },
+        { hash: "#users", label: "Users" },
+        { hash: "#pricing", label: "Pricing" },
+      ];
+    } else if (isDoctor) {
+      pages = [
+        { hash: "#home", label: "Home" },
+        { hash: "#doctor-dashboard", label: "Clinical" },
+        { hash: "#book", label: "Book" },
+        { hash: "#pricing", label: "Pricing" },
+      ];
+    } else {
+      pages = [
+        { hash: "#home", label: "Home" },
+        { hash: "#book", label: "Book" },
+        { hash: "#patients", label: "Patients" },
+        { hash: "#appointments", label: "Appointments" },
+      ];
+    }
+
+    // Role-based Sidebar Link Visibility Control
+    document.querySelectorAll(".nav-li-doctor-dash").forEach((el) => {
+      el.style.display = isDoctor ? "" : "none";
     });
-    document.querySelectorAll('a[href="#enterprise"]').forEach((el) => {
-      el.style.display = userRole === "patient" ? "none" : "";
+
+    document.querySelectorAll(".nav-li-non-doctor-patients").forEach((el) => {
+      el.style.display = isDoctor ? "none" : "";
+    });
+
+    document.querySelectorAll(".nav-li-non-doctor").forEach((el) => {
+      el.style.display = (isPatient || isClinicAdmin) ? "" : "none";
+    });
+
+    document.querySelectorAll(".nav-li-staff-only").forEach((el) => {
+      if (el.querySelector('a[href="#calendar"]')) {
+        el.style.display = isClinicAdmin ? "" : "none";
+      } else if (el.querySelector('a[href="#users"]')) {
+        el.style.display = (isSuperAdmin || isClinicAdmin) ? "" : "none";
+      } else {
+        el.style.display = (isSuperAdmin || isClinicAdmin) ? "" : "none";
+      }
+    });
+
+    document.querySelectorAll('a[href="#pricing"]').forEach((el) => {
+      const parentLi = el.closest("li") || el;
+      parentLi.style.display = isPatient ? "none" : "";
     });
 
     const crumbs = pages
