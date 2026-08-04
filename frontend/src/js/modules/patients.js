@@ -139,6 +139,8 @@ export async function renderPatients(targetContainer = null) {
     if (!res.ok) throw new Error("Failed to fetch patients");
     const patients = await res.json();
     const role = getCurrentUserRole();
+    const normalizedRole = String(role || "").toLowerCase();
+    const isClinicalStaff = ["doctor", "nurse", "receptionist", "hospital_admin", "admin", "billing_specialist", "lab_technician", "pharmacist"].includes(normalizedRole);
     const isPatient = role === "patient";
     const isReceptionist = role === "receptionist";
     const patientOptions = patients
