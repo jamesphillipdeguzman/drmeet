@@ -655,6 +655,8 @@ export async function showDoctorForm(editId = null) {
       });
     const doctorPayload = {
       ...doctor,
+      availabilityText: String(doctor.availabilityText || "").trim(),
+      availabilityRules: String(doctor.availabilityText || "").trim(),
       availability,
     };
     if (doctorPayload.photoFile && Object.keys(doctorPayload.photoFile).length === 0) delete doctorPayload.photoFile;

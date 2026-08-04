@@ -362,16 +362,32 @@ if (typeof window !== "undefined") {
 }
 
 function buildDoctorAvailabilityLabel(doctor) {
-  const slots = Array.isArray(doctor.availability) ? doctor.availability : [];
-  if (doctor.availabilityText) return doctor.availabilityText;
-  if (!slots.length) return "Availability not set";
+  if (!doctor) return "No availability listed";
+  const rules = String(doctor.availabilityRules || doctor.availabilityText || "").trim();
+  if (rules) {
+    return rules.split("\n").map((r) => r.trim()).filter(Boolean).join(" | ");
+  }
+  if (typeof doctor.availability === "string" && doctor.availability.trim()) {
+    return doctor.availability.trim();
+  }
+  const slots = Array.isArray(doctor.availability)
+    ? doctor.availability
+    : Array.isArray(doctor.schedule)
+      ? doctor.schedule
+      : [];
+  if (!slots.length) return "No availability listed";
   return slots
-    .map((slot) =>
-      slot.timeRange
-        ? `${slot.day || "Day"} ${slot.timeRange}`
-        : `${slot.day || "Day"} ${slot.startTime || "--:--"}-${slot.endTime || "--:--"}`,
-    )
-    .join(" | ");
+    .map((slot) => {
+      if (typeof slot === "string") return slot.trim();
+      if (!slot) return "";
+      if (slot.timeRange) return `${slot.day || "Day"} ${slot.timeRange}`.trim();
+      if (slot.startTime || slot.endTime) {
+        return `${slot.day || "Day"} ${slot.startTime || "--:--"}-${slot.endTime || "--:--"}`.trim();
+      }
+      return String(slot.day || "").trim();
+    })
+    .filter(Boolean)
+    .join(" | ") || "No availability listed";
 }
 
 function normalizeTimeText(value) {
@@ -589,6 +605,7 @@ window.addEventListener("DOMContentLoaded", () => {
     formatDateForInput,
     normalizeTimeText,
     buildBookingTimeGridHtml,
+    buildDoctorAvailabilityLabel,
     showDangerConfirm,
     showToast,
     escapeHtml,
@@ -1332,6 +1349,7 @@ async function showClinicalTab(tab) {
             <p><strong>Specialty:</strong> ${escapeHtml(myDoctor?.specialty || "—")}</p>
             <p><strong>Affiliated Clinic:</strong> ${escapeHtml(myDoctor?.affiliatedClinics || "—")}</p>
             <p><strong>Consultation Room:</strong> ${escapeHtml(myDoctor?.room || "—")}</p>
+            <p><strong>Availability:</strong> ${escapeHtml(myDoctor ? buildDoctorAvailabilityLabel(myDoctor) : "—")}</p>
             <p><strong>Contact Phone:</strong> ${escapeHtml(myDoctor?.phone || "—")}</p>
             <p><strong>PRC License Number:</strong> ${escapeHtml(myDoctor?.prcLicenseNumber || myDoctor?.licenseNumber || "—")}</p>
           </section>

@@ -334,7 +334,25 @@ export async function showAppointmentForm(editId = null) {
       const fullName =
         `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim();
       const specialty = doctor.specialty || "No specialty";
-      const availability = buildDoctorAvailabilityLabel ? buildDoctorAvailabilityLabel(doctor) : "No availability listed";
+      const availability = typeof buildDoctorAvailabilityLabel === "function"
+        ? buildDoctorAvailabilityLabel(doctor)
+        : (
+            (doctor.availabilityRules && String(doctor.availabilityRules).trim()) ||
+            (doctor.availabilityText && String(doctor.availabilityText).trim()) ||
+            (typeof doctor.availability === "string" && doctor.availability.trim()) ||
+            (Array.isArray(doctor.availability) && doctor.availability.length
+              ? doctor.availability
+                  .map((s) =>
+                    typeof s === "string"
+                      ? s
+                      : s.timeRange
+                        ? `${s.day || ""} ${s.timeRange}`
+                        : `${s.day || ""} ${s.startTime || ""}-${s.endTime || ""}`,
+                  )
+                  .join(" | ")
+              : null) ||
+            "No availability listed"
+          );
       return `<option value="${doctor._id}">${fullName} - ${specialty} (${availability})</option>`;
     })
     .join("");
