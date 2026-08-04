@@ -4295,8 +4295,7 @@ function renderHome() {
     <section class="why-drmeet card">
       <div class="hero-text-content">
         <h3 class="home-section-title">Why Choose DrMeet</h3>
-        <p>DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates.</p>
-        <p>Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.</p>
+        <p>DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates. Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.</p>
       </div>
       <div class="hero-image-container">
         <img class="why-drmeet-media" src="/images/drmeet-pic1.webp" alt="DrMeet technology in action" />
@@ -4428,66 +4427,66 @@ function runTypewriterAnimation() {
   const container = document.querySelector(".why-drmeet .hero-text-content");
   if (!container) return;
 
+  const titleEl = container.querySelector(".home-section-title") || container.querySelector("h3") || container.querySelector("h2");
+  const paragraphEl = container.querySelector("p");
+  if (!titleEl || !paragraphEl) return;
+
+  // Timer Cleanup Guard: Clear all previous timers before starting new sequence
+  if (Array.isArray(window.typewriterTimers)) {
+    window.typewriterTimers.forEach(clearTimeout);
+  }
+  window.typewriterTimers = [];
+
   const titleText = "Why Choose DrMeet";
-  const p1Text = "DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates.";
-  const p2Text = "Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.";
+  const paragraphText = "DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates. Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.";
 
   // Respect user accessibility preference
   if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    container.innerHTML = `
-      <h3 class="home-section-title">${escapeHtml(titleText)}</h3>
-      <p>${escapeHtml(p1Text)}</p>
-      <p>${escapeHtml(p2Text)}</p>
-    `;
+    titleEl.textContent = titleText;
+    paragraphEl.textContent = paragraphText;
+    titleEl.classList.remove("typewriter-cursor");
+    paragraphEl.classList.remove("typewriter-cursor");
     return;
   }
 
-  // Clear any existing active typewriter timers to ensure clean re-entry on route switch
-  if (window._heroTypewriterTimeouts && Array.isArray(window._heroTypewriterTimeouts)) {
-    window._heroTypewriterTimeouts.forEach((t) => clearTimeout(t));
-  }
-  window._heroTypewriterTimeouts = [];
+  // Set initial text content of both elements to empty string
+  titleEl.textContent = "";
+  paragraphEl.textContent = "";
+  titleEl.classList.remove("typewriter-cursor");
+  paragraphEl.classList.remove("typewriter-cursor");
 
-  container.innerHTML = `
-    <h3 class="home-section-title" id="typewriter-title"></h3>
-    <p id="typewriter-p1"></p>
-    <p id="typewriter-p2"></p>
-  `;
+  // Step 1: Add .typewriter-cursor to title element and type at ~40ms per character
+  titleEl.classList.add("typewriter-cursor");
+  let titleIndex = 0;
 
-  const titleEl = container.querySelector("#typewriter-title");
-  const p1El = container.querySelector("#typewriter-p1");
-  const p2El = container.querySelector("#typewriter-p2");
+  function typeTitle() {
+    if (titleIndex < titleText.length) {
+      titleEl.textContent += titleText.charAt(titleIndex);
+      titleIndex++;
+      const timer = setTimeout(typeTitle, 40);
+      window.typewriterTimers.push(timer);
+    } else {
+      // Step 2: Title finished - move cursor to paragraph and type at ~15ms per character
+      titleEl.classList.remove("typewriter-cursor");
+      paragraphEl.classList.add("typewriter-cursor");
+      let pIndex = 0;
 
-  function typeText(element, text, speed, onComplete) {
-    if (!element) return;
-    let index = 0;
-    element.classList.add("typewriter-cursor");
-
-    function step() {
-      if (index < text.length) {
-        element.textContent += text.charAt(index);
-        index++;
-        const timer = setTimeout(step, speed);
-        window._heroTypewriterTimeouts.push(timer);
-      } else {
-        element.classList.remove("typewriter-cursor");
-        if (typeof onComplete === "function") {
-          onComplete();
+      function typeParagraph() {
+        if (pIndex < paragraphText.length) {
+          paragraphEl.textContent += paragraphText.charAt(pIndex);
+          pIndex++;
+          const timer = setTimeout(typeParagraph, 15);
+          window.typewriterTimers.push(timer);
+        } else {
+          // Step 3: Paragraph finished - remove cursor completely
+          paragraphEl.classList.remove("typewriter-cursor");
         }
       }
+      typeParagraph();
     }
-    step();
   }
 
-  // Sequence: Title (~45ms) -> P1 (~18ms) -> P2 (~18ms)
-  typeText(titleEl, titleText, 45, () => {
-    typeText(p1El, p1Text, 18, () => {
-      typeText(p2El, p2Text, 18, () => {
-        // Full sequence complete: remove any remaining cursor classes
-        container.querySelectorAll(".typewriter-cursor").forEach((el) => el.classList.remove("typewriter-cursor"));
-      });
-    });
-  });
+  typeTitle();
 }
 
 export function createSkeletonRows(total = 3) {

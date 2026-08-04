@@ -2243,8 +2243,12 @@ body.theme-dark .patient-profile-missing .btn {
   overflow: hidden;
 }
 
-/* Hero Text Fade-In */
+/* Hero Text Container Layout Stability */
 .hero-text-content {
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   opacity: 0;
   animation: fadeInHero 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -2269,15 +2273,10 @@ body.theme-dark .patient-profile-missing .btn {
 /* Typewriter Cursor Styling */
 .typewriter-cursor::after {
   content: '|';
-  color: #0284c7;
-  font-weight: 700;
-  animation: blinkCursor 0.7s infinite;
-  margin-left: 2px;
+  color: #3b82f6;
   display: inline-block;
-}
-
-body.theme-dark .typewriter-cursor::after {
-  color: #38bdf8;
+  animation: blinkCursor 0.6s infinite;
+  margin-left: 2px;
 }
 
 @keyframes blinkCursor {
