@@ -976,87 +976,11 @@ async function showClinicalTab(tab) {
     }
 
     if (tab === "patients") {
-      const prevSearch = document.getElementById("clinical-patient-search");
-      const q = prevSearch?.value?.trim() || "";
-      const url = new URL(
-        `${API_BASE}/doctors/me/patients`,
-        window.location.origin,
-      );
-      if (q) url.searchParams.set("q", q);
-      const res = await apiRequest(url.toString());
-      if (!res.ok)
-        throw new Error(
-          await getApiErrorMessage(res, "Unable to load patients."),
-        );
-      const payload = await res.json();
-      const rows = Array.isArray(payload.patients) ? payload.patients : [];
-      const listItemsHtml = rows.length
-        ? rows
-          .map(
-            (p) => `
-            <li class="clinical-patient-row card">
-              <div>
-                <strong>${escapeHtml(formatPatientDisplayName(p) || "Patient")}</strong>
-                <p class="clinical-muted">${escapeHtml(p.email || "")} · ${escapeHtml(p.phone || "")}</p>
-              </div>
-              <button type="button" class="btn btn-secondary btn-sm clinical-patient-quick" data-patient-quick="${escapeHtml(String(p._id))}">Quick view</button>
-            </li>`,
-          )
-          .join("")
-        : `<li class="feedback">No patients match your assignment yet.</li>`;
-
-      if (isClinicalPatientListRefresh) {
-        const ul = panel.querySelector(".clinical-patient-list");
-        if (ul) ul.innerHTML = listItemsHtml;
-      } else {
-        panel.innerHTML = `
-        <label class="clinical-search-label">Search assigned patients
-          <input type="search" id="clinical-patient-search" class="clinical-search-input" placeholder="Name or email" value="${escapeHtml(q)}" />
-        </label>
-        <ul class="clinical-patient-list">
-          ${listItemsHtml}
-        </ul>
-
-        <hr class="section-divider" style="margin: 2rem 0;" />
-        <section class="card clinical-patient-mgmt-section">
-          <h4 style="margin-bottom: 1rem;">Patient Management & Directory</h4>
-          <div id="clinical-patients-mgmt-container"></div>
-        </section>
-      `;
-        const search = document.getElementById("clinical-patient-search");
-        let clinicalPatientSearchTimer = null;
-        const runClinicalPatientSearch = () => {
-          void showClinicalTab("patients");
-        };
-        search?.addEventListener("input", () => {
-          if (clinicalPatientSearchTimer) clearTimeout(clinicalPatientSearchTimer);
-          clinicalPatientSearchTimer = setTimeout(runClinicalPatientSearch, 320);
-        });
-        search?.addEventListener("change", runClinicalPatientSearch);
-        search?.addEventListener("keydown", (ev) => {
-          if (ev.key === "Enter") {
-            ev.preventDefault();
-            if (clinicalPatientSearchTimer) clearTimeout(clinicalPatientSearchTimer);
-            runClinicalPatientSearch();
-          }
-        });
-      }
-      panel.querySelectorAll("[data-patient-quick]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const id = btn.getAttribute("data-patient-quick");
-          const row = rows.find((r) => String(r._id) === String(id));
-          if (!row) return;
-          showToast(
-            `${row.firstName || ""} ${row.lastName || ""} · ${row.email || "no email"}`,
-          );
-        });
-      });
-
+      panel.innerHTML = `<div id="clinical-patients-mgmt-container"></div>`;
       const mgmtContainer = document.getElementById("clinical-patients-mgmt-container");
       if (mgmtContainer && typeof renderPatients === "function") {
         await renderPatients(mgmtContainer);
       }
-
       doctorDashUI.loaded.patients = true;
       return;
     }
