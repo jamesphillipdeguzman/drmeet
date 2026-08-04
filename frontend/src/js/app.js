@@ -4294,7 +4294,7 @@ function renderHome() {
     </section>
     <section class="why-drmeet card">
       <div class="hero-text-content">
-        <h3 class="home-section-title">Why Choose DrMeet</h3>
+        <h3 class="home-section-title hero-heading">Why Choose DrMeet</h3>
         <p>DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates. Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.</p>
       </div>
       <div class="hero-image-container">
@@ -4419,74 +4419,6 @@ function renderHome() {
       renderPatientBooking();
     });
 
-  // Trigger typewriter typing animation for Why Choose DrMeet section
-  runTypewriterAnimation();
-}
-
-function runTypewriterAnimation() {
-  const container = document.querySelector(".why-drmeet .hero-text-content");
-  if (!container) return;
-
-  const titleEl = container.querySelector(".home-section-title") || container.querySelector("h3") || container.querySelector("h2");
-  const paragraphEl = container.querySelector("p");
-  if (!titleEl || !paragraphEl) return;
-
-  // Timer Cleanup Guard: Clear all previous timers before starting new sequence
-  if (Array.isArray(window.typewriterTimers)) {
-    window.typewriterTimers.forEach(clearTimeout);
-  }
-  window.typewriterTimers = [];
-
-  const titleText = "Why Choose DrMeet";
-  const paragraphText = "DrMeet centralizes patient records, visit workflows, and secure messaging in one modern workspace. Teams collaborate faster while patients get clearer updates. Smart routing, role-based access, and real-time communication keep every handoff accurate and accountable.";
-
-  // Respect user accessibility preference
-  if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    titleEl.textContent = titleText;
-    paragraphEl.textContent = paragraphText;
-    titleEl.classList.remove("typewriter-cursor");
-    paragraphEl.classList.remove("typewriter-cursor");
-    return;
-  }
-
-  // Set initial text content of both elements to empty string
-  titleEl.textContent = "";
-  paragraphEl.textContent = "";
-  titleEl.classList.remove("typewriter-cursor");
-  paragraphEl.classList.remove("typewriter-cursor");
-
-  // Step 1: Add .typewriter-cursor to title element and type at ~40ms per character
-  titleEl.classList.add("typewriter-cursor");
-  let titleIndex = 0;
-
-  function typeTitle() {
-    if (titleIndex < titleText.length) {
-      titleEl.textContent += titleText.charAt(titleIndex);
-      titleIndex++;
-      const timer = setTimeout(typeTitle, 40);
-      window.typewriterTimers.push(timer);
-    } else {
-      // Step 2: Title finished - move cursor to paragraph and type at ~15ms per character
-      titleEl.classList.remove("typewriter-cursor");
-      paragraphEl.classList.add("typewriter-cursor");
-      let pIndex = 0;
-
-      function typeParagraph() {
-        if (pIndex < paragraphText.length) {
-          paragraphEl.textContent += paragraphText.charAt(pIndex);
-          pIndex++;
-          const timer = setTimeout(typeParagraph, 15);
-          window.typewriterTimers.push(timer);
-        } else {
-          // Step 3: Paragraph finished - remove cursor completely
-          paragraphEl.classList.remove("typewriter-cursor");
-        }
-      }
-      typeParagraph();
-    }
-  }
-
-  typeTitle();
 }
 
 export function createSkeletonRows(total = 3) {
