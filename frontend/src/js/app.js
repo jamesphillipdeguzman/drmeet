@@ -2484,8 +2484,9 @@ function isSuperAdminUser() {
 }
 
 function isEnterpriseAdminUser() {
+  const role = String(typeof getCurrentUserRole === "function" ? getCurrentUserRole() : "").toLowerCase();
   const orgRole = localStorage.getItem("org_role") || "";
-  return isSuperAdminUser() || orgRole === "department_head";
+  return ["super_admin", "hospital_admin", "admin", "superadmin"].includes(role) || isSuperAdminUser() || orgRole === "department_head";
 }
 
 async function renderAdminSubscriptionsTable(containerId = "settings-admin-subscriptions-container") {
@@ -3166,11 +3167,6 @@ async function loadEnterpriseTree(
       if (mainContentEl) mainContentEl.scrollTop = savedMainY;
     }
   }
-}
-
-function isEnterpriseAdminUser() {
-  const role = String(typeof getCurrentUserRole === "function" ? getCurrentUserRole() : "").toLowerCase();
-  return ["super_admin", "hospital_admin", "admin", "superadmin"].includes(role);
 }
 
 if (typeof window !== "undefined") {
