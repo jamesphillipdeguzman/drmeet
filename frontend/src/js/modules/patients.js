@@ -310,15 +310,53 @@ export async function renderPatients(targetContainer = null) {
       });
     };
 
+    const getPatientInitials = (p) => {
+      const f = String(p.firstName || "").trim().charAt(0).toUpperCase();
+      const l = String(p.lastName || "").trim().charAt(0).toUpperCase();
+      if (f || l) return `${f}${l}`;
+      const name = String(p.name || "").trim();
+      if (name) {
+        const parts = name.split(/\s+/);
+        if (parts.length >= 2) {
+          return `${parts[0].charAt(0).toUpperCase()}${parts[1].charAt(0).toUpperCase()}`;
+        }
+        return name.substring(0, 2).toUpperCase();
+      }
+      return "P";
+    };
+
+    const renderPatientAvatarHtml = (p) => {
+      const photoUrl = String(
+        p.profilePhotoUrl ||
+        p.avatarUrl ||
+        p.photoUrl ||
+        p.picture ||
+        p.presetAvatarUrl ||
+        p.presetAvatar ||
+        p.avatarPreset ||
+        ""
+      ).trim();
+      const displayName = escapeHtml(formatPatientDisplayName(p));
+      const initials = getPatientInitials(p);
+
+      if (photoUrl) {
+        return `<img src="${escapeHtml(photoUrl)}" alt="${displayName}" class="patient-table-avatar" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1px solid #cbd5e1; flex-shrink: 0;" onerror="this.onerror=null; this.outerHTML='<div class=\\'patient-table-avatar-fallback\\' style=\\'width: 36px; height: 36px; border-radius: 50%; background-color: #3b82f6; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem; flex-shrink: 0; border: 1px solid #2563eb;\\'>${initials}</div>';" />`;
+      }
+      return `<div class="patient-table-avatar-fallback" style="width: 36px; height: 36px; border-radius: 50%; background-color: #3b82f6; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem; flex-shrink: 0; border: 1px solid #2563eb;" title="${displayName}">${initials}</div>`;
+    };
+
     const renderRows = (list) => {
       bodyEl.innerHTML = list
         .map(
           (p) => `
             <tr>
               <td>
-                <div class="patient-name-cell">
-                  <span class="patient-name-text">${escapeHtml(formatPatientDisplayName(p))}</span>
-                  ${p.isPrimaryProfile ? '<span class="patient-type-badge patient-type-badge-primary">Account Owner</span>' : '<span class="patient-type-badge patient-type-badge-family">Family Member</span>'}
+                <div class="patient-name-cell" style="display: flex; align-items: center; gap: 0.75rem;">
+                  ${renderPatientAvatarHtml(p)}
+                  <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                    <span class="patient-name-text" style="font-weight: 600;">${escapeHtml(formatPatientDisplayName(p))}</span>
+                    ${p.isPrimaryProfile ? '<span class="patient-type-badge patient-type-badge-primary">Account Owner</span>' : '<span class="patient-type-badge patient-type-badge-family">Family Member</span>'}
+                  </div>
                 </div>
               </td>
               <td>${p.isPrimaryProfile ? "Account Owner" : "Family Member"}</td>
