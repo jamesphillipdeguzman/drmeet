@@ -477,18 +477,19 @@ function buildBookingTimeGridHtml({
 
 window.addEventListener("DOMContentLoaded", () => {
   // Enforce patient limit check getter/setter
-  let _showPatientForm = null;
+  let _showPatientForm = typeof window._rawShowPatientForm === "function" ? window._rawShowPatientForm : (typeof window.showPatientForm === "function" ? window.showPatientForm : null);
   Object.defineProperty(window, "showPatientForm", {
     get() {
       return async function (editId = null, familyMode = false) {
         if (!editId) {
           const plan = localStorage.getItem("subscription_plan") || "starter";
-          if (plan === "starter") {
+          const role = String(typeof getCurrentUserRole === "function" ? getCurrentUserRole() : "").toLowerCase();
+          if (plan === "starter" && ["doctor", "receptionist"].includes(role)) {
             try {
               const res = await apiRequest(`${API_BASE}/patients`);
               if (res.ok) {
                 const patients = await res.json();
-                if (patients && patients.length >= 10) {
+                if (Array.isArray(patients) && patients.length >= 10) {
                   showPricingModal(
                     "Patient Limit Reached",
                     `<div class="text-center py-4">
@@ -510,13 +511,17 @@ window.addEventListener("DOMContentLoaded", () => {
             }
           }
         }
-        if (typeof _showPatientForm === "function") {
-          return _showPatientForm.apply(this, arguments);
+        const fn = _showPatientForm || window._rawShowPatientForm;
+        if (typeof fn === "function") {
+          return fn.apply(this, arguments);
         }
       };
     },
     set(val) {
-      _showPatientForm = val;
+      if (typeof val === "function") {
+        _showPatientForm = val;
+        window._rawShowPatientForm = val;
+      }
     },
     configurable: true
   });
