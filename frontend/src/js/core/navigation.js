@@ -38,7 +38,7 @@ export function createNavigation({
 
   function getSignupRoleFromHash() {
     const hash = window.location.hash || "";
-    const match = hash.match(/role=(doctor|patient|receptionist)/i);
+    const match = hash.match(/role=([a-z_]+)/i);
     return match ? String(match[1]).toLowerCase() : "";
   }
 
