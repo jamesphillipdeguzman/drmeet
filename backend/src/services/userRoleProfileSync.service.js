@@ -25,6 +25,11 @@ export async function syncRoleProfilesForUser(user, options = {}) {
 
   if (role === 'doctor') {
     const existingDoctor = await Doctor.findOne({ userId });
+    const licenseNumber = String(options.licenseNumber || user.licenseNumber || '').trim();
+    const department = String(options.department || user.department || '').trim() || null;
+    const address = String(user.address || '').trim();
+    const specialty = String(options.specialty || user.specialty || '').trim() || 'General Medicine';
+
     if (!existingDoctor) {
       await Doctor.create({
         userId,
@@ -32,8 +37,11 @@ export async function syncRoleProfilesForUser(user, options = {}) {
         lastName: user.lastName || 'Profile',
         email: user.email || '',
         phone: user.phone || '',
+        address: address,
         title: title || undefined,
-        specialty: String(options.specialty || '').trim() || 'General Medicine',
+        specialty: specialty,
+        licenseNumber: licenseNumber,
+        department: department,
         affiliatedClinics: '',
         availabilityText: '',
       });
@@ -43,7 +51,10 @@ export async function syncRoleProfilesForUser(user, options = {}) {
         lastName: user.lastName || existingDoctor.lastName,
         email: user.email || existingDoctor.email,
         phone: user.phone || existingDoctor.phone,
-        specialty: String(options.specialty || existingDoctor.specialty || '').trim(),
+        address: address || existingDoctor.address,
+        specialty: specialty || existingDoctor.specialty,
+        licenseNumber: licenseNumber || existingDoctor.licenseNumber,
+        department: department || existingDoctor.department,
         ...(title ? { title } : {}),
       });
     }

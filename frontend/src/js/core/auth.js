@@ -657,7 +657,8 @@ export async function renderSignup() {
     return;
   }
   const signupRoleArg = getSignupRoleFromHash();
-  const isProviderFlow = signupRoleArg === "doctor" || signupRoleArg === "provider";
+  const providerRoles = new Set(["doctor", "provider", "nurse", "lab_technician", "pharmacist"]);
+  const isProviderFlow = providerRoles.has(signupRoleArg);
 
   const signupTitle = isProviderFlow
     ? "Create Provider / Staff Account"
@@ -673,10 +674,10 @@ export async function renderSignup() {
       ${isProviderFlow ? `
         <label>Provider Role
           <select name="role" id="signup-provider-role" required>
-            <option value="doctor">Doctor</option>
-            <option value="nurse">Nurse</option>
-            <option value="lab_technician">Lab Technician</option>
-            <option value="pharmacist">Pharmacist</option>
+            <option value="doctor" ${signupRoleArg === "doctor" || signupRoleArg === "provider" ? "selected" : ""}>Doctor</option>
+            <option value="nurse" ${signupRoleArg === "nurse" ? "selected" : ""}>Nurse</option>
+            <option value="lab_technician" ${signupRoleArg === "lab_technician" ? "selected" : ""}>Lab Technician</option>
+            <option value="pharmacist" ${signupRoleArg === "pharmacist" ? "selected" : ""}>Pharmacist</option>
           </select>
         </label>
       ` : `<input type="hidden" name="role" value="patient" />`}

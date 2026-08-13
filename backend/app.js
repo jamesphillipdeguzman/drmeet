@@ -168,8 +168,9 @@ app.get('/', (req, res) => {
 // ROUTES (FIXED STRUCTURE)
 // ========================
 
-// 🔥 AUTH MUST BE SINGLE BASE PATH
+// 🔥 AUTH SINGLE & API PATHS
 app.use('/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/patients/constants', constantsRoutes);

@@ -23,6 +23,9 @@ export const validateUserSignup = [
         .isIn(['', 'Mr.', 'Ms.', 'Mrs.', 'Dr.', 'Dra.'])
         .withMessage('Invalid title'),
     body('specialty').optional().isString().trim(),
+    body('licenseNumber').optional().isString().trim(),
+    body('department').optional().isString().trim(),
+    body('role').optional().isString().trim(),
     runChecks,
 ];
 

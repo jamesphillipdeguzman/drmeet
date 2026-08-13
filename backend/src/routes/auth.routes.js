@@ -27,8 +27,9 @@ function normalizeAmbiguousSignupRole(incoming) {
   const r = String(incoming ?? '')
     .trim()
     .toLowerCase();
-  if (r === 'doctor') return 'doctor';
-  if (r === 'patient') return 'patient';
+  if (r === 'provider' || r === 'doctor') return 'doctor';
+  const allowedSignupRoles = ['nurse', 'lab_technician', 'pharmacist', 'patient'];
+  if (allowedSignupRoles.includes(r)) return r;
   return GENERAL_USER_ROLE_STORED;
 }
 
@@ -370,6 +371,8 @@ router.post('/signup', validateUserSignup, async (req, res) => {
       address,
       title,
       specialty,
+      licenseNumber,
+      department,
     } = cleaned;
 
     const exists = await User.findOne({ email });
@@ -388,9 +391,12 @@ router.post('/signup', validateUserSignup, async (req, res) => {
       phone,
       address,
       title: String(title || '').trim(),
+      specialty: String(specialty || '').trim(),
+      licenseNumber: String(licenseNumber || '').trim(),
+      department: String(department || '').trim() || null,
       role: normalizeAmbiguousSignupRole(cleaned.role),
     });
-    await syncRoleProfilesForUser(user, { title, specialty });
+    await syncRoleProfilesForUser(user, { title, specialty, licenseNumber, department });
     if (user.role === 'doctor') {
       await sendDoctorWelcomeEmail({
         email: user.email,
