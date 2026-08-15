@@ -392,14 +392,38 @@ function buildDoctorAvailabilityLabel(doctor) {
 }
 
 function normalizeTimeText(value) {
-  const match = String(value || "")
-    .trim()
-    .match(/^(\d{1,2}):(\d{2})$/);
-  if (!match) return "";
-  const hh = Number(match[1]);
-  const mm = Number(match[2]);
-  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return "";
+  if (!value) return "";
+  const str = String(value || "").trim().toLowerCase();
+
+  let hh = null;
+  let mm = null;
+
+  const ampmMatch = str.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
+  if (ampmMatch) {
+    hh = Number(ampmMatch[1]);
+    mm = ampmMatch[2] ? Number(ampmMatch[2]) : 0;
+    const period = ampmMatch[3];
+    if (period === "pm" && hh < 12) hh += 12;
+    if (period === "am" && hh === 12) hh = 0;
+  } else {
+    const match = str.match(/^(\d{1,2}):(\d{2})$/);
+    if (match) {
+      hh = Number(match[1]);
+      mm = Number(match[2]);
+    }
+  }
+
+  if (hh === null || mm === null || !Number.isFinite(hh) || !Number.isFinite(mm)) return "";
   if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return "";
+
+  const roundedMins = mm < 15 ? 0 : mm < 45 ? 30 : 60;
+  if (roundedMins === 60) {
+    hh = (hh + 1) % 24;
+    mm = 0;
+  } else {
+    mm = roundedMins;
+  }
+
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
@@ -5072,7 +5096,7 @@ async function renderPatientBooking() {
           <form id="patient-booking-form">
             <input type="hidden" name="doctorId" id="patient-booking-doctor-id" value="" />
             <label>Preferred date <input name="date" type="date" required /></label>
-            <label>Preferred time <input name="time" type="time" required /></label>
+            <label>Preferred time <input name="time" type="time" step="1800" required /></label>
             <div id="patient-booking-smart-hint" class="feedback booking-hint" style="display:none"></div>
             <div id="patient-booking-smart-times" class="booking-time-grid-wrap"></div>
             <label>Reason or notes (optional) <textarea name="notes" rows="3" placeholder="Briefly describe what you need"></textarea></label>

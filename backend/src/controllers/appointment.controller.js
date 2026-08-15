@@ -41,13 +41,93 @@ function normalizeDayEnd(value) {
     return d;
 }
 
+const WEEKDAYS = {
+    mon: 1, monday: 1,
+    tue: 2, tues: 2, tuesday: 2,
+    wed: 3, wednesday: 3,
+    thu: 4, thur: 4, thurs: 4, thursday: 4,
+    fri: 5, friday: 5,
+    sat: 6, saturday: 6,
+    sun: 0, sunday: 0,
+};
+
+function getDayIndex(str) {
+    if (!str) return null;
+    const clean = String(str).trim().toLowerCase().replace(/[^a-z]/g, '');
+    return WEEKDAYS[clean] !== undefined ? WEEKDAYS[clean] : null;
+}
+
+function getTargetDayIndex(dateStr) {
+    if (!dateStr) return null;
+    const parts = String(dateStr).trim().split('T')[0].split('-');
+    if (parts.length === 3) {
+        const y = Number(parts[0]);
+        const m = Number(parts[1]) - 1;
+        const d = Number(parts[2]);
+        if (!Number.isNaN(y) && !Number.isNaN(m) && !Number.isNaN(d)) {
+            const dt = new Date(y, m, d);
+            return dt.getDay();
+        }
+    }
+    const d = new Date(dateStr);
+    return Number.isNaN(d.getTime()) ? null : d.getDay();
+}
+
+function doesDayMatch(ruleDayText, targetDayIndex) {
+    if (targetDayIndex === null || targetDayIndex === undefined) return true;
+    if (!ruleDayText) return true;
+
+    const raw = String(ruleDayText).trim().toLowerCase();
+    if (raw.includes('daily') || raw.includes('everyday') || raw.includes('all')) return true;
+
+    const rangeParts = raw.split(/\s*(?:-|to)\s*/);
+    if (rangeParts.length === 2) {
+        const startIdx = getDayIndex(rangeParts[0]);
+        const endIdx = getDayIndex(rangeParts[1]);
+        if (startIdx !== null && endIdx !== null) {
+            if (startIdx <= endIdx) {
+                return targetDayIndex >= startIdx && targetDayIndex <= endIdx;
+            } else {
+                return targetDayIndex >= startIdx || targetDayIndex <= endIdx;
+            }
+        }
+    }
+
+    const tokens = raw.split(/[,&/]/).map((t) => t.trim());
+    for (const token of tokens) {
+        const idx = getDayIndex(token);
+        if (idx !== null && idx === targetDayIndex) return true;
+        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const name = dayNames[targetDayIndex];
+        if (token.includes(name) || name.includes(token)) return true;
+    }
+
+    return false;
+}
+
 function toMinutes(timeText) {
-    const m = String(timeText || '').trim().match(/^(\d{1,2}):(\d{2})$/);
-    if (!m) return null;
-    const h = Number(m[1]);
-    const mm = Number(m[2]);
-    if (h < 0 || h > 23 || mm < 0 || mm > 59) return null;
-    return h * 60 + mm;
+    if (!timeText) return null;
+    const str = String(timeText).trim().toLowerCase();
+
+    const ampmMatch = str.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
+    if (ampmMatch) {
+        let h = Number(ampmMatch[1]);
+        const mm = ampmMatch[2] ? Number(ampmMatch[2]) : 0;
+        const period = ampmMatch[3];
+        if (h < 1 || h > 12 || mm < 0 || mm > 59) return null;
+        if (period === 'pm' && h < 12) h += 12;
+        if (period === 'am' && h === 12) h = 0;
+        return h * 60 + mm;
+    }
+
+    const m = str.match(/^(\d{1,2}):(\d{2})$/);
+    if (m) {
+        const h = Number(m[1]);
+        const mm = Number(m[2]);
+        if (h < 0 || h > 23 || mm < 0 || mm > 59) return null;
+        return h * 60 + mm;
+    }
+    return null;
 }
 
 function minutesToText(total) {
@@ -61,18 +141,17 @@ function resolveDoctorDayWindow(doctor, dateStr) {
     const slots = Array.isArray(doctor.availability) ? doctor.availability : [];
     let textRules = String(doctor.availabilityRules || doctor.availabilityText || '').trim();
 
-    let dayName = '';
-    if (dateStr) {
-        const d = new Date(dateStr);
-        if (!Number.isNaN(d.getTime())) {
-            dayName = d.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-        }
+    const hasAnyRules = slots.length > 0 || Boolean(textRules);
+    if (!hasAnyRules) {
+        return { startMins: 8 * 60, endMins: 12 * 60, isOffDay: false };
     }
+
+    const targetDayIdx = getTargetDayIndex(dateStr);
 
     for (const slot of slots) {
         if (!slot) continue;
-        const slotDay = String(slot.day || '').toLowerCase();
-        if (dayName && slotDay && !slotDay.includes(dayName) && !dayName.includes(slotDay)) {
+        const slotDay = String(slot.day || '');
+        if (targetDayIdx !== null && !doesDayMatch(slotDay, targetDayIdx)) {
             continue;
         }
         let sMins = null;
@@ -88,29 +167,29 @@ function resolveDoctorDayWindow(doctor, dateStr) {
             }
         }
         if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
-            return { startMins: sMins, endMins: eMins };
+            return { startMins: sMins, endMins: eMins, isOffDay: false };
         }
     }
 
     if (textRules) {
         const lines = textRules.split('\n').map((l) => l.trim()).filter(Boolean);
         for (const line of lines) {
-            const m = line.match(/^(.+?)\s+(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/);
+            const m = line.match(/^(.+?)\s+((?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?))\s*-\s*((?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?))$/i);
             if (m) {
-                const lineDay = m[1].toLowerCase();
-                if (dayName && !lineDay.includes(dayName) && !lineDay.includes(dayName)) {
-                    // skip if non-matching day
+                const lineDayText = m[1].trim();
+                if (targetDayIdx !== null && !doesDayMatch(lineDayText, targetDayIdx)) {
+                    continue;
                 }
                 const sMins = toMinutes(m[2]);
                 const eMins = toMinutes(m[3]);
                 if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
-                    return { startMins: sMins, endMins: eMins };
+                    return { startMins: sMins, endMins: eMins, isOffDay: false };
                 }
             }
         }
     }
 
-    return { startMins: 8 * 60, endMins: 12 * 60 };
+    return { startMins: null, endMins: null, isOffDay: true };
 }
 
 function buildSuggestedTimes(usedTimes = [], max = 10, doctor = null, dateStr = '') {
@@ -127,13 +206,15 @@ function buildSuggestedTimes(usedTimes = [], max = 10, doctor = null, dateStr = 
     if (doctor) {
         const win = resolveDoctorDayWindow(doctor, dateStr);
         if (win) {
+            if (win.isOffDay) {
+                return [];
+            }
             startMins = win.startMins;
             endMins = win.endMins;
         }
     }
 
     const suggestions = [];
-    // Strict boundary enforcement: slotStartTime + slotDuration <= shiftEndTime
     for (let mins = startMins; mins + slotDuration <= endMins; mins += slotDuration) {
         if (used.has(mins)) continue;
         suggestions.push(minutesToText(mins));
