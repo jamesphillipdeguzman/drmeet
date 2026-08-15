@@ -519,6 +519,8 @@ export const getBookingHints = async (req, res) => {
                 availableSlotsCount: 0,
                 conflictingTimes: [],
                 suggestedAvailableTimes: [],
+                operatingSlots: [],
+                isOffDay: false,
                 hint: 'Select a valid doctor and date to view availability.',
             });
         }
