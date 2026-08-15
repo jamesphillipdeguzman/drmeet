@@ -446,7 +446,9 @@ export const getBookingHints = async (req, res) => {
         const doctorId = String(req.query.doctorId || '').trim();
         const date = String(req.query.date || '').trim();
         const excludeAppointmentId = String(req.query.excludeAppointmentId || '').trim();
-        if (!doctorId || !mongoose.Types.ObjectId.isValid(doctorId) || !date || !normalizeDayStart(date)) {
+
+        const dayStart = date ? normalizeDayStart(date) : null;
+        if (!doctorId || !mongoose.Types.ObjectId.isValid(doctorId) || !date || !dayStart) {
             return res.status(200).json({
                 doctorId: doctorId || '',
                 date: date || '',
@@ -503,6 +505,7 @@ export const getBookingHints = async (req, res) => {
             hint: `Booked ${bookedCount}/${maxPatientsPerDay}. ${remainingSlots > 0 ? `${remainingSlots} slot(s) left.` : 'No slots left for this day.'}`,
         });
     } catch (error) {
+        console.error('[APPOINTMENT] Error in getBookingHints:', error);
         return res.status(500).json({ error: 'Failed to load booking hints.' });
     }
 };
