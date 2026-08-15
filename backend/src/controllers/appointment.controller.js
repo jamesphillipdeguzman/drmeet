@@ -204,10 +204,10 @@ async function getDoctorBookingsForDay({ doctorId, date, excludeAppointmentId = 
     return Appointment.find(query).select('_id time patient status').lean();
 }
 
-async function assertSmartBookingOrThrow({ doctorId, date, time, excludeAppointmentId = '' }) {
+async function assertSmartBookingOrThrow({ doctorId, date, time, excludeAppointmentId = '', isRescheduling = false }) {
     if (!doctorId || !date || !time) return;
 
-    if (date && time) {
+    if (!excludeAppointmentId || isRescheduling) {
         const d = new Date(date);
         const m = String(time).trim().match(/^(\d{1,2}):(\d{2})$/);
         if (!Number.isNaN(d.getTime()) && m) {
@@ -365,12 +365,18 @@ export const getBookingHints = async (req, res) => {
         const doctorId = String(req.query.doctorId || '').trim();
         const date = String(req.query.date || '').trim();
         const excludeAppointmentId = String(req.query.excludeAppointmentId || '').trim();
-        if (!doctorId || !mongoose.Types.ObjectId.isValid(doctorId)) {
-            return res.status(400).json({ error: 'Valid doctorId is required.' });
-        }
-        const dayStart = normalizeDayStart(date);
-        if (!dayStart) {
-            return res.status(400).json({ error: 'Valid date is required.' });
+        if (!doctorId || !mongoose.Types.ObjectId.isValid(doctorId) || !date || !normalizeDayStart(date)) {
+            return res.status(200).json({
+                doctorId: doctorId || '',
+                date: date || '',
+                maxPatientsPerDay: 10,
+                bookedCount: 0,
+                remainingSlots: 10,
+                availableSlotsCount: 0,
+                conflictingTimes: [],
+                suggestedAvailableTimes: [],
+                hint: 'Select a valid doctor and date to view availability.',
+            });
         }
 
         const maxPatientsPerDay = await getDoctorDailyBookingLimit(doctorId);
@@ -525,10 +531,15 @@ export const postAppointment = async (req, res) => {
  */
 export const updateAppointment = async (req, res) => {
     const { id } = req.params;
+    const rawDoctor = typeof req.body.doctor === 'object' ? (req.body.doctor?._id || req.body.doctor?.id) : req.body.doctor;
+    const rawPatient = typeof req.body.patient === 'object' ? (req.body.patient?._id || req.body.patient?.id) : req.body.patient;
     const updates = {
         ...req.body,
         reason: req.body.reason || req.body.notes || undefined,
     };
+    if (rawDoctor) updates.doctor = String(rawDoctor).trim();
+    if (rawPatient) updates.patient = String(rawPatient).trim();
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
         return res.status(400).json({ error: 'Invalid appointment ID format.' });
     }
@@ -547,12 +558,29 @@ export const updateAppointment = async (req, res) => {
             // Patients can now reassign doctor for their own booking; keep patient ownership fixed.
             delete updates.patient;
         }
+
+        const targetDoctor = updates.doctor || String(existing.doctor || '');
+        const targetDate = updates.date || existing.date;
+        const targetTime = updates.time || existing.time;
+
+        const formatDateStr = (val) => {
+            if (!val) return '';
+            const d = new Date(val);
+            return Number.isNaN(d.getTime()) ? String(val) : d.toISOString().slice(0, 10);
+        };
+
+        const isRescheduling = Boolean(
+            (updates.date && formatDateStr(updates.date) !== formatDateStr(existing.date)) ||
+            (updates.time && String(updates.time).trim() !== String(existing.time || '').trim())
+        );
+
         if (String(updates.status || existing.status || 'pending').toLowerCase() !== 'cancelled') {
             await assertSmartBookingOrThrow({
-                doctorId: updates.doctor || existing.doctor,
-                date: updates.date || existing.date,
-                time: updates.time || existing.time,
+                doctorId: targetDoctor,
+                date: targetDate,
+                time: targetTime,
                 excludeAppointmentId: id,
+                isRescheduling,
             });
         }
 
