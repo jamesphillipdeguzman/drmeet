@@ -79,6 +79,44 @@ export function showDangerConfirm(message) {
   });
 }
 
+export function showCustomConfirm({
+  title = "Confirm Action",
+  message = "Are you sure you want to proceed?",
+  details = null,
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  variant = "primary",
+} = {}) {
+  return new Promise((resolve) => {
+    const modal = document.createElement("div");
+    modal.className = "modal-overlay";
+    modal.style.zIndex = "10000";
+    modal.innerHTML = `
+      <div class="card modal-card-with-close" style="max-width: 460px; width: 90%; padding: 1.5rem; border-radius: 16px; background: #ffffff; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);">
+        <button type="button" class="modal-close-x" aria-label="Close" id="custom-confirm-close">&times;</button>
+        <h3 style="margin-top: 0; margin-bottom: 0.5rem; font-size: 1.25rem; color: #0f172a; font-weight: 700;">${escapeHtml(title)}</h3>
+        <p style="margin-bottom: 1rem; font-size: 0.95rem; color: #475569; line-height: 1.5; white-space: pre-line;">${escapeHtml(message)}</p>
+        ${details ? `<div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.85rem; margin-bottom: 1.25rem; font-size: 0.875rem; color: #334155; line-height: 1.6; white-space: pre-line;">${escapeHtml(details)}</div>` : ""}
+        <div class="modal-form-actions" style="display: flex; gap: 0.75rem; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" id="custom-confirm-cancel">${escapeHtml(cancelText)}</button>
+          <button type="button" class="btn ${variant === "danger" ? "btn-action-delete" : "btn-primary"}" id="custom-confirm-ok" style="${variant !== "danger" ? "background: #2563eb; color: #ffffff;" : ""}">${escapeHtml(confirmText)}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    const close = (value) => {
+      modal.remove();
+      resolve(value);
+    };
+    modal.querySelector("#custom-confirm-ok")?.addEventListener("click", () => close(true));
+    modal.querySelector("#custom-confirm-cancel")?.addEventListener("click", () => close(false));
+    modal.querySelector("#custom-confirm-close")?.addEventListener("click", () => close(false));
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) close(false);
+    });
+  });
+}
+
 export function enforcePhoneInputs(scope = document) {
   const inputs = scope.querySelectorAll(
     'input[name="phone"], input[name="receptionistPhone"]',

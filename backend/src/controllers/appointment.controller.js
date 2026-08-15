@@ -265,6 +265,25 @@ function buildSuggestedTimes(usedTimes = [], max = 20, doctor = null, dateStr = 
     return suggestions.sort((a, b) => (toMinutesWithContext(a) || 0) - (toMinutesWithContext(b) || 0));
 }
 
+function buildAllDoctorOperatingSlots(doctor = null, dateStr = '') {
+    if (!doctor) return { slots: [], isOffDay: false };
+    const res = resolveDoctorDayWindows(doctor, dateStr);
+    if (res.isOffDay) return { slots: [], isOffDay: true };
+    const windows = res.windows && res.windows.length > 0 ? res.windows : [{ startMins: 8 * 60, endMins: 12 * 60 }];
+    const slots = [];
+    const added = new Set();
+    const slotDuration = 30;
+    for (const win of windows) {
+        for (let mins = win.startMins; mins + slotDuration <= win.endMins; mins += slotDuration) {
+            if (added.has(mins)) continue;
+            added.add(mins);
+            slots.push(minutesToText(mins));
+        }
+    }
+    slots.sort((a, b) => (toMinutesWithContext(a) || 0) - (toMinutesWithContext(b) || 0));
+    return { slots, isOffDay: false };
+}
+
 async function resolveDoctorBookingPolicyOwner(req, requestedDoctorId = '') {
     const role = authRole(req);
     const uid = authUserId(req);
@@ -515,7 +534,10 @@ export const getBookingHints = async (req, res) => {
         ].sort((a, b) => (toMinutes(a) || 0) - (toMinutes(b) || 0));
         const bookedCount = existing.length;
         const doctor = await Doctor.findById(doctorId).lean();
-        let suggestedAvailableTimes = buildSuggestedTimes(conflictingTimes, 10, doctor, date);
+        const opRes = buildAllDoctorOperatingSlots(doctor, date);
+        const operatingSlots = opRes.slots;
+        const isOffDay = opRes.isOffDay;
+        let suggestedAvailableTimes = buildSuggestedTimes(conflictingTimes, 20, doctor, date);
 
         const now = new Date();
         const isToday = dayStart.getFullYear() === now.getFullYear() &&
@@ -544,6 +566,8 @@ export const getBookingHints = async (req, res) => {
             availableSlotsCount,
             conflictingTimes,
             suggestedAvailableTimes,
+            operatingSlots,
+            isOffDay,
             hint: `Booked ${bookedCount}/${maxPatientsPerDay}. ${remainingSlots > 0 ? `${remainingSlots} slot(s) left.` : 'No slots left for this day.'}`,
         });
     } catch (error) {
