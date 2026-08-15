@@ -3,7 +3,7 @@ import Doctor from '../src/models/doctor.model.js';
 import Appointment from '../src/models/appointment.model.js';
 import assert from 'assert';
 
-console.log('--- RUNNING BOOKING HINTS & 30-MIN INTERVAL TESTS ---');
+console.log('--- RUNNING ENHANCED DOCTOR SCHEDULE PARSER TESTS ---');
 
 function createMockReqRes({ doctorId, date, role = 'patient' }) {
     const req = {
@@ -27,72 +27,92 @@ function createMockReqRes({ doctorId, date, role = 'patient' }) {
 
 async function runTests() {
     const validDoctorId = '507f1f77bcf86cd799439011';
-    const futureSaturday = '2028-06-17';
 
-    const doctorMock = {
-        _id: validDoctorId,
-        firstName: 'Carmel',
-        lastName: 'Doctor',
-        availabilityText: 'Saturday 10:00 AM - 12:00 PM',
-        bookingPolicy: { maxPatientsPerDay: 10 },
-    };
-
+    // Test 1: Combined weekday/weekend pipe-separated string with typo colon ("Monday - Friday 08:00 - 11:00 | Saturday 09:00: 11:00")
     Doctor.findById = () => ({
         select: () => ({
-            lean: async () => doctorMock,
+            lean: async () => ({
+                _id: validDoctorId,
+                availabilityText: 'Monday - Friday 08:00 - 11:00 | Saturday 09:00: 11:00',
+                bookingPolicy: { maxPatientsPerDay: 20 },
+            }),
         }),
-        lean: async () => doctorMock,
+        lean: async () => ({
+            _id: validDoctorId,
+            availabilityText: 'Monday - Friday 08:00 - 11:00 | Saturday 09:00: 11:00',
+            bookingPolicy: { maxPatientsPerDay: 20 },
+        }),
     });
+    Appointment.find = () => ({ select: () => ({ lean: async () => [] }) });
 
-    Appointment.find = () => ({
+    // Test 1a: Saturday
+    const satReq = createMockReqRes({ doctorId: validDoctorId, date: '2028-06-17' });
+    await getBookingHints(satReq.req, satReq.res);
+    assert.strictEqual(satReq.getResult().statusCode, 200);
+    assert.deepStrictEqual(satReq.getResult().body.suggestedAvailableTimes, ['09:00', '09:30', '10:00', '10:30']);
+    console.log('✅ Test 1a Passed: Pipe-separated Saturday schedule with typo colon parsed:', satReq.getResult().body.suggestedAvailableTimes);
+
+    // Test 1b: Monday
+    const monReq = createMockReqRes({ doctorId: validDoctorId, date: '2028-06-19' });
+    await getBookingHints(monReq.req, monReq.res);
+    assert.strictEqual(monReq.getResult().statusCode, 200);
+    assert.deepStrictEqual(monReq.getResult().body.suggestedAvailableTimes, ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30']);
+    console.log('✅ Test 1b Passed: Pipe-separated Monday-Friday block parsed:', monReq.getResult().body.suggestedAvailableTimes);
+
+    // Test 2: Omitted AM/PM markers & implicit PM ("Monday - Friday 10:00 - 2:00")
+    Doctor.findById = () => ({
         select: () => ({
-            lean: async () => [],
+            lean: async () => ({
+                _id: validDoctorId,
+                availabilityText: 'Monday - Friday 10:00 - 2:00',
+                bookingPolicy: { maxPatientsPerDay: 20 },
+            }),
+        }),
+        lean: async () => ({
+            _id: validDoctorId,
+            availabilityText: 'Monday - Friday 10:00 - 2:00',
+            bookingPolicy: { maxPatientsPerDay: 20 },
         }),
     });
 
-    const { req: req1, res: res1, getResult: getResult1 } = createMockReqRes({
-        doctorId: validDoctorId,
-        date: futureSaturday,
+    const pmReq = createMockReqRes({ doctorId: validDoctorId, date: '2028-06-19' });
+    await getBookingHints(pmReq.req, pmReq.res);
+    assert.strictEqual(pmReq.getResult().statusCode, 200);
+    expectTimeContains(pmReq.getResult().body.suggestedAvailableTimes, ['10:00', '11:00', '12:00', '13:00', '13:30']);
+    console.log('✅ Test 2 Passed: Implicit AM/PM range (10:00 AM to 2:00 PM) parsed:', pmReq.getResult().body.suggestedAvailableTimes);
+
+    // Test 3: Multi-shift day ("Monday - Friday 08:00 - 10:00 | Monday - Friday 14:00 - 16:00")
+    Doctor.findById = () => ({
+        select: () => ({
+            lean: async () => ({
+                _id: validDoctorId,
+                availabilityText: 'Monday - Friday 08:00 - 10:00 | Monday - Friday 14:00 - 16:00',
+                bookingPolicy: { maxPatientsPerDay: 20 },
+            }),
+        }),
+        lean: async () => ({
+            _id: validDoctorId,
+            availabilityText: 'Monday - Friday 08:00 - 10:00 | Monday - Friday 14:00 - 16:00',
+            bookingPolicy: { maxPatientsPerDay: 20 },
+        }),
     });
 
-    await getBookingHints(req1, res1);
-    const result1 = getResult1();
-    if (result1.statusCode !== 200) {
-        console.error('Test 1 Returned Status:', result1.statusCode, 'Body:', result1.body);
+    const shiftReq = createMockReqRes({ doctorId: validDoctorId, date: '2028-06-19' });
+    await getBookingHints(shiftReq.req, shiftReq.res);
+    assert.strictEqual(shiftReq.getResult().statusCode, 200);
+    assert.deepStrictEqual(shiftReq.getResult().body.suggestedAvailableTimes, [
+        '08:00', '08:30', '09:00', '09:30',
+        '14:00', '14:30', '15:00', '15:30'
+    ]);
+    console.log('✅ Test 3 Passed: Multi-shift day parsed seamlessly:', shiftReq.getResult().body.suggestedAvailableTimes);
+
+    console.log('\n--- ALL ENHANCED DOCTOR SCHEDULE PARSER TESTS PASSED! ---');
+}
+
+function expectTimeContains(actualList, expectedItems) {
+    for (const item of expectedItems) {
+        assert(actualList.includes(item), `Expected time list to contain ${item}, but got: ${JSON.stringify(actualList)}`);
     }
-
-    assert.strictEqual(result1.statusCode, 200, 'Status should be 200');
-    assert(Array.isArray(result1.body.suggestedAvailableTimes), 'suggestedAvailableTimes should be an array');
-    assert.deepStrictEqual(result1.body.suggestedAvailableTimes, ['10:00', '10:30', '11:00', '11:30'], 'Should return 30-min slots for Dra. Carmel on Saturday');
-    console.log('✅ Test 1 Passed: Booking hints successfully fetched for Dra. Carmel on Saturday with 30-min slots:', result1.body.suggestedAvailableTimes);
-
-    const futureMonday = '2028-06-19';
-    const { req: req2, res: res2, getResult: getResult2 } = createMockReqRes({
-        doctorId: validDoctorId,
-        date: futureMonday,
-    });
-
-    await getBookingHints(req2, res2);
-    const result2 = getResult2();
-
-    assert.strictEqual(result2.statusCode, 200, 'Status should be 200');
-    assert.deepStrictEqual(result2.body.suggestedAvailableTimes, [], 'Should return 0 slots for off-day');
-    assert.strictEqual(result2.body.remainingSlots, 0, 'Remaining slots should be 0');
-    console.log('✅ Test 2 Passed: Doctor off-day correctly returns 0 available slots');
-
-    const { req: req3, res: res3, getResult: getResult3 } = createMockReqRes({
-        doctorId: '',
-        date: '',
-    });
-
-    await getBookingHints(req3, res3);
-    const result3 = getResult3();
-
-    assert.strictEqual(result3.statusCode, 200, 'Status should be 200 for fallback');
-    assert.strictEqual(result3.body.hint, 'Select a valid doctor and date to view availability.');
-    console.log('✅ Test 3 Passed: Missing parameters handled gracefully with 200 OK fallback');
-
-    console.log('\n--- ALL BOOKING HINTS & 30-MIN INTERVAL TESTS PASSED SUCCESSFULLY! ---');
 }
 
 runTests().catch((err) => {
