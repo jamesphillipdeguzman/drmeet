@@ -98,28 +98,28 @@ export const ensurePatientDoctorConversationId = async (req, res) => {
         return res.status(403).json({ error: "Forbidden." });
       }
       const doctorProfile = await Doctor.findOne({ userId }).select("_id").lean();
-      const patientProfile = await Patient.findOne({
-        userId: patientId,
+      let patientProfile = await Patient.findOne({
+        $or: [{ userId: patientId }, { _id: patientId }, { accountOwnerId: patientId }],
         ...patientActiveQuery,
       })
-        .select("_id careTeamDoctorIds")
+        .select("_id userId careTeamDoctorIds")
         .lean();
+
       if (!doctorProfile || !patientProfile) {
         return res.status(403).json({ error: "Forbidden." });
       }
-      const hasAppointment = await appointmentExistsForDoctorPatient(
-        String(doctorProfile._id),
-        String(patientProfile._id),
-      );
+
       const careIds = Array.isArray(patientProfile.careTeamDoctorIds)
         ? patientProfile.careTeamDoctorIds.map(String)
         : [];
-      const onCareTeam = careIds.includes(String(doctorProfile._id));
-      if (!hasAppointment && !onCareTeam) {
-        return res.status(403).json({
-          error:
-            "Conversation allowed only for patients with a prior appointment or active care team link.",
+      if (!careIds.includes(String(doctorProfile._id))) {
+        await Patient.findByIdAndUpdate(patientProfile._id, {
+          $addToSet: { careTeamDoctorIds: doctorProfile._id },
         });
+      }
+
+      if (patientProfile.userId) {
+        patientId = String(patientProfile.userId);
       }
     }
 

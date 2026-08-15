@@ -267,7 +267,8 @@ export async function renderDoctors() {
                             ${isAdmin || isDoctor
                     ? `<button class="btn btn-secondary btn-action-edit" onclick="window.editDoctor('${d._id}')">Edit</button>
                              <button class="btn btn-action-delete" onclick="window.deleteDoctor('${d._id}')">Delete</button>`
-                    : `<button class="btn btn-primary btn-action-edit" onclick="window.bookDoctorFromDoctorsTab()">Book an Appointment</button>`
+                    : `<button class="btn btn-secondary btn-action-message" onclick="window.openDoctorMessagingContext('${d.userId || d._id}')">Message</button>
+                       <button class="btn btn-primary btn-action-edit" onclick="window.bookDoctorFromDoctorsTab()">Book an Appointment</button>`
                   }
                           </td>
                         </tr>
