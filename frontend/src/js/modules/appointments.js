@@ -550,6 +550,8 @@ export async function showAppointmentForm(editId = null) {
   const timesEl = document.getElementById("appointment-smart-times");
   let activeAvailableTimes = new Set();
   let activeConflictingTimes = new Set();
+  let originalDate = "";
+  let originalTime = "";
 
   const renderSmartBookingHint = async () => {
     const doctorId = String(form.doctor?.value || "").trim();
@@ -574,14 +576,7 @@ export async function showAppointmentForm(editId = null) {
       if (!res.ok) {
         activeAvailableTimes.clear();
         activeConflictingTimes.clear();
-        if (hintEl) {
-          hintEl.style.display = "block";
-          hintEl.className = "feedback error";
-          hintEl.textContent = await getApiErrorMessage(
-            res,
-            "Unable to load booking hints.",
-          );
-        }
+        if (hintEl) hintEl.style.display = "none";
         if (timesEl) timesEl.innerHTML = "";
         return;
       }
@@ -598,7 +593,7 @@ export async function showAppointmentForm(editId = null) {
 
       const upcomingAvailable = availableList.filter((t) => !isPastSlot(date, t, 0));
 
-      if (form.time && upcomingAvailable.length) {
+      if (form.time && upcomingAvailable.length && !editId) {
         const sorted = [...upcomingAvailable].sort((a, b) => a.localeCompare(b));
         form.time.min = sorted[0];
         form.time.max = sorted[sorted.length - 1];
@@ -639,11 +634,7 @@ export async function showAppointmentForm(editId = null) {
     } catch (error) {
       activeAvailableTimes.clear();
       activeConflictingTimes.clear();
-      if (hintEl) {
-        hintEl.style.display = "block";
-        hintEl.className = "feedback error";
-        hintEl.textContent = "Unable to load booking hints.";
-      }
+      if (hintEl) hintEl.style.display = "none";
       if (timesEl) timesEl.innerHTML = "";
     }
   };
@@ -654,12 +645,18 @@ export async function showAppointmentForm(editId = null) {
     try {
       const res = await apiRequest(`${API_BASE}/appointments/${editId}`);
       const data = await res.json();
-      form.doctor.value = data.doctor?._id || data.doctor || "";
-      form.patient.value = data.patient?._id || data.patient || "";
-      form.date.value = formatDateForInput(data.date);
-      form.time.value = data.time || "";
-      form.status.value = data.status || "pending";
-      form.notes.value = data.notes || data.reason || "";
+      const docVal = typeof data.doctor === "object" ? (data.doctor?._id || data.doctor?.id) : data.doctor;
+      const patVal = typeof data.patient === "object" ? (data.patient?._id || data.patient?.id) : data.patient;
+
+      if (form.doctor) form.doctor.value = String(docVal || "").trim();
+      if (form.patient) form.patient.value = String(patVal || "").trim();
+      if (form.date) form.date.value = formatDateForInput(data.date);
+      if (form.time) form.time.value = data.time || "";
+      if (form.status) form.status.value = data.status || "pending";
+      if (form.notes) form.notes.value = data.notes || data.reason || "";
+
+      originalDate = String(form.date?.value || "").trim();
+      originalTime = normalizeTimeText(form.time?.value || "");
       await renderSmartBookingHint();
     } catch (error) {
       console.error(error);
@@ -670,22 +667,45 @@ export async function showAppointmentForm(editId = null) {
   }
   form.onsubmit = async (e) => {
     e.preventDefault();
-    const appointment = Object.fromEntries(new FormData(form));
-    const timeNorm = normalizeTimeText(appointment.time);
+    const formEntries = Object.fromEntries(new FormData(form));
 
-    if (isPastSlot(appointment.date, timeNorm)) {
-      showToast("Cannot book appointments in the past.", "error");
-      return;
-    }
+    const doctorVal = String(form.doctor?.value || formEntries.doctor || "").trim();
+    const patientVal = String(form.patient?.value || formEntries.patient || "").trim();
+    const dateVal = String(form.date?.value || formEntries.date || "").trim();
+    const timeNorm = normalizeTimeText(form.time?.value || formEntries.time || "");
+    const statusVal = String(form.status?.value || formEntries.status || "pending").toLowerCase();
+    const notesVal = String(form.notes?.value || formEntries.notes || "").trim();
 
-    if (activeAvailableTimes.size > 0 && !activeAvailableTimes.has(timeNorm)) {
-      showToast("Selected time is outside the doctor's available schedule.", "error");
-      return;
-    }
+    const appointmentPayload = {
+      ...formEntries,
+      doctor: doctorVal,
+      patient: patientVal,
+      date: dateVal,
+      time: timeNorm,
+      status: statusVal,
+      notes: notesVal,
+      reason: notesVal,
+    };
 
-    if (activeConflictingTimes.has(timeNorm)) {
-      showToast("Selected time slot is already booked or conflicting.", "error");
-      return;
+    const isRescheduling = Boolean(
+      editId && (dateVal !== originalDate || timeNorm !== originalTime),
+    );
+
+    if (!editId || isRescheduling) {
+      if (isPastSlot(dateVal, timeNorm)) {
+        showToast("Cannot book appointments in the past.", "error");
+        return;
+      }
+
+      if (activeAvailableTimes.size > 0 && !activeAvailableTimes.has(timeNorm)) {
+        showToast("Selected time is outside the doctor's available schedule.", "error");
+        return;
+      }
+
+      if (activeConflictingTimes.has(timeNorm)) {
+        showToast("Selected time slot is already booked or conflicting.", "error");
+        return;
+      }
     }
 
     try {
@@ -694,7 +714,7 @@ export async function showAppointmentForm(editId = null) {
         {
           method: editId ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(appointment),
+          body: JSON.stringify(appointmentPayload),
         },
       );
       if (!res.ok)
