@@ -911,6 +911,45 @@ window.openPatientMessagingContext = async function (patientId) {
   }
 };
 
+window.openDoctorMessagingContext = async function (doctorIdOrUserId) {
+  if (!doctorIdOrUserId) return;
+  try {
+    let doctorUserId = doctorIdOrUserId;
+    if (doctorIdOrUserId) {
+      const docRes = await apiRequest(`${API_BASE}/doctors`);
+      if (docRes.ok) {
+        const doctors = await docRes.json();
+        const doc = Array.isArray(doctors) && doctors.find(
+          (d) => String(d._id) === String(doctorIdOrUserId) || String(d.userId) === String(doctorIdOrUserId),
+        );
+        if (doc?.userId) {
+          doctorUserId = String(doc.userId);
+        }
+      }
+    }
+
+    if (typeof mountFloatingChatWidget === "function") {
+      mountFloatingChatWidget();
+    }
+    const root = document.getElementById("floating-chat-widget");
+    const panel = document.getElementById("floating-chat-panel");
+    const toggleBtn = document.getElementById("floating-chat-toggle");
+    const shellRoot = document.getElementById("floating-messenger-root");
+
+    if (root) root.classList.remove("hidden");
+    if (panel) panel.classList.remove("hidden");
+    if (toggleBtn) toggleBtn.setAttribute("aria-expanded", "true");
+
+    if (typeof startConversationWithRecipient === "function") {
+      await startConversationWithRecipient(doctorUserId, shellRoot);
+    }
+    showToast("Opening chat with doctor...");
+  } catch (err) {
+    console.error("Error opening doctor message context:", err);
+    showToast(err?.message || "Unable to open chat", "error");
+  }
+};
+
 async function fetchMyPatientRecord() {
   const res = await apiRequest(`${API_BASE}/patients`);
   if (!res.ok) return null;
@@ -1119,6 +1158,7 @@ async function showClinicalTab(tab) {
             },
           )
           .join("");
+        const rawPatientId = String(a.patient?._id || a.patient || (typeof a.patientId === "object" ? a.patientId?._id : "") || "");
         return `
           <tr data-appt-id="${escapeHtml(String(a._id))}">
             <td>${escapeHtml(dt)}</td>
@@ -1129,6 +1169,9 @@ async function showClinicalTab(tab) {
               <select class="clinical-appt-status" aria-label="Appointment status">
                 ${statusOpts}
               </select>
+            </td>
+            <td>
+              ${rawPatientId ? `<button type="button" class="btn btn-secondary btn-sm" onclick="window.openPatientMessagingContext('${rawPatientId}')">Message</button>` : "—"}
             </td>
           </tr>`;
       };
@@ -1141,8 +1184,8 @@ async function showClinicalTab(tab) {
           <h4>Upcoming</h4>
           <div class="clinical-table-wrap">
             <table class="clinical-table">
-              <thead><tr><th>When</th><th>Time</th><th>Patient</th><th>Reason</th><th>Status</th></tr></thead>
-              <tbody>${upcoming.length ? upcoming.map(renderApptRow).join("") : `<tr><td colspan="5" class="clinical-muted">No upcoming appointments.</td></tr>`}</tbody>
+              <thead><tr><th>When</th><th>Time</th><th>Patient</th><th>Reason</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>${upcoming.length ? upcoming.map(renderApptRow).join("") : `<tr><td colspan="6" class="clinical-muted">No upcoming appointments.</td></tr>`}</tbody>
             </table>
           </div>
         </section>
@@ -1150,8 +1193,8 @@ async function showClinicalTab(tab) {
           <h4>Past</h4>
           <div class="clinical-table-wrap">
             <table class="clinical-table">
-              <thead><tr><th>When</th><th>Time</th><th>Patient</th><th>Reason</th><th>Status</th></tr></thead>
-              <tbody>${past.length ? past.map(renderApptRow).join("") : `<tr><td colspan="5" class="clinical-muted">No past appointments.</td></tr>`}</tbody>
+              <thead><tr><th>When</th><th>Time</th><th>Patient</th><th>Reason</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>${past.length ? past.map(renderApptRow).join("") : `<tr><td colspan="6" class="clinical-muted">No past appointments.</td></tr>`}</tbody>
             </table>
           </div>
         </section>
@@ -5141,7 +5184,10 @@ async function renderPatientBooking() {
             ${receptionistPhone}
             ${receptionistEmail}
             <p class="doctor-pick-avail">${avail}</p>
-            <button type="button" class="btn btn-primary btn-sm doctor-pick-book" data-book-doctor="${d._id}">Book with this doctor</button>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem;">
+              <button type="button" class="btn btn-secondary btn-sm doctor-pick-message" data-message-doctor="${d.userId || d._id}">Message</button>
+              <button type="button" class="btn btn-primary btn-sm doctor-pick-book" data-book-doctor="${d._id}">Book with this doctor</button>
+            </div>
           </article>`;
             })
             .join("")}
@@ -5193,9 +5239,18 @@ async function renderPatientBooking() {
 
   if (grid) {
     grid.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-book-doctor]");
-      if (!btn) return;
-      openDrawer(btn.getAttribute("data-book-doctor"));
+      const msgBtn = e.target.closest("[data-message-doctor]");
+      if (msgBtn) {
+        const docId = msgBtn.getAttribute("data-message-doctor");
+        if (typeof window.openDoctorMessagingContext === "function") {
+          window.openDoctorMessagingContext(docId);
+        }
+        return;
+      }
+      const bookBtn = e.target.closest("[data-book-doctor]");
+      if (bookBtn) {
+        openDrawer(bookBtn.getAttribute("data-book-doctor"));
+      }
     });
   }
 

@@ -413,6 +413,7 @@ export async function renderPatients(targetContainer = null) {
               <td>${formatCreatedDateHelper(p.createdAt || p.added)}</td>
               ${isClinicalStaff ? `<td>${renderRecordsCell(p)}</td>` : ""}
               <td>
+                <button type="button" class="btn btn-secondary btn-action-message" onclick="window.openPatientMessagingContext('${p._id}')">Message</button>
                 <button type="button" class="btn btn-secondary btn-action-edit" onclick="window.editPatient('${p._id}')">Edit</button>
                 ${isAdminUser ? `<button type="button" class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>` : ""}
               </td>
