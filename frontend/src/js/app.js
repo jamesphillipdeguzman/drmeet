@@ -5154,6 +5154,7 @@ async function renderPatientBooking() {
             <h2 id="patient-booking-doctor-title">Book appointment</h2>
             <button type="button" class="btn btn-secondary btn-sm" id="patient-booking-close">Close</button>
           </div>
+          <div id="patient-booking-doctor-meta" class="patient-booking-doctor-meta" style="margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #e2e8f0;"></div>
           <form id="patient-booking-form">
             <input type="hidden" name="doctorId" id="patient-booking-doctor-id" value="" />
             <label>Preferred date <input name="date" type="date" required /></label>
@@ -5304,9 +5305,19 @@ async function renderPatientBooking() {
     }
     const d = doctors.find((x) => String(x._id) === String(doctorId));
     const displayName = formatDoctorDisplayName(d) || "your doctor";
+    const specialty = d?.specialty || "General Medicine";
+    const availText = typeof buildDoctorAvailabilityLabel === "function" ? buildDoctorAvailabilityLabel(d) : (d?.availabilityText || "Operating hours listed");
+
     const drawerTitle = document.getElementById("patient-booking-doctor-title");
     if (drawerTitle) {
       drawerTitle.textContent = `Book with ${displayName}`;
+    }
+    const metaEl = document.getElementById("patient-booking-doctor-meta");
+    if (metaEl) {
+      metaEl.innerHTML = `
+        <p style="margin: 0.25rem 0 0.2rem; font-size: 0.95rem; font-weight: 600; color: #2563eb;">🩺 ${escapeHtml(specialty)}</p>
+        <p style="margin: 0; font-size: 0.85rem; color: #64748b;">🗓️ <strong>Operating Schedule:</strong> ${escapeHtml(availText)}</p>
+      `;
     }
     if (feedbackEl) {
       feedbackEl.style.display = "none";
@@ -5553,8 +5564,10 @@ async function renderPatientBooking() {
         }
         setTimeout(() => {
           closeDrawer();
-          window.location.hash = "#doctor-dashboard?tab=appointments";
-          renderDoctorDashboard();
+          window.location.hash = "#appointments";
+          if (typeof renderAppointments === "function") {
+            renderAppointments();
+          }
         }, 1400);
       } catch (err) {
         if (feedbackEl) {
