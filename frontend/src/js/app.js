@@ -23,6 +23,7 @@ import {
   enforcePhoneInputs,
   escapeHtml,
   fileToDataUrl,
+  showCustomConfirm,
   showDangerConfirm,
   showToast,
 } from "./core/ui.js";
@@ -477,14 +478,21 @@ function formatTimeLabel(time24) {
   return `${String(h).padStart(2, "0")}:${min} ${period}`;
 }
 
-function build30MinTimeOptions(selectedTime = "", suggestedTimes = [], conflictingTimes = [], isOffDay = false) {
+function build30MinTimeOptions(selectedTime = "", suggestedTimes = [], conflictingTimes = [], isOffDay = false, operatingSlots = []) {
   if (isOffDay) {
     return `<option value="">No available time slots on this date</option>`;
   }
 
   let slots = [];
-  if (Array.isArray(suggestedTimes) && suggestedTimes.length > 0) {
-    slots = suggestedTimes;
+  if (Array.isArray(operatingSlots) && operatingSlots.length > 0) {
+    slots = [...operatingSlots];
+  } else if (Array.isArray(suggestedTimes) && suggestedTimes.length > 0) {
+    const combined = new Set([
+      ...suggestedTimes.map((t) => normalizeTimeText(t)),
+      ...conflictingTimes.map((t) => normalizeTimeText(t)),
+    ]);
+    if (selectedTime) combined.add(normalizeTimeText(selectedTime));
+    slots = [...combined].filter(Boolean).sort((a, b) => a.localeCompare(b));
   } else {
     slots = [];
     for (let h = 8; h <= 17; h++) {
@@ -495,6 +503,11 @@ function build30MinTimeOptions(selectedTime = "", suggestedTimes = [], conflicti
 
   const conflicts = new Set((conflictingTimes || []).map((t) => normalizeTimeText(t)));
   const normSelected = normalizeTimeText(selectedTime);
+
+  if (normSelected && !slots.includes(normSelected) && !isOffDay) {
+    slots.push(normSelected);
+    slots.sort((a, b) => a.localeCompare(b));
+  }
 
   let optionsHtml = `<option value="">Select time slot (30-min)</option>`;
   for (const t of slots) {
@@ -726,6 +739,7 @@ window.addEventListener("DOMContentLoaded", () => {
     buildBookingTimeGridHtml,
     buildDoctorAvailabilityLabel,
     showDangerConfirm,
+    showCustomConfirm,
     showToast,
     escapeHtml,
     setPageTone,
@@ -5502,14 +5516,15 @@ async function renderPatientBooking() {
       const dateDisplay = typeof formatDateDisplay === "function" ? formatDateDisplay(date) : date;
       const timeDisplay = formatTimeLabel(time);
 
-      const confirmMessage = `Please confirm your appointment details:\n\n` +
-        `• Doctor: ${doctorName}\n` +
-        `• Date: ${dateDisplay}\n` +
-        `• Time: ${timeDisplay}\n` +
-        (notes ? `• Notes: ${notes}\n\n` : `\n`) +
-        `Are these details correct? Click OK to confirm your booking.`;
+      const detailsText = `• Doctor: ${doctorName}\n• Date: ${dateDisplay}\n• Time: ${timeDisplay}` + (notes ? `\n• Notes: ${notes}` : "");
 
-      const isConfirmed = window.confirm(confirmMessage);
+      const isConfirmed = await showCustomConfirm({
+        title: "Confirm Appointment Booking",
+        message: "Please review your appointment details before confirming:",
+        details: detailsText,
+        confirmText: "Confirm Booking",
+        cancelText: "Go Back",
+      });
       if (!isConfirmed) return;
 
       try {

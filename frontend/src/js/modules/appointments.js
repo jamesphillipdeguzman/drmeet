@@ -21,6 +21,7 @@ let normalizeTimeText = null;
 let build30MinTimeOptions = null;
 let buildBookingTimeGridHtml = null;
 let showDangerConfirm = null;
+let showCustomConfirm = null;
 let showToast = null;
 let escapeHtml = null;
 let setPageTone = null;
@@ -41,6 +42,7 @@ export function initAppointmentsModule(config = {}) {
   build30MinTimeOptions = config.build30MinTimeOptions || null;
   buildBookingTimeGridHtml = config.buildBookingTimeGridHtml || null;
   showDangerConfirm = config.showDangerConfirm || null;
+  showCustomConfirm = config.showCustomConfirm || null;
   showToast = config.showToast || null;
   escapeHtml = config.escapeHtml || null;
   setPageTone = config.setPageTone || null;
@@ -171,6 +173,10 @@ export async function renderAppointments(targetContainer = null) {
     );
 
     if (role === "patient") {
+      const activeAppointments = appointments.filter(
+        (a) => String(a.status || "").toLowerCase() !== "cancelled"
+      );
+
       container.innerHTML = `
         <header class="patient-appointments-header" style="margin-bottom: 1.5rem;">
           <h2 class="page-title page-title-appointments" style="margin-bottom: 0.35rem;">My Appointments</h2>
@@ -268,7 +274,7 @@ export async function renderAppointments(targetContainer = null) {
             searchClear.style.display = "none";
           }
         }
-        const filtered = appointments.filter((a) => {
+        const filtered = activeAppointments.filter((a) => {
           const doc = String(resolveAppointmentDoctorName(a, doctorLookup) || "").toLowerCase();
           const dInput = formatDateForInput(a.date).toLowerCase();
           const dDisplay = String(formatDateDisplay(a.date) || "").toLowerCase();
@@ -289,7 +295,7 @@ export async function renderAppointments(targetContainer = null) {
         }
       });
 
-      renderPatientRows(appointments);
+      renderPatientRows(activeAppointments);
 
       document.getElementById("appointments-refresh-btn")?.addEventListener("click", () => {
         void renderAppointments(targetContainer);
@@ -558,6 +564,8 @@ export async function showAppointmentForm(editId = null) {
   let activeConflictingTimes = new Set();
   let originalDate = "";
   let originalTime = "";
+  let originalDoctorId = "";
+  let originalPatientId = "";
 
   const renderSmartBookingHint = async () => {
     const doctorId = String(form.doctor?.value || "").trim();
@@ -608,7 +616,8 @@ export async function showAppointmentForm(editId = null) {
           curVal,
           info.suggestedAvailableTimes,
           info.conflictingTimes,
-          availableSlotsCount === 0
+          info.isOffDay || availableSlotsCount === 0,
+          info.operatingSlots || []
         );
         if (curVal && timeSelect.querySelector(`option[value="${curVal}"]`)) {
           timeSelect.value = curVal;
@@ -658,8 +667,11 @@ export async function showAppointmentForm(editId = null) {
       const docVal = typeof data.doctor === "object" ? (data.doctor?._id || data.doctor?.id) : data.doctor;
       const patVal = typeof data.patient === "object" ? (data.patient?._id || data.patient?.id) : data.patient;
 
-      if (form.doctor) form.doctor.value = String(docVal || "").trim();
-      if (form.patient) form.patient.value = String(patVal || "").trim();
+      originalDoctorId = String(docVal || "").trim();
+      originalPatientId = String(patVal || "").trim();
+
+      if (form.doctor) form.doctor.value = originalDoctorId;
+      if (form.patient) form.patient.value = originalPatientId;
       if (form.date) form.date.value = formatDateForInput(data.date);
 
       const timeNorm = normalizeTimeText(data.time || "");
@@ -684,8 +696,8 @@ export async function showAppointmentForm(editId = null) {
     e.preventDefault();
     const formEntries = Object.fromEntries(new FormData(form));
 
-    const doctorVal = String(form.doctor?.value || formEntries.doctor || "").trim();
-    const patientVal = String(form.patient?.value || formEntries.patient || "").trim();
+    const doctorVal = String(form.doctor?.value || formEntries.doctor || originalDoctorId || "").trim();
+    const patientVal = String(form.patient?.value || formEntries.patient || originalPatientId || "").trim();
     const dateVal = String(form.date?.value || formEntries.date || "").trim();
     const timeNorm = normalizeTimeText(form.time?.value || formEntries.time || "");
     const statusVal = String(form.status?.value || formEntries.status || "pending").toLowerCase();
@@ -723,6 +735,21 @@ export async function showAppointmentForm(editId = null) {
       }
     }
 
+    if (editId) {
+      const timeLabel = form.time?.options?.[form.time.selectedIndex]?.text || timeNorm;
+      const confirmDetails = `• Date: ${formatDateDisplay(dateVal) || dateVal}\n• Time: ${timeLabel}\n• Status: ${statusVal}`;
+      const isConfirmed = typeof showCustomConfirm === "function"
+        ? await showCustomConfirm({
+            title: "Confirm Appointment Update",
+            message: "Are you sure you want to save these changes?",
+            details: confirmDetails,
+            confirmText: "Update Appointment",
+            cancelText: "Cancel",
+          })
+        : true;
+      if (!isConfirmed) return;
+    }
+
     try {
       const res = await apiRequest(
         `${API_BASE}/appointments${editId ? "/" + editId : ""}`,
@@ -737,7 +764,11 @@ export async function showAppointmentForm(editId = null) {
           await getApiErrorMessage(res, "Failed to save appointment"),
         );
       modal.style.display = "none";
-      renderAppointments();
+      modal.innerHTML = "";
+      if (typeof showToast === "function") {
+        showToast(editId ? "Appointment updated successfully!" : "Appointment created successfully!", "success");
+      }
+      void renderAppointments();
     } catch (err) {
       showToast(err.message, "error");
     }
