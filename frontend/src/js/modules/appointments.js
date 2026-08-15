@@ -582,7 +582,16 @@ export async function showAppointmentForm(editId = null) {
   };
   const form = document.getElementById("appointment-form");
   attachClearButtons(form);
-  if (getCurrentUserRole() === "patient" && form.patient) {
+  if (editId) {
+    if (form.doctor) {
+      form.doctor.disabled = true;
+      form.doctor.setAttribute("aria-disabled", "true");
+    }
+    if (form.patient) {
+      form.patient.disabled = true;
+      form.patient.setAttribute("aria-disabled", "true");
+    }
+  } else if (getCurrentUserRole() === "patient" && form.patient) {
     form.patient.disabled = true;
     form.patient.setAttribute("aria-disabled", "true");
   }
@@ -639,7 +648,14 @@ export async function showAppointmentForm(editId = null) {
 
       const timeSelect = document.getElementById("appointment-form-time");
       if (timeSelect && typeof build30MinTimeOptions === "function") {
-        const curVal = timeSelect.value || form.time?.value || originalTime || "";
+        let curVal = "";
+        const rawTimeVal = form.time?.value !== undefined ? form.time.value : timeSelect.value;
+        if (date !== originalDate) {
+          curVal = rawTimeVal || "";
+        } else {
+          curVal = rawTimeVal !== "" ? rawTimeVal : originalTime;
+        }
+
         timeSelect.innerHTML = build30MinTimeOptions(
           curVal,
           info.suggestedAvailableTimes,
@@ -649,6 +665,8 @@ export async function showAppointmentForm(editId = null) {
         );
         if (curVal && timeSelect.querySelector(`option[value="${curVal}"]`)) {
           timeSelect.value = curVal;
+        } else if (!curVal) {
+          timeSelect.value = "";
         }
       }
 
@@ -686,7 +704,13 @@ export async function showAppointmentForm(editId = null) {
     }
   };
   form.doctor?.addEventListener("change", renderSmartBookingHint);
-  form.date?.addEventListener("change", renderSmartBookingHint);
+  form.date?.addEventListener("change", () => {
+    const curDateVal = String(form.date?.value || "").trim();
+    if (curDateVal !== originalDate && form.time) {
+      form.time.value = "";
+    }
+    void renderSmartBookingHint();
+  });
   form.time?.addEventListener("change", renderSmartBookingHint);
 
   await renderSmartBookingHint();
