@@ -518,7 +518,7 @@ export async function showAppointmentForm(editId = null) {
         </select>
       </label>
       <label>Date <input name="date" type="date" required /></label>
-      <label>Time <input name="time" type="time" required /></label>
+      <label>Time <input name="time" type="time" step="1800" required /></label>
       <div id="appointment-smart-hint" class="feedback" style="display:none"></div>
       <div id="appointment-smart-times" class="calendar-detail-modal-actions"></div>
       <label>Status
