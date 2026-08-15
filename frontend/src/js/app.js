@@ -5497,6 +5497,21 @@ async function renderPatientBooking() {
         return;
       }
 
+      const selectedDoc = doctors.find((d) => String(d._id) === String(doctorId) || String(d.userId) === String(doctorId));
+      const doctorName = selectedDoc ? `${selectedDoc.title || "Dr."} ${selectedDoc.firstName} ${selectedDoc.lastName}` : "Selected Doctor";
+      const dateDisplay = typeof formatDateDisplay === "function" ? formatDateDisplay(date) : date;
+      const timeDisplay = formatTimeLabel(time);
+
+      const confirmMessage = `Please confirm your appointment details:\n\n` +
+        `• Doctor: ${doctorName}\n` +
+        `• Date: ${dateDisplay}\n` +
+        `• Time: ${timeDisplay}\n` +
+        (notes ? `• Notes: ${notes}\n\n` : `\n`) +
+        `Are these details correct? Click OK to confirm your booking.`;
+
+      const isConfirmed = window.confirm(confirmMessage);
+      if (!isConfirmed) return;
+
       try {
         const res = await apiRequest(`${API_BASE}/appointments`, {
           method: "POST",
@@ -5506,7 +5521,7 @@ async function renderPatientBooking() {
             date,
             time,
             notes,
-            status: "pending",
+            status: "confirmed",
           }),
         });
         if (!res.ok) {
@@ -5516,7 +5531,10 @@ async function renderPatientBooking() {
           feedbackEl.className = "feedback success";
           feedbackEl.style.display = "block";
           feedbackEl.textContent =
-            "Request sent. You will see it under Appointments—we will follow up soon.";
+            "Appointment confirmed! You will see it under Appointments.";
+        }
+        if (typeof showToast === "function") {
+          showToast("Appointment confirmed successfully!", "success");
         }
         setTimeout(() => {
           closeDrawer();

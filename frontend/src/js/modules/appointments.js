@@ -603,7 +603,7 @@ export async function showAppointmentForm(editId = null) {
 
       const timeSelect = document.getElementById("appointment-form-time");
       if (timeSelect && typeof build30MinTimeOptions === "function") {
-        const curVal = timeSelect.value || form.time?.value || "";
+        const curVal = timeSelect.value || form.time?.value || originalTime || "";
         timeSelect.innerHTML = build30MinTimeOptions(
           curVal,
           info.suggestedAvailableTimes,
@@ -661,12 +661,17 @@ export async function showAppointmentForm(editId = null) {
       if (form.doctor) form.doctor.value = String(docVal || "").trim();
       if (form.patient) form.patient.value = String(patVal || "").trim();
       if (form.date) form.date.value = formatDateForInput(data.date);
-      if (form.time) form.time.value = data.time || "";
+
+      const timeNorm = normalizeTimeText(data.time || "");
+      if (form.time && typeof build30MinTimeOptions === "function") {
+        form.time.innerHTML = build30MinTimeOptions(timeNorm);
+      }
+      if (form.time) form.time.value = timeNorm;
       if (form.status) form.status.value = data.status || "pending";
       if (form.notes) form.notes.value = data.notes || data.reason || "";
 
       originalDate = String(form.date?.value || "").trim();
-      originalTime = normalizeTimeText(form.time?.value || "");
+      originalTime = timeNorm;
       await renderSmartBookingHint();
     } catch (error) {
       console.error(error);

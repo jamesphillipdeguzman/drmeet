@@ -105,9 +105,17 @@ function doesDayMatch(ruleDayText, targetDayIndex) {
     return false;
 }
 
-function toMinutes(timeText) {
+function parseAvailabilityLines(rawText) {
+    if (!rawText) return [];
+    return String(rawText)
+        .split(/(?:[|\n;]|,\s*(?=(?:mon|tue|wed|thu|fri|sat|sun|daily|everyday)))/i)
+        .map((b) => b.trim())
+        .filter(Boolean);
+}
+
+function toMinutesWithContext(timeText, referenceStartMins = null) {
     if (!timeText) return null;
-    const str = String(timeText).trim().toLowerCase();
+    let str = String(timeText).trim().toLowerCase().replace(/[:\s]+$/, '');
 
     const ampmMatch = str.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
     if (ampmMatch) {
@@ -120,14 +128,27 @@ function toMinutes(timeText) {
         return h * 60 + mm;
     }
 
-    const m = str.match(/^(\d{1,2}):(\d{2})$/);
+    const m = str.match(/^(\d{1,2})(?::(\d{2}))?$/);
     if (m) {
-        const h = Number(m[1]);
-        const mm = Number(m[2]);
+        let h = Number(m[1]);
+        const mm = m[2] ? Number(m[2]) : 0;
         if (h < 0 || h > 23 || mm < 0 || mm > 59) return null;
-        return h * 60 + mm;
+
+        let mins = h * 60 + mm;
+
+        if (referenceStartMins !== null && mins <= referenceStartMins && h < 12) {
+            mins += 12 * 60;
+        } else if (referenceStartMins === null && h >= 1 && h <= 6) {
+            mins += 12 * 60;
+        }
+
+        return mins;
     }
     return null;
+}
+
+function toMinutes(timeText) {
+    return toMinutesWithContext(timeText);
 }
 
 function minutesToText(total) {
@@ -136,17 +157,22 @@ function minutesToText(total) {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-function resolveDoctorDayWindow(doctor, dateStr) {
-    if (!doctor) return null;
+function resolveDoctorDayWindows(doctor, dateStr) {
+    if (!doctor) return { windows: [], isOffDay: false, hasRules: false };
     const slots = Array.isArray(doctor.availability) ? doctor.availability : [];
     let textRules = String(doctor.availabilityRules || doctor.availabilityText || '').trim();
 
     const hasAnyRules = slots.length > 0 || Boolean(textRules);
     if (!hasAnyRules) {
-        return { startMins: 8 * 60, endMins: 12 * 60, isOffDay: false };
+        return {
+            windows: [{ startMins: 8 * 60, endMins: 12 * 60 }],
+            isOffDay: false,
+            hasRules: false,
+        };
     }
 
     const targetDayIdx = getTargetDayIndex(dateStr);
+    const matchedWindows = [];
 
     for (const slot of slots) {
         if (!slot) continue;
@@ -157,70 +183,86 @@ function resolveDoctorDayWindow(doctor, dateStr) {
         let sMins = null;
         let eMins = null;
         if (slot.startTime && slot.endTime) {
-            sMins = toMinutes(slot.startTime);
-            eMins = toMinutes(slot.endTime);
+            sMins = toMinutesWithContext(slot.startTime);
+            eMins = toMinutesWithContext(slot.endTime, sMins);
         } else if (slot.timeRange) {
-            const parts = slot.timeRange.split('-').map((p) => p.trim());
+            const parts = slot.timeRange.split(/(?:-|\bto\b)/i).map((p) => p.trim());
             if (parts.length === 2) {
-                sMins = toMinutes(parts[0]);
-                eMins = toMinutes(parts[1]);
+                sMins = toMinutesWithContext(parts[0]);
+                eMins = toMinutesWithContext(parts[1], sMins);
             }
         }
         if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
-            return { startMins: sMins, endMins: eMins, isOffDay: false };
+            matchedWindows.push({ startMins: sMins, endMins: eMins });
         }
     }
 
     if (textRules) {
-        const lines = textRules.split('\n').map((l) => l.trim()).filter(Boolean);
-        for (const line of lines) {
-            const m = line.match(/^(.+?)\s+((?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?))\s*-\s*((?:\d{1,2}(?::\d{2})?\s*(?:am|pm)?))$/i);
+        const blocks = parseAvailabilityLines(textRules);
+        for (const block of blocks) {
+            const m = block.match(/^(.+?)\s+((?:\d{1,2}(?::\d{2})?:?\s*(?:am|pm)?))\s*(?:-|:|to)\s*((?:\d{1,2}(?::\d{2})?:?\s*(?:am|pm)?))$/i);
             if (m) {
                 const lineDayText = m[1].trim();
                 if (targetDayIdx !== null && !doesDayMatch(lineDayText, targetDayIdx)) {
                     continue;
                 }
-                const sMins = toMinutes(m[2]);
-                const eMins = toMinutes(m[3]);
+                const sMins = toMinutesWithContext(m[2]);
+                const eMins = toMinutesWithContext(m[3], sMins);
                 if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
-                    return { startMins: sMins, endMins: eMins, isOffDay: false };
+                    matchedWindows.push({ startMins: sMins, endMins: eMins });
                 }
             }
         }
     }
 
-    return { startMins: null, endMins: null, isOffDay: true };
+    if (matchedWindows.length > 0) {
+        return { windows: matchedWindows, isOffDay: false, hasRules: true };
+    }
+
+    return { windows: [], isOffDay: true, hasRules: true };
 }
 
-function buildSuggestedTimes(usedTimes = [], max = 10, doctor = null, dateStr = '') {
+function resolveDoctorDayWindow(doctor, dateStr) {
+    const res = resolveDoctorDayWindows(doctor, dateStr);
+    if (res.isOffDay) return { startMins: null, endMins: null, isOffDay: true };
+    if (res.windows.length > 0) return { ...res.windows[0], isOffDay: false };
+    return { startMins: 8 * 60, endMins: 12 * 60, isOffDay: false };
+}
+
+function buildSuggestedTimes(usedTimes = [], max = 20, doctor = null, dateStr = '') {
     const used = new Set(
         usedTimes
-            .map((t) => toMinutes(t))
+            .map((t) => toMinutesWithContext(t))
             .filter((v) => typeof v === 'number'),
     );
 
-    let startMins = 8 * 60;
-    let endMins = 12 * 60;
+    let windows = [{ startMins: 8 * 60, endMins: 12 * 60 }];
     const slotDuration = 30;
 
     if (doctor) {
-        const win = resolveDoctorDayWindow(doctor, dateStr);
-        if (win) {
-            if (win.isOffDay) {
-                return [];
-            }
-            startMins = win.startMins;
-            endMins = win.endMins;
+        const res = resolveDoctorDayWindows(doctor, dateStr);
+        if (res.isOffDay) {
+            return [];
+        }
+        if (res.windows && res.windows.length > 0) {
+            windows = res.windows;
         }
     }
 
     const suggestions = [];
-    for (let mins = startMins; mins + slotDuration <= endMins; mins += slotDuration) {
-        if (used.has(mins)) continue;
-        suggestions.push(minutesToText(mins));
+    const addedMins = new Set();
+
+    for (const win of windows) {
+        for (let mins = win.startMins; mins + slotDuration <= win.endMins; mins += slotDuration) {
+            if (used.has(mins) || addedMins.has(mins)) continue;
+            addedMins.add(mins);
+            suggestions.push(minutesToText(mins));
+            if (suggestions.length >= max) break;
+        }
         if (suggestions.length >= max) break;
     }
-    return suggestions;
+
+    return suggestions.sort((a, b) => (toMinutesWithContext(a) || 0) - (toMinutesWithContext(b) || 0));
 }
 
 async function resolveDoctorBookingPolicyOwner(req, requestedDoctorId = '') {
