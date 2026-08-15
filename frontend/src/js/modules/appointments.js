@@ -454,13 +454,21 @@ export async function showAppointmentForm(editId = null) {
   modal.innerHTML = `<div class="feedback">Loading form...</div>`;
   let doctors = [];
   let patients = [];
+  let existingAppointment = null;
   try {
-    const [doctorRes, patientRes] = await Promise.all([
+    const requests = [
       apiRequest(`${API_BASE}/doctors`),
       apiRequest(`${API_BASE}/patients`),
-    ]);
-    doctors = doctorRes.ok ? await doctorRes.json() : [];
-    patients = patientRes.ok ? await patientRes.json() : [];
+    ];
+    if (editId) {
+      requests.push(apiRequest(`${API_BASE}/appointments/${editId}`));
+    }
+    const responses = await Promise.all(requests);
+    doctors = responses[0].ok ? await responses[0].json() : [];
+    patients = responses[1].ok ? await responses[1].json() : [];
+    if (editId && responses[2] && responses[2].ok) {
+      existingAppointment = await responses[2].json();
+    }
   } catch (error) {
     window.closeAppointmentForm = () => {
       modal.style.display = "none";
@@ -468,13 +476,32 @@ export async function showAppointmentForm(editId = null) {
     modal.innerHTML = `
       <div class="modal-sheet card">
         <button type="button" class="modal-close-x" aria-label="Close" onclick="window.closeAppointmentForm()">&times;</button>
-        <div class="feedback error">Failed to load doctors and patients.</div>
+        <div class="feedback error">Failed to load form details.</div>
       </div>`;
     return;
   }
 
+  let originalDate = "";
+  let originalTime = "";
+  let originalDoctorId = "";
+  let originalPatientId = "";
+  let originalStatus = "pending";
+  let originalNotes = "";
+
+  if (existingAppointment) {
+    const docVal = typeof existingAppointment.doctor === "object" ? (existingAppointment.doctor?._id || existingAppointment.doctor?.id) : existingAppointment.doctor;
+    const patVal = typeof existingAppointment.patient === "object" ? (existingAppointment.patient?._id || existingAppointment.patient?.id) : existingAppointment.patient;
+    originalDoctorId = String(docVal || "").trim();
+    originalPatientId = String(patVal || "").trim();
+    originalDate = formatDateForInput(existingAppointment.date);
+    originalTime = normalizeTimeText(existingAppointment.time || "");
+    originalStatus = String(existingAppointment.status || "pending").toLowerCase();
+    originalNotes = String(existingAppointment.notes || existingAppointment.reason || "");
+  }
+
   const doctorOptions = doctors
     .map((doctor) => {
+      const isSel = editId && String(doctor._id) === originalDoctorId ? "selected" : "";
       const fullName =
         `${doctor.firstName || ""} ${doctor.lastName || ""}`.trim();
       const specialty = doctor.specialty || "No specialty";
@@ -497,14 +524,15 @@ export async function showAppointmentForm(editId = null) {
               : null) ||
             "No availability listed"
           );
-      return `<option value="${doctor._id}">${fullName} - ${specialty} (${availability})</option>`;
+      return `<option value="${doctor._id}" ${isSel}>${fullName} - ${specialty} (${availability})</option>`;
     })
     .join("");
 
   const patientOptions = patients
     .map((patient) => {
+      const isSel = editId && String(patient._id) === originalPatientId ? "selected" : "";
       const fullName = formatPatientDisplayName(patient);
-      return `<option value="${patient._id}">${fullName} (${patient.email || "No email"})</option>`;
+      return `<option value="${patient._id}" ${isSel}>${fullName} (${patient.email || "No email"})</option>`;
     })
     .join("");
 
@@ -525,23 +553,23 @@ export async function showAppointmentForm(editId = null) {
           ${patientOptions}
         </select>
       </label>
-      <label>Date <input name="date" type="date" required /></label>
+      <label>Date <input name="date" type="date" value="${originalDate}" required /></label>
       <label>Time
         <select name="time" id="appointment-form-time" required>
-          <option value="">Select date & doctor first</option>
+          ${originalTime ? `<option value="${originalTime}" selected>${originalTime}</option>` : `<option value="">Select date & doctor first</option>`}
         </select>
       </label>
       <div id="appointment-smart-hint" class="feedback" style="display:none"></div>
       <div id="appointment-smart-times" class="calendar-detail-modal-actions"></div>
       <label>Status
         <select name="status">
-          <option value="pending">Pending</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="cancelled">Cancelled</option>
-          <option value="completed">Completed</option>
+          <option value="pending" ${originalStatus === "pending" ? "selected" : ""}>Pending</option>
+          <option value="confirmed" ${originalStatus === "confirmed" ? "selected" : ""}>Confirmed</option>
+          <option value="cancelled" ${originalStatus === "cancelled" ? "selected" : ""}>Cancelled</option>
+          <option value="completed" ${originalStatus === "completed" ? "selected" : ""}>Completed</option>
         </select>
       </label>
-      <label>Notes <textarea name="notes"></textarea></label>
+      <label>Notes <textarea name="notes">${escapeHtml(originalNotes)}</textarea></label>
       <div class="modal-form-actions">
         <button type="submit" class="btn btn-secondary btn-action-edit">${editId ? "Update" : "Add"}</button>
         <button type="button" class="btn btn-action-delete" onclick="window.closeAppointmentForm()">Cancel</button>
@@ -562,14 +590,10 @@ export async function showAppointmentForm(editId = null) {
   const timesEl = document.getElementById("appointment-smart-times");
   let activeAvailableTimes = new Set();
   let activeConflictingTimes = new Set();
-  let originalDate = "";
-  let originalTime = "";
-  let originalDoctorId = "";
-  let originalPatientId = "";
 
   const renderSmartBookingHint = async () => {
-    const doctorId = String(form.doctor?.value || "").trim();
-    const date = String(form.date?.value || "").trim();
+    const doctorId = String(form.doctor?.value || originalDoctorId || "").trim();
+    const date = String(form.date?.value || originalDate || "").trim();
     if (!doctorId || !date) {
       activeAvailableTimes.clear();
       activeConflictingTimes.clear();
@@ -664,35 +688,8 @@ export async function showAppointmentForm(editId = null) {
   form.doctor?.addEventListener("change", renderSmartBookingHint);
   form.date?.addEventListener("change", renderSmartBookingHint);
   form.time?.addEventListener("change", renderSmartBookingHint);
-  if (editId) {
-    try {
-      const res = await apiRequest(`${API_BASE}/appointments/${editId}`);
-      const data = await res.json();
-      const docVal = typeof data.doctor === "object" ? (data.doctor?._id || data.doctor?.id) : data.doctor;
-      const patVal = typeof data.patient === "object" ? (data.patient?._id || data.patient?.id) : data.patient;
 
-      originalDoctorId = String(docVal || "").trim();
-      originalPatientId = String(patVal || "").trim();
-
-      if (form.doctor) form.doctor.value = originalDoctorId;
-      if (form.patient) form.patient.value = originalPatientId;
-      if (form.date) form.date.value = formatDateForInput(data.date);
-
-      const timeNorm = normalizeTimeText(data.time || "");
-      if (form.time) form.time.value = timeNorm;
-      if (form.status) form.status.value = data.status || "pending";
-      if (form.notes) form.notes.value = data.notes || data.reason || "";
-
-      originalDate = String(form.date?.value || "").trim();
-      originalTime = timeNorm;
-      await renderSmartBookingHint();
-    } catch (error) {
-      console.error(error);
-    }
-  }
-  if (!editId) {
-    await renderSmartBookingHint();
-  }
+  await renderSmartBookingHint();
 
   const submitBtn = form.querySelector('button[type="submit"]');
   if (submitBtn) {
