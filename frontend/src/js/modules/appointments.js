@@ -602,7 +602,11 @@ export async function showAppointmentForm(editId = null) {
         .map((t) => normalizeTimeText(t))
         .filter(Boolean);
 
-      activeAvailableTimes = new Set(availableList);
+      const operatingList = (Array.isArray(info.operatingSlots) ? info.operatingSlots : [])
+        .map((t) => normalizeTimeText(t))
+        .filter(Boolean);
+
+      activeAvailableTimes = new Set(operatingList.length > 0 ? operatingList : [...availableList, ...conflictList]);
       activeConflictingTimes = new Set(conflictList);
 
       const upcomingAvailable = availableList.filter((t) => !isPastSlot(date, t, 0));
@@ -616,7 +620,7 @@ export async function showAppointmentForm(editId = null) {
           curVal,
           info.suggestedAvailableTimes,
           info.conflictingTimes,
-          info.isOffDay || availableSlotsCount === 0,
+          info.isOffDay || false,
           info.operatingSlots || []
         );
         if (curVal && timeSelect.querySelector(`option[value="${curVal}"]`)) {
@@ -675,9 +679,6 @@ export async function showAppointmentForm(editId = null) {
       if (form.date) form.date.value = formatDateForInput(data.date);
 
       const timeNorm = normalizeTimeText(data.time || "");
-      if (form.time && typeof build30MinTimeOptions === "function") {
-        form.time.innerHTML = build30MinTimeOptions(timeNorm);
-      }
       if (form.time) form.time.value = timeNorm;
       if (form.status) form.status.value = data.status || "pending";
       if (form.notes) form.notes.value = data.notes || data.reason || "";
@@ -692,6 +693,15 @@ export async function showAppointmentForm(editId = null) {
   if (!editId) {
     await renderSmartBookingHint();
   }
+
+  const submitBtn = form.querySelector('button[type="submit"]');
+  if (submitBtn) {
+    submitBtn.onclick = (e) => {
+      e.preventDefault();
+      form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    };
+  }
+
   form.onsubmit = async (e) => {
     e.preventDefault();
     const formEntries = Object.fromEntries(new FormData(form));
@@ -702,6 +712,11 @@ export async function showAppointmentForm(editId = null) {
     const timeNorm = normalizeTimeText(form.time?.value || formEntries.time || "");
     const statusVal = String(form.status?.value || formEntries.status || "pending").toLowerCase();
     const notesVal = String(form.notes?.value || formEntries.notes || "").trim();
+
+    if (!doctorVal || !dateVal || !timeNorm) {
+      showToast("Please select a doctor, date, and valid time slot.", "error");
+      return;
+    }
 
     const appointmentPayload = {
       ...formEntries,
@@ -714,6 +729,10 @@ export async function showAppointmentForm(editId = null) {
       reason: notesVal,
     };
 
+    if (getCurrentUserRole() === "patient" && !patientVal) {
+      delete appointmentPayload.patient;
+    }
+
     const isRescheduling = Boolean(
       editId && (dateVal !== originalDate || timeNorm !== originalTime),
     );
@@ -725,7 +744,7 @@ export async function showAppointmentForm(editId = null) {
       }
 
       if (activeAvailableTimes.size > 0 && !activeAvailableTimes.has(timeNorm)) {
-        showToast("Selected time is outside the doctor's available schedule.", "error");
+        showToast("Selected time is outside the doctor's operating schedule.", "error");
         return;
       }
 
