@@ -79,27 +79,38 @@ function doesDayMatch(ruleDayText, targetDayIndex) {
 
     const raw = String(ruleDayText).trim().toLowerCase();
     if (raw.includes('daily') || raw.includes('everyday') || raw.includes('all')) return true;
-
-    const rangeParts = raw.split(/\s*(?:-|to)\s*/);
-    if (rangeParts.length === 2) {
-        const startIdx = getDayIndex(rangeParts[0]);
-        const endIdx = getDayIndex(rangeParts[1]);
-        if (startIdx !== null && endIdx !== null) {
-            if (startIdx <= endIdx) {
-                return targetDayIndex >= startIdx && targetDayIndex <= endIdx;
-            } else {
-                return targetDayIndex >= startIdx || targetDayIndex <= endIdx;
-            }
-        }
+    if (raw.includes('weekday')) {
+        return targetDayIndex >= 1 && targetDayIndex <= 5;
+    }
+    if (raw.includes('weekend')) {
+        return targetDayIndex === 0 || targetDayIndex === 6;
     }
 
-    const tokens = raw.split(/[,&/]/).map((t) => t.trim());
-    for (const token of tokens) {
-        const idx = getDayIndex(token);
+    const subRules = raw.split(/[,&/]+/).map((s) => s.trim()).filter(Boolean);
+    for (const sub of subRules) {
+        const rangeParts = sub.split(/\s*(?:-|to)\s*/);
+        if (rangeParts.length === 2) {
+            const startIdx = getDayIndex(rangeParts[0]);
+            const endIdx = getDayIndex(rangeParts[1]);
+            if (startIdx !== null && endIdx !== null) {
+                const matches = startIdx <= endIdx
+                    ? (targetDayIndex >= startIdx && targetDayIndex <= endIdx)
+                    : (targetDayIndex >= startIdx || targetDayIndex <= endIdx);
+                if (matches) return true;
+                continue;
+            }
+        }
+
+        const idx = getDayIndex(sub);
         if (idx !== null && idx === targetDayIndex) return true;
+
         const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const name = dayNames[targetDayIndex];
-        if (token.includes(name) || name.includes(token)) return true;
+        const targetName = dayNames[targetDayIndex];
+        const targetShort = targetName.substring(0, 3);
+        const cleanSub = sub.replace(/[^a-z]/g, '');
+        if (cleanSub.includes(targetName) || cleanSub.includes(targetShort) || targetName.includes(cleanSub)) {
+            return true;
+        }
     }
 
     return false;
@@ -108,20 +119,20 @@ function doesDayMatch(ruleDayText, targetDayIndex) {
 function parseAvailabilityLines(rawText) {
     if (!rawText) return [];
     return String(rawText)
-        .split(/(?:[|\n;]|,\s*(?=(?:mon|tue|wed|thu|fri|sat|sun|daily|everyday)))/i)
+        .split(/(?:[|\n;]|\s*,\s*(?=(?:mon|tue|wed|thu|fri|sat|sun|daily|everyday|weekday|weekend)[a-z]*\b(?!\s*,)))/i)
         .map((b) => b.trim())
         .filter(Boolean);
 }
 
 function toMinutesWithContext(timeText, referenceStartMins = null) {
     if (!timeText) return null;
-    let str = String(timeText).trim().toLowerCase().replace(/[:\s]+$/, '');
+    let str = String(timeText).trim().toLowerCase().replace(/[\.\s]+$/g, '').replace(/\./g, '');
 
-    const ampmMatch = str.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/);
+    const ampmMatch = str.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i);
     if (ampmMatch) {
         let h = Number(ampmMatch[1]);
         const mm = ampmMatch[2] ? Number(ampmMatch[2]) : 0;
-        const period = ampmMatch[3];
+        const period = ampmMatch[3].toLowerCase();
         if (h < 1 || h > 12 || mm < 0 || mm > 59) return null;
         if (period === 'pm' && h < 12) h += 12;
         if (period === 'am' && h === 12) h = 0;
@@ -176,7 +187,7 @@ function resolveDoctorDayWindows(doctor, dateStr) {
 
     for (const slot of slots) {
         if (!slot) continue;
-        const slotDay = String(slot.day || '');
+        const slotDay = String(slot.day || slot.dayOfWeek || slot.days || '');
         if (targetDayIdx !== null && !doesDayMatch(slotDay, targetDayIdx)) {
             continue;
         }
@@ -185,11 +196,12 @@ function resolveDoctorDayWindows(doctor, dateStr) {
         if (slot.startTime && slot.endTime) {
             sMins = toMinutesWithContext(slot.startTime);
             eMins = toMinutesWithContext(slot.endTime, sMins);
-        } else if (slot.timeRange) {
-            const parts = slot.timeRange.split(/(?:-|\bto\b)/i).map((p) => p.trim());
-            if (parts.length === 2) {
-                sMins = toMinutesWithContext(parts[0]);
-                eMins = toMinutesWithContext(parts[1], sMins);
+        } else if (slot.timeRange || slot.time) {
+            const tr = String(slot.timeRange || slot.time || '');
+            const timeMatches = [...tr.matchAll(/((?:\d{1,2})(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)/gi)].map(m => m[1].trim()).filter(Boolean);
+            if (timeMatches.length >= 2) {
+                sMins = toMinutesWithContext(timeMatches[0]);
+                eMins = toMinutesWithContext(timeMatches[1], sMins);
             }
         }
         if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
@@ -200,9 +212,9 @@ function resolveDoctorDayWindows(doctor, dateStr) {
     if (textRules) {
         const blocks = parseAvailabilityLines(textRules);
         for (const block of blocks) {
-            const m = block.match(/^(.+?)\s+((?:\d{1,2}(?::\d{2})?:?\s*(?:am|pm)?))\s*(?:-|:|to)\s*((?:\d{1,2}(?::\d{2})?:?\s*(?:am|pm)?))$/i);
+            const m = block.match(/^(.+?)\s+((?:\d{1,2}(?::\d{2})?:?\s*(?:a\.?m\.?|p\.?m\.?)?))\s*(?:-|:|to)\s*((?:\d{1,2}(?::\d{2})?:?\s*(?:a\.?m\.?|p\.?m\.?)?))$/i);
             if (m) {
-                const lineDayText = m[1].trim();
+                const lineDayText = m[1].replace(/[:,]+$/, '').trim();
                 if (targetDayIdx !== null && !doesDayMatch(lineDayText, targetDayIdx)) {
                     continue;
                 }
@@ -210,6 +222,19 @@ function resolveDoctorDayWindows(doctor, dateStr) {
                 const eMins = toMinutesWithContext(m[3], sMins);
                 if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
                     matchedWindows.push({ startMins: sMins, endMins: eMins });
+                }
+            } else {
+                const trMatch = block.match(/((?:\d{1,2})(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)\s*(?:-|:|to)\s*((?:\d{1,2})(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)/i);
+                if (trMatch) {
+                    const dayPrefix = block.substring(0, trMatch.index).replace(/[:,]+$/, '').trim();
+                    if (targetDayIdx !== null && !doesDayMatch(dayPrefix || block, targetDayIdx)) {
+                        continue;
+                    }
+                    const sMins = toMinutesWithContext(trMatch[1]);
+                    const eMins = toMinutesWithContext(trMatch[2], sMins);
+                    if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
+                        matchedWindows.push({ startMins: sMins, endMins: eMins });
+                    }
                 }
             }
         }

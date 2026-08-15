@@ -186,4 +186,29 @@ describe('Unit Tests: Schedule String Parser Engine', () => {
         expect(resSun.body.suggestedAvailableTimes).toEqual([]);
         expect(resSun.body.hint).toContain('No slots left for this day');
     });
+
+    test('7. Specific Saturday 9:00am - 12:00pm date matching for August 22, 2026', async () => {
+        const doctorMock = {
+            _id: validDoctorId,
+            availabilityText: 'Saturday 9:00am - 12:00pm',
+            bookingPolicy: { maxPatientsPerDay: 20 },
+        };
+
+        Doctor.findById.mockReturnValue({
+            select: jest.fn().mockReturnThis(),
+            lean: jest.fn().mockResolvedValue(doctorMock),
+        });
+        Appointment.find.mockReturnValue({
+            select: jest.fn().mockReturnThis(),
+            lean: jest.fn().mockResolvedValue([]),
+        });
+
+        // Saturday (August 22, 2026)
+        const resSat = await request(app)
+            .get(`/api/appointments/booking-hints?doctorId=${validDoctorId}&date=2026-08-22`);
+        expect(resSat.statusCode).toBe(200);
+        expect(resSat.body.isOffDay).toBe(false);
+        expect(resSat.body.operatingSlots).toEqual(['09:00', '09:30', '10:00', '10:30', '11:00', '11:30']);
+        expect(resSat.body.suggestedAvailableTimes).toEqual(['09:00', '09:30', '10:00', '10:30', '11:00', '11:30']);
+    });
 });
