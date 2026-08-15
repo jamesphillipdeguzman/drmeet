@@ -466,6 +466,52 @@ function isPastSlot(dateVal, timeText, bufferMinutes = 0) {
   return dMidnight < nowMidnight;
 }
 
+function formatTimeLabel(time24) {
+  const m = String(time24 || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return time24;
+  let h = Number(m[1]);
+  const min = m[2];
+  const period = h >= 12 ? "PM" : "AM";
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return `${String(h).padStart(2, "0")}:${min} ${period}`;
+}
+
+function build30MinTimeOptions(selectedTime = "", suggestedTimes = [], conflictingTimes = [], isOffDay = false) {
+  if (isOffDay) {
+    return `<option value="">No available time slots on this date</option>`;
+  }
+
+  let slots = [];
+  if (Array.isArray(suggestedTimes) && suggestedTimes.length > 0) {
+    slots = suggestedTimes;
+  } else {
+    slots = [];
+    for (let h = 8; h <= 17; h++) {
+      slots.push(`${String(h).padStart(2, "0")}:00`);
+      if (h < 17) slots.push(`${String(h).padStart(2, "0")}:30`);
+    }
+  }
+
+  const conflicts = new Set((conflictingTimes || []).map((t) => normalizeTimeText(t)));
+  const normSelected = normalizeTimeText(selectedTime);
+
+  let optionsHtml = `<option value="">Select time slot (30-min)</option>`;
+  for (const t of slots) {
+    const norm = normalizeTimeText(t);
+    if (!norm) continue;
+    const label = formatTimeLabel(norm);
+    const isConflict = conflicts.has(norm);
+    const isSel = norm === normSelected ? "selected" : "";
+    const disabledAttr = isConflict ? "disabled" : "";
+    const conflictTag = isConflict ? " (Already Booked)" : "";
+
+    optionsHtml += `<option value="${norm}" ${isSel} ${disabledAttr}>${label}${conflictTag}</option>`;
+  }
+
+  return optionsHtml;
+}
+
 function buildBookingTimeGridHtml({
   suggestedAvailableTimes = [],
   conflictingTimes = [],
@@ -676,6 +722,7 @@ window.addEventListener("DOMContentLoaded", () => {
     formatDateDisplay,
     formatDateForInput,
     normalizeTimeText,
+    build30MinTimeOptions,
     buildBookingTimeGridHtml,
     buildDoctorAvailabilityLabel,
     showDangerConfirm,
@@ -5096,7 +5143,11 @@ async function renderPatientBooking() {
           <form id="patient-booking-form">
             <input type="hidden" name="doctorId" id="patient-booking-doctor-id" value="" />
             <label>Preferred date <input name="date" type="date" required /></label>
-            <label>Preferred time <input name="time" type="time" step="1800" required /></label>
+            <label>Preferred time
+              <select name="time" id="patient-booking-time" required>
+                <option value="">Select date first to view 30-min slots</option>
+              </select>
+            </label>
             <div id="patient-booking-smart-hint" class="feedback booking-hint" style="display:none"></div>
             <div id="patient-booking-smart-times" class="booking-time-grid-wrap"></div>
             <label>Reason or notes (optional) <textarea name="notes" rows="3" placeholder="Briefly describe what you need"></textarea></label>
@@ -5209,7 +5260,6 @@ async function renderPatientBooking() {
             ${receptionistEmail}
             <p class="doctor-pick-avail">${avail}</p>
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem;">
-              <button type="button" class="btn btn-secondary btn-sm doctor-pick-message" data-message-doctor="${d.userId || d._id}">Message</button>
               <button type="button" class="btn btn-primary btn-sm doctor-pick-book" data-book-doctor="${d._id}">Book with this doctor</button>
             </div>
           </article>`;
@@ -5336,18 +5386,22 @@ async function renderPatientBooking() {
       activeConflictingTimes = new Set(conflictList);
 
       const upcomingAvailable = availableList.filter((t) => !isPastSlot(date, t, 0));
-
-      if (bookingForm?.time && upcomingAvailable.length) {
-        const sorted = [...upcomingAvailable].sort((a, b) => a.localeCompare(b));
-        bookingForm.time.min = sorted[0];
-        bookingForm.time.max = sorted[sorted.length - 1];
-        if (!bookingForm.time.value || isPastSlot(date, bookingForm.time.value, 0) || !upcomingAvailable.includes(bookingForm.time.value)) {
-          bookingForm.time.value = sorted[0];
-        }
-      }
-
       const availableSlotsCount = upcomingAvailable.length;
       const displayRemaining = typeof info.remainingSlots === "number" ? Math.min(info.remainingSlots, availableSlotsCount) : availableSlotsCount;
+
+      const timeSelect = document.getElementById("patient-booking-time");
+      if (timeSelect) {
+        const curVal = timeSelect.value || "";
+        timeSelect.innerHTML = build30MinTimeOptions(
+          curVal,
+          info.suggestedAvailableTimes,
+          info.conflictingTimes,
+          availableSlotsCount === 0
+        );
+        if (curVal && timeSelect.querySelector(`option[value="${curVal}"]`)) {
+          timeSelect.value = curVal;
+        }
+      }
 
       if (smartHintEl) {
         smartHintEl.style.display = "block";

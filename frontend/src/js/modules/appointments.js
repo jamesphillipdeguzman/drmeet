@@ -18,6 +18,7 @@ let formatPatientAddress = null;
 let formatDateDisplay = null;
 let formatDateForInput = null;
 let normalizeTimeText = null;
+let build30MinTimeOptions = null;
 let buildBookingTimeGridHtml = null;
 let showDangerConfirm = null;
 let showToast = null;
@@ -37,6 +38,7 @@ export function initAppointmentsModule(config = {}) {
   formatDateDisplay = config.formatDateDisplay || null;
   formatDateForInput = config.formatDateForInput || null;
   normalizeTimeText = config.normalizeTimeText || null;
+  build30MinTimeOptions = config.build30MinTimeOptions || null;
   buildBookingTimeGridHtml = config.buildBookingTimeGridHtml || null;
   showDangerConfirm = config.showDangerConfirm || null;
   showToast = config.showToast || null;
@@ -518,7 +520,11 @@ export async function showAppointmentForm(editId = null) {
         </select>
       </label>
       <label>Date <input name="date" type="date" required /></label>
-      <label>Time <input name="time" type="time" step="1800" required /></label>
+      <label>Time
+        <select name="time" id="appointment-form-time" required>
+          <option value="">Select date & doctor first</option>
+        </select>
+      </label>
       <div id="appointment-smart-hint" class="feedback" style="display:none"></div>
       <div id="appointment-smart-times" class="calendar-detail-modal-actions"></div>
       <label>Status
@@ -592,18 +598,22 @@ export async function showAppointmentForm(editId = null) {
       activeConflictingTimes = new Set(conflictList);
 
       const upcomingAvailable = availableList.filter((t) => !isPastSlot(date, t, 0));
-
-      if (form.time && upcomingAvailable.length && !editId) {
-        const sorted = [...upcomingAvailable].sort((a, b) => a.localeCompare(b));
-        form.time.min = sorted[0];
-        form.time.max = sorted[sorted.length - 1];
-        if (!form.time.value || isPastSlot(date, form.time.value, 0) || !upcomingAvailable.includes(form.time.value)) {
-          form.time.value = sorted[0];
-        }
-      }
-
       const availableSlotsCount = upcomingAvailable.length;
       const displayRemaining = typeof info.remainingSlots === "number" ? Math.min(info.remainingSlots, availableSlotsCount) : availableSlotsCount;
+
+      const timeSelect = document.getElementById("appointment-form-time");
+      if (timeSelect && typeof build30MinTimeOptions === "function") {
+        const curVal = timeSelect.value || form.time?.value || "";
+        timeSelect.innerHTML = build30MinTimeOptions(
+          curVal,
+          info.suggestedAvailableTimes,
+          info.conflictingTimes,
+          availableSlotsCount === 0
+        );
+        if (curVal && timeSelect.querySelector(`option[value="${curVal}"]`)) {
+          timeSelect.value = curVal;
+        }
+      }
 
       if (hintEl) {
         hintEl.style.display = "block";
