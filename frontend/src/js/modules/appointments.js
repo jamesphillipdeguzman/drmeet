@@ -582,7 +582,10 @@ export async function showAppointmentForm(editId = null) {
   };
   const form = document.getElementById("appointment-form");
   attachClearButtons(form);
-  if (editId) {
+  const userRole = String(typeof getCurrentUserRole === "function" ? (getCurrentUserRole() || "") : "").toLowerCase();
+  const isPatientRole = userRole === "patient";
+
+  if (isPatientRole) {
     if (form.doctor) {
       form.doctor.disabled = true;
       form.doctor.setAttribute("aria-disabled", "true");
@@ -591,9 +594,15 @@ export async function showAppointmentForm(editId = null) {
       form.patient.disabled = true;
       form.patient.setAttribute("aria-disabled", "true");
     }
-  } else if (getCurrentUserRole() === "patient" && form.patient) {
-    form.patient.disabled = true;
-    form.patient.setAttribute("aria-disabled", "true");
+  } else {
+    if (form.doctor) {
+      form.doctor.disabled = false;
+      form.doctor.removeAttribute("aria-disabled");
+    }
+    if (form.patient) {
+      form.patient.disabled = false;
+      form.patient.removeAttribute("aria-disabled");
+    }
   }
   const hintEl = document.getElementById("appointment-smart-hint");
   const timesEl = document.getElementById("appointment-smart-times");
