@@ -966,7 +966,12 @@ export async function showAppointmentForm(editId = null) {
       if (typeof showToast === "function") {
         showToast(editId ? "Appointment updated successfully!" : "Appointment created successfully!", "success");
       }
+      invalidateCalendarCache();
       void renderAppointments();
+      const calContainer = document.getElementById("clinical-calendar-container") || (window.location.hash === "#calendar" ? document.getElementById("main-content") : null);
+      if (calContainer && typeof renderCalendar === "function") {
+        void renderCalendar(calContainer, { forceRefresh: true });
+      }
     } catch (err) {
       showToast(err.message, "error");
     }
@@ -984,7 +989,12 @@ export async function deleteAppointment(id) {
       method: "DELETE",
     });
     if (!res.ok) throw new Error("Failed to delete appointment");
+    invalidateCalendarCache();
     renderAppointments();
+    const calContainer = document.getElementById("clinical-calendar-container") || (window.location.hash === "#calendar" ? document.getElementById("main-content") : null);
+    if (calContainer && typeof renderCalendar === "function") {
+      void renderCalendar(calContainer, { forceRefresh: true });
+    }
   } catch (err) {
     showToast(err.message, "error");
   }
@@ -1021,7 +1031,12 @@ export async function cancelAppointment(id, appointmentData = null) {
       if (!fallbackRes.ok) throw new Error(await getApiErrorMessage(fallbackRes, "Failed to cancel appointment"));
     }
     showToast("Appointment successfully cancelled.");
+    invalidateCalendarCache();
     void renderAppointments();
+    const calContainer = document.getElementById("clinical-calendar-container") || (window.location.hash === "#calendar" ? document.getElementById("main-content") : null);
+    if (calContainer && typeof renderCalendar === "function") {
+      void renderCalendar(calContainer, { forceRefresh: true });
+    }
   } catch (err) {
     showToast(err?.message || "Unable to cancel appointment", "error");
   }
@@ -1029,6 +1044,59 @@ export async function cancelAppointment(id, appointmentData = null) {
 
 // Local variable for buildDoctorAvailabilityLabel
 let buildDoctorAvailabilityLabel = null;
+
+// Calendar In-Memory Cache for Instant 0ms Range Navigation & Prefetching
+let calendarCache = {
+  appointments: null,
+  doctors: null,
+  patients: null,
+  lastFetched: 0,
+};
+
+export function invalidateCalendarCache() {
+  calendarCache.lastFetched = 0;
+  calendarCache.appointments = null;
+}
+
+async function getCalendarDataset(forceRefresh = false) {
+  const now = Date.now();
+  const CACHE_TTL_MS = 60 * 1000; // 1 minute fresh cache
+  const hasValidCache = Array.isArray(calendarCache.appointments) && Array.isArray(calendarCache.doctors) && Array.isArray(calendarCache.patients);
+
+  if (!forceRefresh && hasValidCache && (now - calendarCache.lastFetched < CACHE_TTL_MS)) {
+    return {
+      appointments: calendarCache.appointments,
+      doctors: calendarCache.doctors,
+      patients: calendarCache.patients,
+      fromCache: true,
+    };
+  }
+
+  const [appointmentRes, doctorRes, patientRes] = await Promise.all([
+    apiRequest(`${API_BASE}/appointments`),
+    apiRequest(`${API_BASE}/doctors`),
+    apiRequest(`${API_BASE}/patients`),
+  ]);
+
+  if (!appointmentRes.ok) throw new Error("Failed to fetch calendar data");
+  const appointments = await appointmentRes.json();
+  const doctors = doctorRes.ok ? await doctorRes.json() : [];
+  const patients = patientRes.ok ? await patientRes.json() : [];
+
+  calendarCache = {
+    appointments,
+    doctors,
+    patients,
+    lastFetched: Date.now(),
+  };
+
+  return {
+    appointments,
+    doctors,
+    patients,
+    fromCache: false,
+  };
+}
 
 // Extend init hook to bind buildDoctorAvailabilityLabel
 const originalInit = initAppointmentsModule;
@@ -1039,7 +1107,7 @@ export function initAppointmentsModuleWithAvailability(config = {}) {
 // We assign to the exported name
 initAppointmentsModule = initAppointmentsModuleWithAvailability;
 
-export async function renderCalendar(container) {
+export async function renderCalendar(container, options = {}) {
   const mainContent = container || document.getElementById("main-content");
   if (!mainContent) return;
 
@@ -1049,19 +1117,43 @@ export async function renderCalendar(container) {
     mainContent.innerHTML = `<h2 class="page-title page-title-appointments">Calendar</h2><div class="feedback error">The calendar is available to doctor, receptionist, and admin accounts.</div>`;
     return;
   }
-  mainContent.innerHTML =
-    '<div class="feedback" style="padding: 2rem; text-align: center;">Loading clinical calendar…</div>';
+
+  const forceRefresh = options?.forceRefresh === true;
+  const hasCachedData = Array.isArray(calendarCache.appointments) && Array.isArray(calendarCache.doctors);
+
+  // Only show the loading spinner on initial cold load if no cached data exists in memory
+  if (!hasCachedData && !mainContent.querySelector(".calendar-section")) {
+    mainContent.innerHTML =
+      '<div class="feedback" style="padding: 2rem; text-align: center;">Loading clinical calendar…</div>';
+  }
 
   try {
-    const [appointmentRes, doctorRes, patientRes] = await Promise.all([
-      apiRequest(`${API_BASE}/appointments`),
-      apiRequest(`${API_BASE}/doctors`),
-      apiRequest(`${API_BASE}/patients`),
-    ]);
-    if (!appointmentRes.ok) throw new Error("Failed to fetch calendar data");
-    const appointments = await appointmentRes.json();
-    const doctors = doctorRes.ok ? await doctorRes.json() : [];
-    const patients = patientRes.ok ? await patientRes.json() : [];
+    let data;
+    if (hasCachedData && !forceRefresh) {
+      // Instant render: synchronous execution from in-memory cache
+      data = {
+        appointments: calendarCache.appointments,
+        doctors: calendarCache.doctors,
+        patients: calendarCache.patients,
+      };
+
+      // Stale-While-Revalidate: background sync if cache is older than 30 seconds
+      if (Date.now() - calendarCache.lastFetched > 30000) {
+        setTimeout(async () => {
+          try {
+            await getCalendarDataset(true);
+          } catch {
+            /* ignore background sync error */
+          }
+        }, 150);
+      }
+    } else {
+      data = await getCalendarDataset(forceRefresh);
+    }
+
+    const appointments = data.appointments || [];
+    const doctors = data.doctors || [];
+    const patients = data.patients || [];
     const doctorLookup = new Map(
       doctors.map((doctor) => [
         String(doctor._id),
@@ -1398,10 +1490,10 @@ export async function renderCalendar(container) {
       <div id="appointment-form-modal" style="display:none"></div>
     `;
 
-    // Event Listeners for Toolbar
+    // Event Listeners for Toolbar - Fast Local Cache Navigation (0ms lag)
     document.getElementById("calendar-today-btn")?.addEventListener("click", () => {
       window.__calendarCurrentDate = new Date();
-      void renderCalendar(container);
+      void renderCalendar(container, { forceRefresh: false });
     });
 
     document.getElementById("calendar-prev-btn")?.addEventListener("click", () => {
@@ -1410,7 +1502,7 @@ export async function renderCalendar(container) {
       else if (viewMode === "week") d.setDate(d.getDate() - 7);
       else if (viewMode === "month") d.setMonth(d.getMonth() - 1);
       window.__calendarCurrentDate = d;
-      void renderCalendar(container);
+      void renderCalendar(container, { forceRefresh: false });
     });
 
     document.getElementById("calendar-next-btn")?.addEventListener("click", () => {
@@ -1419,7 +1511,7 @@ export async function renderCalendar(container) {
       else if (viewMode === "week") d.setDate(d.getDate() + 7);
       else if (viewMode === "month") d.setMonth(d.getMonth() + 1);
       window.__calendarCurrentDate = d;
-      void renderCalendar(container);
+      void renderCalendar(container, { forceRefresh: false });
     });
 
     document.querySelectorAll(".calendar-view-btn").forEach((btn) => {
@@ -1427,18 +1519,18 @@ export async function renderCalendar(container) {
         const nextMode = btn.getAttribute("data-view-mode");
         if (nextMode) {
           window.__calendarViewMode = nextMode;
-          void renderCalendar(container);
+          void renderCalendar(container, { forceRefresh: false });
         }
       });
     });
 
     document.getElementById("calendar-doctor-filter")?.addEventListener("change", (e) => {
       window.__calendarDoctorFilter = e.target.value;
-      void renderCalendar(container);
+      void renderCalendar(container, { forceRefresh: false });
     });
 
     document.getElementById("calendar-refresh")?.addEventListener("click", () => {
-      void renderCalendar(container);
+      void renderCalendar(container, { forceRefresh: true });
     });
 
     document.getElementById("calendar-add-appt-btn")?.addEventListener("click", () => {
