@@ -1050,7 +1050,8 @@ export async function renderCalendar(container) {
     return;
   }
   mainContent.innerHTML =
-    '<h2 class="page-title page-title-appointments">Calendar</h2><div class="feedback">Loading...</div>';
+    '<div class="feedback" style="padding: 2rem; text-align: center;">Loading clinical calendar…</div>';
+
   try {
     const [appointmentRes, doctorRes, patientRes] = await Promise.all([
       apiRequest(`${API_BASE}/appointments`),
@@ -1077,284 +1078,499 @@ export async function renderCalendar(container) {
       patients.map((patient) => [String(patient._id), patient]),
     );
 
-    const now = new Date();
-    const [minYear, maxYear] = appointments.reduce(
-      (acc, appointment) => {
-        const d = new Date(appointment.date);
-        if (Number.isNaN(d.getTime())) return acc;
-        const y = d.getFullYear();
-        return [Math.min(acc[0], y), Math.max(acc[1], y)];
-      },
-      [now.getFullYear(), now.getFullYear()],
-    );
-    if (typeof window.__calendarViewYear !== "number") {
-      window.__calendarViewYear = now.getFullYear();
+    if (typeof window.__calendarViewMode !== "string") {
+      window.__calendarViewMode = "week"; // 'week' | 'day' | 'month'
     }
-    if (typeof window.__calendarViewMonth !== "number") {
-      window.__calendarViewMonth = now.getMonth();
+    if (!(window.__calendarCurrentDate instanceof Date) || isNaN(window.__calendarCurrentDate.getTime())) {
+      window.__calendarCurrentDate = new Date();
     }
-    const monthStart = new Date(window.__calendarViewYear, window.__calendarViewMonth, 1);
-    const monthEnd = new Date(
-      window.__calendarViewYear,
-      window.__calendarViewMonth + 1,
-      0,
-    );
-    const monthKey = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}`;
-    const monthAppointments = appointments.filter((appointment) =>
-      formatDateForInput(appointment.date).startsWith(monthKey),
-    );
-    const dayLookup = monthAppointments.reduce((acc, appointment) => {
-      const dayKey = formatDateForInput(appointment.date);
-      if (!acc[dayKey]) acc[dayKey] = [];
-      acc[dayKey].push(appointment);
-      return acc;
-    }, {});
+    if (typeof window.__calendarDoctorFilter !== "string") {
+      window.__calendarDoctorFilter = "all";
+    }
 
-    const statusCounts = monthAppointments.reduce(
-      (acc, appointment) => {
-        const status = String(appointment.status || "pending").toLowerCase();
-        if (acc[status] === undefined) acc[status] = 0;
-        acc[status] += 1;
-        return acc;
-      },
-      { confirmed: 0, cancelled: 0, completed: 0, pending: 0 },
-    );
+    const viewMode = window.__calendarViewMode;
+    const curDate = new Date(window.__calendarCurrentDate);
+    const today = new Date();
 
-    const totalDays = monthEnd.getDate();
-    const firstWeekday = monthStart.getDay();
-    const calendarCells = [];
-    for (let index = 0; index < firstWeekday; index += 1) {
-      calendarCells.push('<div class="calendar-day calendar-day-empty"></div>');
+    const isSameDay = (d1, d2) => {
+      if (!d1 || !d2) return false;
+      const date1 = new Date(d1);
+      const date2 = new Date(d2);
+      return (
+        date1.getFullYear() === date2.getFullYear() &&
+        date1.getMonth() === date2.getMonth() &&
+        date1.getDate() === date2.getDate()
+      );
+    };
+
+    // Filter appointments by selected doctor if applicable
+    const filteredAppointments = appointments.filter((appt) => {
+      if (window.__calendarDoctorFilter === "all") return true;
+      const docId = String(appt.doctor?._id || appt.doctor || appt.doctorId || "");
+      return docId === window.__calendarDoctorFilter;
+    });
+
+    // Helper to calculate week dates (Monday to Sunday)
+    const getWeekDays = (centerDate) => {
+      const d = new Date(centerDate);
+      const day = d.getDay(); // 0 is Sun, 1 is Mon...
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1); // start on Monday
+      const monday = new Date(d.setDate(diff));
+      monday.setHours(0, 0, 0, 0);
+
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const nextDay = new Date(monday);
+        nextDay.setDate(monday.getDate() + i);
+        days.push(nextDay);
+      }
+      return days;
+    };
+
+    // Title generation
+    let titleText = "";
+    if (viewMode === "day") {
+      titleText = curDate.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric", year: "numeric" });
+    } else if (viewMode === "week") {
+      const wDays = getWeekDays(curDate);
+      const first = wDays[0];
+      const last = wDays[6];
+      if (first.getMonth() === last.getMonth()) {
+        titleText = `${first.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${last.getDate()}, ${first.getFullYear()}`;
+      } else {
+        titleText = `${first.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${last.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+      }
+    } else {
+      titleText = curDate.toLocaleDateString(undefined, { month: "long", year: "numeric" });
     }
-    for (let day = 1; day <= totalDays; day += 1) {
-      const dateKey = `${monthKey}-${String(day).padStart(2, "0")}`;
-      const dayAppointments = dayLookup[dateKey] || [];
-      calendarCells.push(`
-        <article class="calendar-day" data-calendar-day-date="${dateKey}" style="cursor: pointer;">
-          <header class="calendar-day-header">${day}</header>
-          <div class="calendar-day-items">
-            ${dayAppointments.length
-          ? dayAppointments
-            .map((appointment) => {
-              const patientName =
-                (typeof appointment.patientId === "object"
-                  ? formatPatientFullNameOnly(appointment.patientId) ||
-                  appointment.patientId?.name
-                  : "") ||
-                formatPatientFullNameOnly(
-                  patientById.get(
-                    String(appointment.patient?._id || appointment.patient),
-                  ) || {},
-                ) ||
-                patientLookup.get(
-                  String(appointment.patient?._id || appointment.patient),
-                ) ||
-                "Unknown Patient";
-              const doctorName =
-                resolveAppointmentDoctorName(appointment, doctorLookup);
-              return `<button type="button" data-calendar-appt-id="${escapeHtml(String(appointment._id))}" class="calendar-appt-item status-${escapeHtml(String(appointment.status || "pending").toLowerCase())}" title="${escapeHtml(doctorName)}">
-                      <strong>${escapeHtml(String(appointment.time || "Time n/a"))}</strong>
-                      <span class="calendar-appt-patient">${escapeHtml(patientName)}</span>
-                    </button>`;
-            })
-            .join("")
-          : '<p class="calendar-day-empty-text calendar-day-free">Free</p>'}
+
+    const doctorFilterOptions = `<option value="all" ${window.__calendarDoctorFilter === "all" ? "selected" : ""}>All Doctors</option>` +
+      doctors.map((d) => `<option value="${d._id}" ${window.__calendarDoctorFilter === String(d._id) ? "selected" : ""}>${escapeHtml(`${d.firstName || ""} ${d.lastName || ""}`.trim())}</option>`).join("");
+
+    // Time-grid calculation constants
+    const START_HOUR = 7; // 7:00 AM
+    const END_HOUR = 19; // 7:00 PM (12 hours)
+    const TOTAL_HOURS = END_HOUR - START_HOUR;
+    const PIXELS_PER_HOUR = 60;
+    const START_MINUTES = START_HOUR * 60;
+
+    let calendarViewHtml = "";
+
+    if (viewMode === "week" || viewMode === "day") {
+      const daysToRender = viewMode === "week" ? getWeekDays(curDate) : [curDate];
+      const gridCols = daysToRender.length;
+
+      // Header row
+      const headerCellsHtml = daysToRender.map((dayDate) => {
+        const isDayToday = isSameDay(dayDate, today);
+        const dayName = dayDate.toLocaleDateString(undefined, { weekday: "short" });
+        const dayNum = dayDate.getDate();
+        return `
+          <div class="time-grid-header-cell ${isDayToday ? "is-today" : ""}">
+            <span class="time-grid-header-dayname">${dayName}</span>
+            <span class="time-grid-header-date-badge">${dayNum}</span>
           </div>
-        </article>`);
-    }
+        `;
+      }).join("");
 
-    mainContent.innerHTML = `
-      <section class="calendar-section">
-        <div class="calendar-main">
-          <div class="calendar-toolbar">
-            <h2 class="page-title page-title-appointments">Calendar - ${monthStart.toLocaleString(undefined, { month: "long", year: "numeric" })}</h2>
-            <div class="calendar-toolbar-controls">
-              <button type="button" class="btn btn-secondary btn-sm" id="calendar-refresh" title="Reload calendar">Refresh</button>
-              <button type="button" class="btn btn-secondary btn-sm" id="calendar-prev-month">Prev</button>
-              <select id="calendar-month-select">${Array.from({ length: 12 }).map((_, idx) => `<option value="${idx}" ${idx === window.__calendarViewMonth ? "selected" : ""}>${new Date(2026, idx, 1).toLocaleString(undefined, { month: "long" })}</option>`).join("")}</select>
-              <select id="calendar-year-select">${Array.from({ length: maxYear - minYear + 5 }).map((_, idx) => {
-      const year = minYear - 2 + idx;
-      return `<option value="${year}" ${year === window.__calendarViewYear ? "selected" : ""}>${year}</option>`;
-    }).join("")}</select>
-              <button type="button" class="btn btn-secondary btn-sm" id="calendar-next-month">Next</button>
+      // Time Column labels
+      const timeLabelsHtml = Array.from({ length: TOTAL_HOURS }).map((_, idx) => {
+        const hour = START_HOUR + idx;
+        const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+        const ampm = hour >= 12 ? "PM" : "AM";
+        return `<div class="time-grid-time-slot-label">${displayHour} ${ampm}</div>`;
+      }).join("");
+
+      // Day Columns body
+      const dayColumnsHtml = daysToRender.map((dayDate) => {
+        const isDayToday = isSameDay(dayDate, today);
+        const dateInputStr = formatDateForInput(dayDate);
+
+        // Filter appointments for this date
+        const dayAppts = filteredAppointments.filter((a) => {
+          return formatDateForInput(a.date) === dateInputStr;
+        });
+
+        // Hour lines
+        const hourLinesHtml = Array.from({ length: TOTAL_HOURS }).map(() => {
+          return `<div class="time-grid-hour-line"></div>`;
+        }).join("");
+
+        // Current time line if today
+        let nowIndicatorHtml = "";
+        if (isDayToday) {
+          const nowMins = today.getHours() * 60 + today.getMinutes();
+          if (nowMins >= START_MINUTES && nowMins <= END_HOUR * 60) {
+            const topPx = ((nowMins - START_MINUTES) / 60) * PIXELS_PER_HOUR;
+            nowIndicatorHtml = `<div class="time-grid-now-indicator" style="top: ${topPx}px;"></div>`;
+          }
+        }
+
+        // Lunch break block (12:00 PM - 1:00 PM) on weekdays
+        let lunchBreakHtml = "";
+        const dayOfWeek = dayDate.getDay();
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+          const lunchTop = ((12 * 60 - START_MINUTES) / 60) * PIXELS_PER_HOUR;
+          lunchBreakHtml = `<div class="time-grid-break-block" style="top: ${lunchTop}px; height: ${PIXELS_PER_HOUR}px;">🍽️ Lunch Break</div>`;
+        }
+
+        // Render appointment blocks
+        const apptBlocksHtml = dayAppts.map((appt) => {
+          const rawTime = String(appt.time || "09:00").trim();
+          const startMins = parseTimeToMinutesInternal(rawTime) ?? 540;
+          const duration = 30; // 30-min default appointment duration
+
+          const topPx = Math.max(0, ((startMins - START_MINUTES) / 60) * PIXELS_PER_HOUR);
+          const heightPx = Math.max(26, (duration / 60) * PIXELS_PER_HOUR - 2);
+
+          const statusClass = String(appt.status || "pending").toLowerCase();
+          const patientName =
+            (typeof appt.patientId === "object"
+              ? formatPatientFullNameOnly(appt.patientId) || appt.patientId?.name
+              : "") ||
+            formatPatientFullNameOnly(patientById.get(String(appt.patient?._id || appt.patient)) || {}) ||
+            patientLookup.get(String(appt.patient?._id || appt.patient)) ||
+            "Patient";
+
+          const formattedTime = (formatTimeLabel || formatTimeLabelInternal)(rawTime);
+
+          return `
+            <div 
+              class="time-grid-appt-block status-${escapeHtml(statusClass)}" 
+              style="top: ${topPx}px; height: ${heightPx}px;" 
+              data-calendar-appt-id="${escapeHtml(String(appt._id))}"
+              title="${escapeHtml(patientName)} - ${escapeHtml(formattedTime)} (${escapeHtml(appt.status || "Pending")})"
+            >
+              <div class="time-grid-appt-time">⏰ ${escapeHtml(formattedTime)}</div>
+              <div class="time-grid-appt-patient">${escapeHtml(patientName)}</div>
+              ${appt.reason || appt.notes ? `<div class="time-grid-appt-reason">${escapeHtml(appt.reason || appt.notes)}</div>` : ""}
             </div>
+          `;
+        }).join("");
+
+        return `
+          <div class="time-grid-day-column ${isDayToday ? "is-today" : ""}" data-calendar-day-date="${dateInputStr}">
+            ${hourLinesHtml}
+            ${nowIndicatorHtml}
+            ${lunchBreakHtml}
+            ${apptBlocksHtml}
           </div>
-          <div class="calendar-weekdays">
-            ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-        .map((day) => `<span>${day}</span>`)
-        .join("")}
+        `;
+      }).join("");
+
+      calendarViewHtml = `
+        <div class="time-grid-container" style="--grid-cols: ${gridCols};">
+          <div class="time-grid-header">
+            <div class="time-grid-header-gutter">Time</div>
+            ${headerCellsHtml}
           </div>
-          <div class="calendar-grid">
-            ${calendarCells.join("")}
+          <div class="time-grid-body">
+            <div class="time-grid-time-column">
+              ${timeLabelsHtml}
+            </div>
+            ${dayColumnsHtml}
           </div>
         </div>
-        <aside class="calendar-sidebar card">
-          <h3>Monthly appointment status</h3>
-          <p class="calendar-sidebar-month">${monthStart.toLocaleString(undefined, { month: "long", year: "numeric" })}</p>
-          <div class="calendar-status-list">
-            <p><span class="status-pill status-confirmed">Confirmed</span> <strong>${statusCounts.confirmed}</strong></p>
-            <p><span class="status-pill status-cancelled">Cancelled</span> <strong>${statusCounts.cancelled}</strong></p>
-            <p><span class="status-pill status-completed">Completed</span> <strong>${statusCounts.completed}</strong></p>
-            <p><span class="status-pill status-pending">Pending</span> <strong>${statusCounts.pending}</strong></p>
+      `;
+    } else {
+      // Month View
+      const year = curDate.getFullYear();
+      const month = curDate.getMonth();
+      const monthStart = new Date(year, month, 1);
+      const monthEnd = new Date(year, month + 1, 0);
+      const totalDays = monthEnd.getDate();
+      const firstWeekday = monthStart.getDay();
+
+      const monthKey = `${year}-${String(month + 1).padStart(2, "0")}`;
+      const monthAppointments = filteredAppointments.filter((a) =>
+        formatDateForInput(a.date).startsWith(monthKey),
+      );
+
+      const dayLookup = monthAppointments.reduce((acc, appointment) => {
+        const dayKey = formatDateForInput(appointment.date);
+        if (!acc[dayKey]) acc[dayKey] = [];
+        acc[dayKey].push(appointment);
+        return acc;
+      }, {});
+
+      const statusCounts = monthAppointments.reduce(
+        (acc, appointment) => {
+          const status = String(appointment.status || "pending").toLowerCase();
+          if (acc[status] === undefined) acc[status] = 0;
+          acc[status] += 1;
+          return acc;
+        },
+        { confirmed: 0, cancelled: 0, completed: 0, pending: 0 },
+      );
+
+      const calendarCells = [];
+      for (let index = 0; index < firstWeekday; index += 1) {
+        calendarCells.push('<div class="calendar-day calendar-day-empty"></div>');
+      }
+
+      for (let day = 1; day <= totalDays; day += 1) {
+        const dateKey = `${monthKey}-${String(day).padStart(2, "0")}`;
+        const dayAppointments = dayLookup[dateKey] || [];
+        const cellDate = new Date(year, month, day);
+        const isDayToday = isSameDay(cellDate, today);
+
+        calendarCells.push(`
+          <article class="calendar-day ${isDayToday ? "is-today" : ""}" data-calendar-day-date="${dateKey}" style="cursor: pointer;">
+            <header class="calendar-day-header">${day}</header>
+            <div class="calendar-day-items">
+              ${dayAppointments.length
+            ? dayAppointments
+              .map((appointment) => {
+                const patientName =
+                  (typeof appointment.patientId === "object"
+                    ? formatPatientFullNameOnly(appointment.patientId) || appointment.patientId?.name
+                    : "") ||
+                  formatPatientFullNameOnly(patientById.get(String(appointment.patient?._id || appointment.patient)) || {}) ||
+                  patientLookup.get(String(appointment.patient?._id || appointment.patient)) ||
+                  "Patient";
+                const formattedTime = (formatTimeLabel || formatTimeLabelInternal)(appointment.time || "");
+                return `<button type="button" data-calendar-appt-id="${escapeHtml(String(appointment._id))}" class="calendar-appt-item status-${escapeHtml(String(appointment.status || "pending").toLowerCase())}">
+                        <strong>${escapeHtml(formattedTime || "Time n/a")}</strong>
+                        <span class="calendar-appt-patient">${escapeHtml(patientName)}</span>
+                      </button>`;
+              })
+              .join("")
+            : '<p class="calendar-day-empty-text">Free</p>'}
+            </div>
+          </article>`);
+      }
+
+      calendarViewHtml = `
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 1rem;">
+          <div class="calendar-month-grid-wrap">
+            <div class="calendar-weekdays">
+              ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => `<span>${day}</span>`).join("")}
+            </div>
+            <div class="calendar-grid">
+              ${calendarCells.join("")}
+            </div>
           </div>
-          <div class="calendar-day-details-section" id="calendar-day-details-panel" style="margin-top: 1.5rem; display: none;">
-            <hr class="section-divider" style="margin: 1rem 0; border-color: #dbe2f3;" />
-            <h3 id="calendar-details-date-title" style="margin-bottom: 0.6rem;">Appointments</h3>
-            <div id="calendar-details-list" class="calendar-details-list"></div>
+          <aside class="calendar-sidebar">
+            <h3>Monthly Overview</h3>
+            <p class="calendar-sidebar-month">${titleText}</p>
+            <div class="calendar-status-list">
+              <p><span class="status-pill status-confirmed">Confirmed</span> <strong>${statusCounts.confirmed}</strong></p>
+              <p><span class="status-pill status-cancelled">Cancelled</span> <strong>${statusCounts.cancelled}</strong></p>
+              <p><span class="status-pill status-completed">Completed</span> <strong>${statusCounts.completed}</strong></p>
+              <p><span class="status-pill status-pending">Pending</span> <strong>${statusCounts.pending}</strong></p>
+            </div>
+          </aside>
+        </div>
+      `;
+    }
+
+    // Main section markup with Top Navigation Toolbar
+    mainContent.innerHTML = `
+      <section class="calendar-section">
+        <div class="calendar-toolbar">
+          <div class="calendar-toolbar-nav">
+            <button type="button" class="btn btn-secondary btn-sm" id="calendar-today-btn" style="font-weight: 700;">Today</button>
+            <div class="calendar-toolbar-nav-group">
+              <button type="button" class="btn btn-secondary btn-sm" id="calendar-prev-btn" aria-label="Previous">‹</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="calendar-next-btn" aria-label="Next">›</button>
+            </div>
+            <span class="calendar-title-text" id="calendar-title">${escapeHtml(titleText)}</span>
           </div>
-        </aside>
+
+          <div class="calendar-toolbar-controls">
+            <div class="calendar-view-segmented">
+              <button type="button" class="calendar-view-btn ${viewMode === "day" ? "active" : ""}" data-view-mode="day">Day</button>
+              <button type="button" class="calendar-view-btn ${viewMode === "week" ? "active" : ""}" data-view-mode="week">Week</button>
+              <button type="button" class="calendar-view-btn ${viewMode === "month" ? "active" : ""}" data-view-mode="month">Month</button>
+            </div>
+
+            <select id="calendar-doctor-filter" aria-label="Filter by doctor" style="padding: 5px 10px; font-size: 0.84rem; border-radius: 8px; border: 1px solid #cbd5e1;">
+              ${doctorFilterOptions}
+            </select>
+
+            <button type="button" class="btn btn-secondary btn-sm" id="calendar-refresh" title="Reload calendar">Refresh</button>
+            <button type="button" class="cta-primary btn-sm" id="calendar-add-appt-btn" style="padding: 6px 12px; font-size: 0.84rem;">+ Add Appointment</button>
+          </div>
+        </div>
+
+        ${calendarViewHtml}
       </section>
+      <div id="appointment-form-modal" style="display:none"></div>
     `;
+
+    // Event Listeners for Toolbar
+    document.getElementById("calendar-today-btn")?.addEventListener("click", () => {
+      window.__calendarCurrentDate = new Date();
+      void renderCalendar(container);
+    });
+
+    document.getElementById("calendar-prev-btn")?.addEventListener("click", () => {
+      const d = new Date(window.__calendarCurrentDate);
+      if (viewMode === "day") d.setDate(d.getDate() - 1);
+      else if (viewMode === "week") d.setDate(d.getDate() - 7);
+      else if (viewMode === "month") d.setMonth(d.getMonth() - 1);
+      window.__calendarCurrentDate = d;
+      void renderCalendar(container);
+    });
+
+    document.getElementById("calendar-next-btn")?.addEventListener("click", () => {
+      const d = new Date(window.__calendarCurrentDate);
+      if (viewMode === "day") d.setDate(d.getDate() + 1);
+      else if (viewMode === "week") d.setDate(d.getDate() + 7);
+      else if (viewMode === "month") d.setMonth(d.getMonth() + 1);
+      window.__calendarCurrentDate = d;
+      void renderCalendar(container);
+    });
+
+    document.querySelectorAll(".calendar-view-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const nextMode = btn.getAttribute("data-view-mode");
+        if (nextMode) {
+          window.__calendarViewMode = nextMode;
+          void renderCalendar(container);
+        }
+      });
+    });
+
+    document.getElementById("calendar-doctor-filter")?.addEventListener("change", (e) => {
+      window.__calendarDoctorFilter = e.target.value;
+      void renderCalendar(container);
+    });
+
     document.getElementById("calendar-refresh")?.addEventListener("click", () => {
       void renderCalendar(container);
     });
-    document.getElementById("calendar-prev-month")?.addEventListener("click", () => {
-      const viewDate = new Date(window.__calendarViewYear, window.__calendarViewMonth - 1, 1);
-      window.__calendarViewYear = viewDate.getFullYear();
-      window.__calendarViewMonth = viewDate.getMonth();
-      renderCalendar(container);
+
+    document.getElementById("calendar-add-appt-btn")?.addEventListener("click", () => {
+      if (typeof window.showAppointmentForm === "function") {
+        window.showAppointmentForm();
+      }
     });
-    document.getElementById("calendar-next-month")?.addEventListener("click", () => {
-      const viewDate = new Date(window.__calendarViewYear, window.__calendarViewMonth + 1, 1);
-      window.__calendarViewYear = viewDate.getFullYear();
-      window.__calendarViewMonth = viewDate.getMonth();
-      renderCalendar(container);
-    });
-    document.getElementById("calendar-month-select")?.addEventListener("change", (event) => {
-      window.__calendarViewMonth = Number(event.target.value);
-      renderCalendar(container);
-    });
-    document.getElementById("calendar-year-select")?.addEventListener("change", (event) => {
-      window.__calendarViewYear = Number(event.target.value);
-      renderCalendar(container);
-    });
+
+    // Appointment Details Modal
     const openCalendarAppointmentDetails = (appointmentId) => {
       const appointment = appointments.find(
         (row) => String(row._id) === String(appointmentId),
       );
       if (!appointment) return;
       const patientId = String(
-        appointment.patient?._id || appointment.patient || "",
+        appointment.patient?._id || appointment.patient || (typeof appointment.patientId === "object" ? appointment.patientId?._id : "") || "",
       );
-      const patient = patientById.get(patientId) || {};
+      const patient = patientById.get(patientId) || (typeof appointment.patientId === "object" ? appointment.patientId : {}) || {};
       const doctorName = resolveAppointmentDoctorName(appointment, doctorLookup);
       const patientName =
         (typeof appointment.patientId === "object"
-          ? formatPatientFullNameOnly(appointment.patientId) ||
-          appointment.patientId?.name
+          ? formatPatientFullNameOnly(appointment.patientId) || appointment.patientId?.name
           : "") ||
         formatPatientFullNameOnly(patient) ||
-        patientLookup.get(String(appointment.patient?._id || appointment.patient)) ||
+        patientLookup.get(patientId) ||
         "Unknown Patient";
+
+      const formattedTime = (formatTimeLabel || formatTimeLabelInternal)(appointment.time || "");
+      const formattedDate = (formatDateDisplay || formatDateDisplayInternal)(appointment.date) || appointment.date;
+      const statusClass = String(appointment.status || "pending").toLowerCase();
+      const statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
+
       const overlay = document.createElement("div");
       overlay.className = "modal-overlay";
       overlay.innerHTML = `
-        <div class="card modal-card-with-close calendar-detail-modal">
+        <div class="card modal-card-with-close calendar-detail-modal" style="border-top: 4px solid ${statusClass === "confirmed" ? "#2563eb" : statusClass === "completed" ? "#10b981" : statusClass === "cancelled" ? "#ef4444" : "#f59e0b"};">
           <button type="button" class="modal-close-x" aria-label="Close">&times;</button>
-          <h3>Appointment Details</h3>
-          <p><strong>Patient:</strong> ${escapeHtml(patientName)}</p>
-          <p><strong>Doctor:</strong> ${escapeHtml(doctorName)}</p>
-          <p><strong>Date:</strong> ${escapeHtml(formatDateDisplay(appointment.date) || "—")}</p>
-          <p><strong>Time:</strong> ${escapeHtml(String(appointment.time || "—"))}</p>
-          <p><strong>Status:</strong> ${escapeHtml(String(appointment.status || "pending"))}</p>
-          <p><strong>Reason / notes:</strong> ${escapeHtml(String(appointment.reason || appointment.notes || "—"))}</p>
-          <hr class="section-divider" />
-          <h4>Patient chart</h4>
-          <p><strong>Title:</strong> ${escapeHtml(String(patient.title || "—"))}</p>
-          <p><strong>Email:</strong> ${escapeHtml(String(patient.email || "—"))}</p>
-          <p><strong>Phone:</strong> ${escapeHtml(String(patient.phone || "—"))}</p>
-          <p><strong>Birthdate:</strong> ${escapeHtml(formatDateDisplay(patient.birthdate) || "—")}</p>
-          <p><strong>Gender:</strong> ${escapeHtml(String(patient.gender || "—"))}</p>
-          <p><strong>Address:</strong> ${escapeHtml(formatPatientAddress(patient.address))}</p>
-          <p><strong>HMO:</strong> ${escapeHtml(String(patient.hmoProvider || "—"))}</p>
-          <p><strong>Notes:</strong> ${escapeHtml(String(patient.notes || "—"))}</p>
-          <div class="calendar-detail-modal-actions">
-            <button type="button" class="btn btn-secondary" data-calendar-detail-close>Close</button>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+            <div>
+              <h3 style="margin: 0 0 0.25rem;">Appointment Details</h3>
+              <p class="clinical-muted" style="margin: 0; font-size: 0.88rem;">Scheduled with Dr. ${escapeHtml(doctorName)}</p>
+            </div>
+            <span class="status-pill status-${escapeHtml(statusClass)}" style="font-size: 0.82rem;">${escapeHtml(statusLabel)}</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; background: #f8fafc; padding: 0.75rem; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div>
+              <p style="margin: 0; font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Date</p>
+              <p style="margin: 0.15rem 0 0; font-size: 0.95rem; font-weight: 600;">🗓️ ${escapeHtml(formattedDate)}</p>
+            </div>
+            <div>
+              <p style="margin: 0; font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Time</p>
+              <p style="margin: 0.15rem 0 0; font-size: 0.95rem; font-weight: 600;">⏰ ${escapeHtml(formattedTime)}</p>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 1rem;">
+            <p style="margin: 0; font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Reason / Clinical Notes</p>
+            <p style="margin: 0.25rem 0 0; font-size: 0.9rem; color: #334155; line-height: 1.4;">${escapeHtml(String(appointment.reason || appointment.notes || "No additional notes provided."))}</p>
+          </div>
+
+          <hr class="section-divider" style="margin: 1rem 0;" />
+          <h4 style="margin: 0 0 0.65rem; font-size: 0.95rem; color: #1e293b;">Patient Information</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem;">
+            <p style="margin: 0;"><strong>Name:</strong> ${escapeHtml(patientName)}</p>
+            <p style="margin: 0;"><strong>Phone:</strong> ${escapeHtml(String(patient.phone || "—"))}</p>
+            <p style="margin: 0;"><strong>Email:</strong> ${escapeHtml(String(patient.email || "—"))}</p>
+            <p style="margin: 0;"><strong>HMO:</strong> ${escapeHtml(String(patient.hmoProvider || "—"))}</p>
+            <p style="margin: 0;"><strong>Birthdate:</strong> ${escapeHtml((formatDateDisplay || formatDateDisplayInternal)(patient.birthdate) || "—")}</p>
+            <p style="margin: 0;"><strong>Gender:</strong> ${escapeHtml(String(patient.gender || "—"))}</p>
+          </div>
+
+          <div class="calendar-detail-modal-actions" style="margin-top: 1.5rem; display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" id="cal-modal-reschedule-btn">Reschedule</button>
+            ${statusClass !== "cancelled" ? '<button type="button" class="btn btn-action-delete btn-sm" id="cal-modal-cancel-btn">Cancel Appointment</button>' : ""}
+            <button type="button" class="btn btn-secondary btn-sm" data-calendar-detail-close>Close</button>
           </div>
         </div>
       `;
+
       const close = () => overlay.remove();
       overlay.querySelector(".modal-close-x")?.addEventListener("click", close);
       overlay.querySelector("[data-calendar-detail-close]")?.addEventListener("click", close);
       overlay.addEventListener("click", (event) => {
         if (event.target === overlay) close();
       });
+
+      overlay.querySelector("#cal-modal-reschedule-btn")?.addEventListener("click", () => {
+        close();
+        if (typeof window.editAppointment === "function") {
+          window.editAppointment(String(appointment._id));
+        }
+      });
+
+      overlay.querySelector("#cal-modal-cancel-btn")?.addEventListener("click", () => {
+        close();
+        if (typeof window.cancelAppointment === "function") {
+          window.cancelAppointment(String(appointment._id));
+        }
+      });
+
       document.body.appendChild(overlay);
     };
-    document.querySelector(".calendar-grid")?.addEventListener("click", (event) => {
+
+    // Click handler for appointment blocks
+    mainContent.addEventListener("click", (event) => {
       const apptBtn = event.target.closest("[data-calendar-appt-id]");
       if (apptBtn) {
-        openCalendarAppointmentDetails(apptBtn.getAttribute("data-calendar-appt-id"));
         event.stopPropagation();
+        openCalendarAppointmentDetails(apptBtn.getAttribute("data-calendar-appt-id"));
+        return;
       }
 
-      const dayCard = event.target.closest(".calendar-day:not(.calendar-day-empty)");
-      if (!dayCard) return;
-
-      document.querySelectorAll(".calendar-grid .calendar-day").forEach((card) => {
-        card.classList.remove("active-day");
-      });
-      dayCard.classList.add("active-day");
-
-      const selectedDate = dayCard.getAttribute("data-calendar-day-date");
-      const dayNum = dayCard.querySelector(".calendar-day-header")?.textContent || "";
-      const dayAppts = dayLookup[selectedDate] || [];
-
-      const detailsPanel = document.getElementById("calendar-day-details-panel");
-      const detailsTitle = document.getElementById("calendar-details-date-title");
-      const detailsList = document.getElementById("calendar-details-list");
-
-      if (detailsPanel && detailsTitle && detailsList) {
-        if (dayAppts.length === 0) {
-          detailsTitle.textContent = `Day ${dayNum} - Free`;
-          detailsList.innerHTML = `<p class="calendar-detail-empty-msg">No appointments scheduled for this day.</p>`;
-        } else {
-          detailsTitle.textContent = `Day ${dayNum} - Appointments (${dayAppts.length})`;
-          detailsList.innerHTML = dayAppts.map((appt) => {
-            const patientName =
-              (typeof appt.patientId === "object"
-                ? formatPatientFullNameOnly(appt.patientId) ||
-                appt.patientId?.name
-                : "") ||
-              formatPatientFullNameOnly(
-                patientById.get(
-                  String(appt.patient?._id || appt.patient),
-                ) || {},
-              ) ||
-              patientLookup.get(
-                String(appt.patient?._id || appt.patient),
-              ) ||
-              "Unknown Patient";
-            const doctorName = resolveAppointmentDoctorName(appt, doctorLookup);
-            const statusClass = String(appt.status || "pending").toLowerCase();
-            const statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
-            
-            return `
-              <div class="calendar-detail-item card" style="margin-bottom: 0.55rem; padding: 0.65rem;">
-                <div class="calendar-detail-item-meta" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                  <span class="calendar-detail-time" style="font-weight: 700;">${escapeHtml(appt.time || "Time n/a")}</span>
-                  <span class="status-pill status-${statusClass}">${escapeHtml(statusLabel)}</span>
-                </div>
-                <div class="calendar-detail-item-names" style="margin-bottom: 0.35rem;">
-                  <p style="margin: 0.15rem 0; font-size: 0.84rem;"><strong>Patient:</strong> ${escapeHtml(patientName)}</p>
-                  <p style="margin: 0.15rem 0; font-size: 0.84rem;"><strong>Doctor:</strong> ${escapeHtml(doctorName)}</p>
-                </div>
-                <button type="button" class="btn btn-secondary btn-sm" data-open-appt-id="${escapeHtml(String(appt._id))}">View Full Details</button>
-              </div>
-            `;
-          }).join("");
+      // If clicked on an empty day column in time grid, open new appointment form with pre-filled date
+      const dayCol = event.target.closest(".time-grid-day-column");
+      if (dayCol && !event.target.closest(".time-grid-appt-block")) {
+        const clickedDate = dayCol.getAttribute("data-calendar-day-date");
+        if (clickedDate && typeof window.showAppointmentForm === "function") {
+          window.showAppointmentForm();
+          setTimeout(() => {
+            const form = document.getElementById("appointment-form");
+            if (form && form.date) {
+              form.date.value = clickedDate;
+              form.date.dispatchEvent(new Event("change", { bubbles: true }));
+            }
+          }, 50);
         }
-        detailsPanel.style.display = "block";
       }
     });
 
-    document.getElementById("calendar-day-details-panel")?.addEventListener("click", (event) => {
-      const btn = event.target.closest("[data-open-appt-id]");
-      if (!btn) return;
-      openCalendarAppointmentDetails(btn.getAttribute("data-open-appt-id"));
-    });
   } catch (error) {
-    mainContent.innerHTML = `<h2>Calendar</h2><div class="feedback error">${error.message}</div>`;
+    mainContent.innerHTML = `<h2 class="page-title page-title-appointments">Calendar</h2><div class="feedback error">${escapeHtml(error?.message || "Failed to load calendar")}</div>`;
   }
 }
 
