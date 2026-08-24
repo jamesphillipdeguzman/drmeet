@@ -246,6 +246,8 @@ export function createNavigation({
     const isNurse = userRole === "nurse";
     const isStaff = isDoctor || isNurse || isReceptionist || isHospitalAdmin || isSuperAdmin;
 
+    const isEnterpriseUser = isSuperAdmin || isHospitalAdmin || String(localStorage.getItem("subscription_plan") || "").toLowerCase() === "enterprise" || String(localStorage.getItem("drmeet_user_plan") || "").toLowerCase() === "enterprise" || localStorage.getItem("drmeet_enterprise_mode") === "true" || Boolean(localStorage.getItem("user_org_id") || localStorage.getItem("org_role"));
+
     let pages = [];
     if (isSuperAdmin) {
       pages = [
@@ -261,6 +263,7 @@ export function createNavigation({
         { hash: "#appointments", label: "Appointments" },
         { hash: "#calendar", label: "Calendar" },
         { hash: "#users", label: "Users" },
+        { hash: "#enterprise", label: "Enterprise" },
         { hash: "#settings", label: "Settings" },
       ];
     } else if (isDoctor) {
@@ -268,6 +271,7 @@ export function createNavigation({
         { hash: "#home", label: "Home" },
         { hash: "#doctor-dashboard", label: "Clinical" },
         { hash: "#users", label: "Users" },
+        ...(isEnterpriseUser ? [{ hash: "#enterprise", label: "Enterprise" }] : []),
         { hash: "#pricing", label: "Pricing" },
       ];
     } else if (isPatient) {
@@ -284,6 +288,7 @@ export function createNavigation({
         { hash: "#appointments", label: "Appointments" },
         { hash: "#calendar", label: "Calendar" },
         { hash: "#users", label: "Users" },
+        ...(isEnterpriseUser ? [{ hash: "#enterprise", label: "Enterprise" }] : []),
       ];
     } else {
       pages = [
@@ -292,6 +297,10 @@ export function createNavigation({
         { hash: "#patients", label: "Patients" },
         { hash: "#appointments", label: "Appointments" },
       ];
+    }
+
+    if (route === "#enterprise" && !pages.some((p) => p.hash === "#enterprise")) {
+      pages.push({ hash: "#enterprise", label: "Enterprise" });
     }
 
     // Role-based Sidebar Link Visibility Control
@@ -322,6 +331,11 @@ export function createNavigation({
       } else {
         el.style.display = (isSuperAdmin || isHospitalAdmin || isDoctor || isReceptionist) ? "" : "none";
       }
+    });
+
+    document.querySelectorAll('.nav-li-enterprise-only, a[href="#enterprise"]').forEach((el) => {
+      const parentLi = el.closest("li") || el;
+      parentLi.style.display = isEnterpriseUser ? "" : "none";
     });
 
     document.querySelectorAll('a[href="#pricing"]').forEach((el) => {
@@ -428,13 +442,13 @@ export function createNavigation({
         return;
       }
     } else if (role === "doctor") {
-      const allowed = new Set(["#home", "#doctor-dashboard", "#users", "#patients", "#appointments", "#calendar", "#book", "#pricing", "#settings", "#privacy", "#login", "#signup"]);
+      const allowed = new Set(["#home", "#doctor-dashboard", "#users", "#enterprise", "#patients", "#appointments", "#calendar", "#book", "#pricing", "#settings", "#privacy", "#login", "#signup"]);
       if (!allowed.has(route)) {
         window.location.hash = "#doctor-dashboard";
         return;
       }
     } else if (role === "receptionist" || role === "nurse") {
-      const allowed = new Set(["#home", "#doctor-dashboard", "#users", "#patients", "#appointments", "#calendar", "#book", "#pricing", "#settings", "#privacy", "#login", "#signup"]);
+      const allowed = new Set(["#home", "#doctor-dashboard", "#users", "#enterprise", "#patients", "#appointments", "#calendar", "#book", "#pricing", "#settings", "#privacy", "#login", "#signup"]);
       if (!allowed.has(route)) {
         window.location.hash = "#home";
         return;
