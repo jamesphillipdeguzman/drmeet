@@ -735,6 +735,8 @@ window.addEventListener("DOMContentLoaded", () => {
     formatDateDisplay,
     formatDateForInput,
     normalizeTimeText,
+    isPastSlot,
+    formatTimeLabel,
     build30MinTimeOptions,
     buildBookingTimeGridHtml,
     buildDoctorAvailabilityLabel,

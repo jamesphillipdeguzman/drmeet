@@ -18,6 +18,8 @@ let formatPatientAddress = null;
 let formatDateDisplay = null;
 let formatDateForInput = null;
 let normalizeTimeText = null;
+let isPastSlot = null;
+let formatTimeLabel = null;
 let build30MinTimeOptions = null;
 let buildBookingTimeGridHtml = null;
 let showDangerConfirm = null;
@@ -26,6 +28,151 @@ let showToast = null;
 let escapeHtml = null;
 let setPageTone = null;
 let API_BASE = null;
+
+function normalizeTimeTextInternal(val) {
+  if (!val) return "";
+  const str = String(val).trim();
+  const match = str.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return str;
+  const hh = String(match[1]).padStart(2, "0");
+  const mm = String(match[2]).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function isSameDayInternal(d1, d2) {
+  if (!d1 || !d2) return false;
+  const date1 = new Date(d1);
+  const date2 = new Date(d2);
+  if (Number.isNaN(date1.getTime()) || Number.isNaN(date2.getTime())) return false;
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
+}
+
+function parseTimeToMinutesInternal(timeText) {
+  const match = String(timeText || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return null;
+  const hh = Number(match[1]);
+  const mm = Number(match[2]);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  return hh * 60 + mm;
+}
+
+function isPastSlotInternal(dateVal, timeText, bufferMinutes = 0) {
+  if (!dateVal || !timeText) return false;
+  const d = new Date(dateVal);
+  if (Number.isNaN(d.getTime())) return false;
+
+  const now = new Date();
+  if (isSameDayInternal(d, now)) {
+    const slotMins = parseTimeToMinutesInternal(timeText);
+    if (slotMins === null) return false;
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+    return slotMins < (currentMins + bufferMinutes);
+  }
+
+  const dMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return dMidnight < nowMidnight;
+}
+
+function formatTimeLabelInternal(time24) {
+  const m = String(time24 || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return time24;
+  let h = Number(m[1]);
+  const min = m[2];
+  const period = h >= 12 ? "PM" : "AM";
+  if (h === 0) h = 12;
+  else if (h > 12) h -= 12;
+  return `${String(h).padStart(2, "0")}:${min} ${period}`;
+}
+
+function build30MinTimeOptionsInternal(selectedTime = "", suggestedTimes = [], conflictingTimes = [], isOffDay = false, operatingSlots = []) {
+  if (isOffDay) {
+    return `<option value="">No available time slots on this date</option>`;
+  }
+
+  const normTime = normalizeTimeText || normalizeTimeTextInternal;
+  const fmtTime = formatTimeLabel || formatTimeLabelInternal;
+
+  let slots = [];
+  if (Array.isArray(operatingSlots) && operatingSlots.length > 0) {
+    slots = [...operatingSlots];
+  } else if (Array.isArray(suggestedTimes) && suggestedTimes.length > 0) {
+    const combined = new Set([
+      ...suggestedTimes.map((t) => normTime(t)),
+      ...conflictingTimes.map((t) => normTime(t)),
+    ]);
+    if (selectedTime) combined.add(normTime(selectedTime));
+    slots = [...combined].filter(Boolean).sort((a, b) => a.localeCompare(b));
+  } else {
+    slots = [];
+    for (let h = 8; h <= 17; h++) {
+      slots.push(`${String(h).padStart(2, "0")}:00`);
+      if (h < 17) slots.push(`${String(h).padStart(2, "0")}:30`);
+    }
+  }
+
+  const conflicts = new Set((conflictingTimes || []).map((t) => normTime(t)));
+  const normSelected = normTime(selectedTime);
+
+  if (normSelected && !slots.includes(normSelected) && !isOffDay) {
+    slots.push(normSelected);
+    slots.sort((a, b) => a.localeCompare(b));
+  }
+
+  let optionsHtml = `<option value="">Select time slot (30-min)</option>`;
+  for (const t of slots) {
+    const norm = normTime(t);
+    if (!norm) continue;
+    const label = fmtTime(norm);
+    const isConflict = conflicts.has(norm);
+    const isSel = norm === normSelected ? "selected" : "";
+    const disabledAttr = isConflict ? "disabled" : "";
+    const conflictTag = isConflict ? " (Already Booked)" : "";
+
+    optionsHtml += `<option value="${norm}" ${isSel} ${disabledAttr}>${label}${conflictTag}</option>`;
+  }
+
+  return optionsHtml;
+}
+
+function buildBookingTimeGridHtmlInternal({
+  suggestedAvailableTimes = [],
+  conflictingTimes = [],
+  selectedTime = "",
+  selectedDate = "",
+}) {
+  const normTime = normalizeTimeText || normalizeTimeTextInternal;
+  const checkPast = isPastSlot || isPastSlotInternal;
+  const selected = normTime(selectedTime);
+  const taken = new Set(
+    (Array.isArray(conflictingTimes) ? conflictingTimes : [])
+      .map((t) => normTime(t))
+      .filter(Boolean),
+  );
+  const available = new Set(
+    (Array.isArray(suggestedAvailableTimes) ? suggestedAvailableTimes : [])
+      .map((t) => normTime(t))
+      .filter(Boolean),
+  );
+  const merged = new Set([...available, ...taken]);
+  if (!merged.size) return "";
+  const times = [...merged].sort((a, b) => a.localeCompare(b));
+  return `<div class="booking-time-grid">
+    ${times
+      .map((timeVal) => {
+        const isPast = checkPast(selectedDate, timeVal, 0);
+        const isTaken = taken.has(timeVal) || isPast;
+        const isSelected = !isTaken && selected === timeVal;
+        const extraLabel = isPast ? " (Past)" : isTaken ? " (Taken)" : "";
+        return `<button type="button" class="btn btn-sm booking-time-chip ${isTaken ? "is-taken" : "is-available"} ${isSelected ? "is-selected" : ""}" data-smart-time="${escapeHtml ? escapeHtml(timeVal) : timeVal}" ${isTaken ? "disabled" : ""}>${escapeHtml ? escapeHtml(timeVal) : timeVal}${extraLabel}</button>`;
+      })
+      .join("")}
+  </div>`;
+}
 
 export function initAppointmentsModule(config = {}) {
   apiRequest = config.apiRequest || null;
@@ -38,9 +185,11 @@ export function initAppointmentsModule(config = {}) {
   formatPatientAddress = config.formatPatientAddress || null;
   formatDateDisplay = config.formatDateDisplay || null;
   formatDateForInput = config.formatDateForInput || null;
-  normalizeTimeText = config.normalizeTimeText || null;
-  build30MinTimeOptions = config.build30MinTimeOptions || null;
-  buildBookingTimeGridHtml = config.buildBookingTimeGridHtml || null;
+  normalizeTimeText = config.normalizeTimeText || normalizeTimeTextInternal;
+  isPastSlot = config.isPastSlot || isPastSlotInternal;
+  formatTimeLabel = config.formatTimeLabel || formatTimeLabelInternal;
+  build30MinTimeOptions = config.build30MinTimeOptions || build30MinTimeOptionsInternal;
+  buildBookingTimeGridHtml = config.buildBookingTimeGridHtml || buildBookingTimeGridHtmlInternal;
   showDangerConfirm = config.showDangerConfirm || null;
   showCustomConfirm = config.showCustomConfirm || null;
   showToast = config.showToast || null;
@@ -556,11 +705,11 @@ export async function showAppointmentForm(editId = null) {
       <label>Date <input name="date" type="date" value="${originalDate}" required /></label>
       <label>Time
         <select name="time" id="appointment-form-time" required>
-          ${originalTime ? `<option value="${originalTime}" selected>${originalTime}</option>` : `<option value="">Select date & doctor first</option>`}
+          ${originalTime ? `<option value="${originalTime}" selected>${(formatTimeLabel || formatTimeLabelInternal)(originalTime)}</option>` : `<option value="">Select date & doctor first</option>`}
         </select>
       </label>
-      <div id="appointment-smart-hint" class="feedback" style="display:none"></div>
-      <div id="appointment-smart-times" class="calendar-detail-modal-actions"></div>
+      <div id="appointment-smart-hint" class="feedback booking-hint" style="display:none"></div>
+      <div id="appointment-smart-times" class="booking-time-grid-wrap"></div>
       <label>Status
         <select name="status">
           <option value="pending" ${originalStatus === "pending" ? "selected" : ""}>Pending</option>
