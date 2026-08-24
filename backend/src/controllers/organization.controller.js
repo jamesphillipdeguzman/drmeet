@@ -18,24 +18,67 @@ async function resolveOrganizationForUser(req) {
     org = await Organization.findById(user.organizationId);
   }
 
-  if (!org && user.id) {
-    org = await Organization.findOne({ adminUser: user.id });
+  let doctorDoc = null;
+  if (!org && (user.id || user._id || user.email)) {
+    doctorDoc = await Doctor.findOne({
+      $or: [
+        ...(user.id || user._id ? [{ userId: user.id || user._id }] : []),
+        ...(user.email ? [{ email: new RegExp(`^${user.email}$`, "i") }] : []),
+      ],
+    });
+
+    if (doctorDoc) {
+      if (doctorDoc.organizationId) {
+        org = await Organization.findById(doctorDoc.organizationId);
+      }
+      if (!org && doctorDoc.affiliatedClinics) {
+        const clinicName = doctorDoc.affiliatedClinics.split(/[,;\n]/)[0].trim();
+        if (clinicName) {
+          org = await Organization.findOne({
+            name: new RegExp(clinicName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
+          });
+          if (!org) {
+            org = await Organization.create({
+              name: clinicName,
+              slug: clinicName.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Math.random().toString(36).substring(2, 6),
+              tier: "enterprise",
+              maxDoctorSeats: 150,
+              maxRooms: 50,
+              adminUser: user.id || user._id || null,
+              departments: [
+                { name: doctorDoc.department || "General Medicine", headDoctor: doctorDoc._id },
+                { name: "Cardiology" },
+                { name: "Pediatrics" },
+                { name: "Dermatology" },
+                { name: "Orthopedics" },
+              ],
+            });
+          }
+          if (org && !doctorDoc.organizationId) {
+            doctorDoc.organizationId = org._id;
+            await doctorDoc.save();
+          }
+        }
+      }
+    }
+  }
+
+  if (!org && (user.id || user._id)) {
+    org = await Organization.findOne({ adminUser: user.id || user._id });
   }
 
   if (!org) {
-    // Check if any organization exists in DB
     org = await Organization.findOne();
   }
 
-  // Fallback default organization creation for initial enterprise setup / demo
   if (!org) {
     org = await Organization.create({
-      name: "St. Luke's Medical Center",
-      slug: "st-lukes-med",
+      name: "The Medical City",
+      slug: "the-medical-city",
       tier: "enterprise",
       maxDoctorSeats: 150,
       maxRooms: 50,
-      adminUser: user.id || null,
+      adminUser: user.id || user._id || null,
       departments: [
         { name: "Cardiology" },
         { name: "Pediatrics" },
@@ -44,6 +87,18 @@ async function resolveOrganizationForUser(req) {
         { name: "General Medicine" },
       ],
     });
+  }
+
+  // Ensure default consultation rooms exist for the org
+  const roomCount = await Room.countDocuments({ organizationId: org._id });
+  if (roomCount === 0) {
+    await Room.insertMany([
+      { organizationId: org._id, roomName: "Consultation Room 101", department: "General Medicine", dailyPatientCap: 30 },
+      { organizationId: org._id, roomName: "Consultation Room 102", department: "Cardiology", dailyPatientCap: 25 },
+      { organizationId: org._id, roomName: "Consultation Room 103", department: "Pediatrics", dailyPatientCap: 35 },
+      { organizationId: org._id, roomName: "Room 201", department: "Dermatology", dailyPatientCap: 20 },
+      { organizationId: org._id, roomName: "Room 202", department: "Orthopedics", dailyPatientCap: 25 },
+    ]);
   }
 
   return org;
@@ -55,7 +110,83 @@ async function resolveOrganizationForUser(req) {
  */
 export async function getAllOrganizations(req, res) {
   try {
-    const orgs = await Organization.find().sort({ createdAt: -1 });
+    let orgs = await Organization.find().sort({ createdAt: -1 });
+
+    const user = req.user || {};
+    let doctorDoc = null;
+    if (user.id || user._id || user.email) {
+      doctorDoc = await Doctor.findOne({
+        $or: [
+          ...(user.id || user._id ? [{ userId: user.id || user._id }] : []),
+          ...(user.email ? [{ email: new RegExp(`^${user.email}$`, "i") }] : []),
+        ],
+      });
+
+      if (doctorDoc && doctorDoc.affiliatedClinics) {
+        const clinicNames = doctorDoc.affiliatedClinics.split(/[,;\n]/).map((s) => s.trim()).filter(Boolean);
+        for (const cName of clinicNames) {
+          const exists = orgs.some((o) => o.name.toLowerCase() === cName.toLowerCase());
+          if (!exists) {
+            const newOrg = await Organization.create({
+              name: cName,
+              slug: cName.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Math.random().toString(36).substring(2, 6),
+              tier: "enterprise",
+              maxDoctorSeats: 150,
+              maxRooms: 50,
+              adminUser: user.id || user._id || null,
+              departments: [
+                { name: doctorDoc.department || "General Medicine", headDoctor: doctorDoc._id },
+                { name: "Cardiology" },
+                { name: "Pediatrics" },
+                { name: "Dermatology" },
+                { name: "Orthopedics" },
+              ],
+            });
+            await Room.insertMany([
+              { organizationId: newOrg._id, roomName: "Consultation Room 101", department: doctorDoc.department || "General Medicine", dailyPatientCap: 30 },
+              { organizationId: newOrg._id, roomName: "Consultation Room 102", department: "Cardiology", dailyPatientCap: 25 },
+              { organizationId: newOrg._id, roomName: "Room 201", department: "Pediatrics", dailyPatientCap: 35 },
+            ]);
+            if (!doctorDoc.organizationId) {
+              doctorDoc.organizationId = newOrg._id;
+              await doctorDoc.save();
+            }
+            orgs.unshift(newOrg);
+          } else {
+            const matched = orgs.find((o) => o.name.toLowerCase() === cName.toLowerCase());
+            if (matched && !doctorDoc.organizationId) {
+              doctorDoc.organizationId = matched._id;
+              await doctorDoc.save();
+            }
+          }
+        }
+      }
+    }
+
+    if (orgs.length === 0) {
+      const defaultOrg = await Organization.create({
+        name: "The Medical City",
+        slug: "the-medical-city",
+        tier: "enterprise",
+        maxDoctorSeats: 150,
+        maxRooms: 50,
+        adminUser: user.id || user._id || null,
+        departments: [
+          { name: "Cardiology" },
+          { name: "Pediatrics" },
+          { name: "Dermatology" },
+          { name: "Orthopedics" },
+          { name: "General Medicine" },
+        ],
+      });
+      await Room.insertMany([
+        { organizationId: defaultOrg._id, roomName: "Consultation Room 101", department: "General Medicine", dailyPatientCap: 30 },
+        { organizationId: defaultOrg._id, roomName: "Consultation Room 102", department: "Cardiology", dailyPatientCap: 25 },
+        { organizationId: defaultOrg._id, roomName: "Consultation Room 103", department: "Pediatrics", dailyPatientCap: 35 },
+      ]);
+      orgs.push(defaultOrg);
+    }
+
     return res.status(200).json(orgs);
   } catch (err) {
     return res.status(500).json({ error: err.message });
@@ -112,7 +243,13 @@ export async function getOrganizationTree(req, res) {
     }
 
     const rooms = await Room.find({ organizationId: org._id });
-    const doctors = await Doctor.find({ organizationId: org._id }).populate(
+    const escapedOrgName = org.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const doctors = await Doctor.find({
+      $or: [
+        { organizationId: org._id },
+        { affiliatedClinics: new RegExp(escapedOrgName, "i") },
+      ],
+    }).populate(
       "assignedRoom",
       "roomName department dailyPatientCap"
     );
