@@ -287,9 +287,9 @@ async function createOrGetConversation(patientId, doctorId) {
     );
 
     if (!res.ok) {
-        let errorText = await res.text();
-        console.error("CREATE CONV ERROR:", errorText);
-        throw new Error(errorText || "Failed to create conversation");
+        let errorMsg = await getApiErrorMessage(res, "Failed to create conversation");
+        console.error("CREATE CONV ERROR:", errorMsg);
+        throw new Error(errorMsg);
     }
 
     let data = await res.json();

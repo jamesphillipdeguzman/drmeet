@@ -57,7 +57,7 @@ export const ensurePatientDoctorConversationId = async (req, res) => {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const { patientId, doctorId } = req.body || {};
+    let { patientId, doctorId } = req.body || {};
 
     if (!patientId || !doctorId) {
       return res.status(400).json({
@@ -79,34 +79,51 @@ export const ensurePatientDoctorConversationId = async (req, res) => {
       });
     }
 
+    let doctorUserId = String(doctorId);
+    let patientUserId = String(patientId);
+
     if (role === "receptionist") {
-      const linkedDoctor = await Doctor.findById(req.user.linkedDoctorId).select("_id").lean();
-      if (!linkedDoctor || String(linkedDoctor._id) !== String(doctorId)) {
+      const linkedDoctor = await Doctor.findById(req.user.linkedDoctorId).select("_id userId").lean();
+      if (!linkedDoctor || (String(linkedDoctor._id) !== String(doctorId) && String(linkedDoctor.userId) !== String(doctorId))) {
         return res.status(403).json({ error: "Forbidden. Doctor ID mismatch." });
+      }
+      if (linkedDoctor.userId) {
+        doctorUserId = String(linkedDoctor.userId);
       }
     }
 
-    // ✅ If user is patient, enforce ownership rule
+    // If user is patient, enforce ownership rule
     if (role === "patient") {
       if (String(patientId) !== String(userId)) {
         return res.status(403).json({ error: "Forbidden." });
       }
+      const docProfile = await Doctor.findOne({
+        $or: [{ _id: doctorId }, { userId: doctorId }],
+      }).select("_id userId").lean();
+      if (docProfile?.userId) {
+        doctorUserId = String(docProfile.userId);
+      }
     }
 
     if (role === "doctor") {
-      if (String(doctorId) !== String(userId)) {
-        return res.status(403).json({ error: "Forbidden." });
+      const doctorProfile = await Doctor.findOne({
+        $or: [{ userId: userId }, { _id: doctorId }, { userId: doctorId }],
+      }).select("_id userId").lean();
+
+      if (!doctorProfile) {
+        return res.status(403).json({ error: "Forbidden. Doctor profile not found." });
       }
-      const doctorProfile = await Doctor.findOne({ userId }).select("_id").lean();
+      doctorUserId = String(doctorProfile.userId || userId);
+
       let patientProfile = await Patient.findOne({
         $or: [{ userId: patientId }, { _id: patientId }, { accountOwnerId: patientId }],
         ...patientActiveQuery,
       })
-        .select("_id userId careTeamDoctorIds")
+        .select("_id userId email firstName lastName careTeamDoctorIds")
         .lean();
 
-      if (!doctorProfile || !patientProfile) {
-        return res.status(403).json({ error: "Forbidden." });
+      if (!patientProfile) {
+        return res.status(404).json({ error: "Patient not found." });
       }
 
       const careIds = Array.isArray(patientProfile.careTeamDoctorIds)
@@ -118,21 +135,38 @@ export const ensurePatientDoctorConversationId = async (req, res) => {
         });
       }
 
-      if (patientProfile.userId) {
-        patientId = String(patientProfile.userId);
+      if (!patientProfile.userId) {
+        let u = null;
+        if (patientProfile.email) {
+          u = await User.findOne({ email: String(patientProfile.email).toLowerCase().trim() });
+        }
+        if (!u) {
+          const tempEmail = patientProfile.email || `patient_${patientProfile._id}@drmeet.internal`;
+          u = await User.create({
+            email: String(tempEmail).toLowerCase().trim(),
+            firstName: patientProfile.firstName || "Patient",
+            lastName: patientProfile.lastName || "",
+            role: "patient",
+            password: "NOPASSWORD_PATIENT_CHAT",
+          });
+        }
+        patientUserId = String(u._id);
+        await Patient.findByIdAndUpdate(patientProfile._id, { userId: u._id });
+      } else {
+        patientUserId = String(patientProfile.userId);
       }
     }
 
-    // 🛠 Admin can act freely (no ownership restriction)
     const conversation = await ensurePatientDoctorConversation({
-      patientId,
-      doctorId,
+      patientId: patientUserId,
+      doctorId: doctorUserId,
     });
 
     return res.status(200).json({
       conversationId: conversation._id,
     });
   } catch (error) {
+    console.error("[ensurePatientDoctorConversationId error]", error);
     return res.status(error.statusCode || 500).json({
       error: error.message || "Failed to ensure conversation",
     });
