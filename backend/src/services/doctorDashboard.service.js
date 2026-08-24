@@ -115,6 +115,10 @@ export async function aggregatePatientDocumentsForDoctor(doctorId) {
   const ids = await collectAssignedPatientIds(doctorId);
   if (!ids.length) return [];
 
+  const doctorDoc = await Doctor.findById(doctorId).select("userId").lean();
+  const doctorUserId = doctorDoc?.userId ? String(doctorDoc.userId) : "";
+  const doctorIdStr = String(doctorId);
+
   const patients = await findPatientsByIds(ids);
   const items = [];
 
@@ -124,6 +128,22 @@ export async function aggregatePatientDocumentsForDoctor(doctorId) {
     const patientName = `${plain.firstName || ""} ${plain.lastName || ""}`.trim();
     const docs = Array.isArray(plain.documents) ? plain.documents : [];
     for (const d of docs) {
+      const dDocId = d.doctorId ? String(d.doctorId) : "";
+      const dRecId = d.receiverId ? String(d.receiverId) : "";
+      const dUpId = d.uploaderId ? String(d.uploaderId) : "";
+
+      // Strict doctor-patient relationship scoping:
+      // Document must be targeted to this doctor (by doctorId or receiverId) or uploaded by this doctor (uploaderId)
+      const isTargetedToThisDoctor =
+        (dDocId && (dDocId === doctorIdStr || (doctorUserId && dDocId === doctorUserId))) ||
+        (dRecId && ((doctorUserId && dRecId === doctorUserId) || dRecId === doctorIdStr)) ||
+        (dUpId && ((doctorUserId && dUpId === doctorUserId) || dUpId === doctorIdStr));
+
+      // Hide documents intended for other doctors
+      if (!isTargetedToThisDoctor) {
+        continue;
+      }
+
       items.push({
         source: "patient",
         patientId: pid,
@@ -135,6 +155,7 @@ export async function aggregatePatientDocumentsForDoctor(doctorId) {
         uploaderId: d.uploaderId || null,
         uploaderRole: d.uploaderRole || "",
         receiverId: d.receiverId || null,
+        doctorId: d.doctorId || null,
         docType: "patient",
       });
     }

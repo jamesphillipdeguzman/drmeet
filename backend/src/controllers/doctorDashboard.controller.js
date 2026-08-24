@@ -427,6 +427,7 @@ export const postDoctorDashboardDocument = async (req, res) => {
         fileUrl: secureUrl,
         uploadedAt: new Date(),
         uploaderRole: String(req.user?.role || "").toLowerCase(),
+        doctorId: new mongoose.Types.ObjectId(String(ctx.doctor._id)),
       };
       if (uid && mongoose.Types.ObjectId.isValid(uid)) {
         docEntry.uploaderId = new mongoose.Types.ObjectId(uid);
