@@ -175,8 +175,9 @@ function updateSidebarAccountInfoAndPlan() {
   updateSidebarAccountInfo();
   if (isLoggedIn()) {
     const role = getCurrentUserRole();
-    if (role === "doctor" || role === "receptionist") {
-      const plan = localStorage.getItem("subscription_plan") || "starter";
+    if (role === "doctor" || role === "receptionist" || role === "hospital_admin" || role === "super_admin") {
+      const isEnt = typeof isEnterpriseTierUser === "function" ? isEnterpriseTierUser() : (localStorage.getItem("subscription_plan") === "enterprise" || localStorage.getItem("drmeet_enterprise_mode") === "true");
+      const plan = isEnt ? "enterprise" : (localStorage.getItem("subscription_plan") || "starter");
       const planName = plan === "pro" ? "Clinic Pro" : plan === "enterprise" ? "Enterprise" : "Starter (Free)";
       const accountMetaEl = document.getElementById("sidebar-account-meta");
       if (accountMetaEl) {
@@ -841,6 +842,11 @@ function updateAuthNav() {
       const staffNavRoles = new Set(["doctor", "receptionist", "admin", "hospital_admin", "super_admin"]);
       li.style.display = signedIn && staffNavRoles.has(String(role || "")) ? "" : "none";
     }
+  });
+  const isEnterpriseUser = role === "super_admin" || role === "hospital_admin" || String(localStorage.getItem("subscription_plan") || "").toLowerCase() === "enterprise" || String(localStorage.getItem("drmeet_user_plan") || "").toLowerCase() === "enterprise" || localStorage.getItem("drmeet_enterprise_mode") === "true" || Boolean(localStorage.getItem("user_org_id") || localStorage.getItem("org_role"));
+  document.querySelectorAll(".nav-li-enterprise-only, a[href='#enterprise']").forEach((el) => {
+    const parentLi = el.closest("li") || el;
+    parentLi.style.display = signedIn && isEnterpriseUser ? "" : "none";
   });
   if (signedIn) {
     mountFloatingChatWidget();

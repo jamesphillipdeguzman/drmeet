@@ -4924,6 +4924,14 @@ body.theme-dark .modal-close-x:hover {
   line-height: 1.2;
 }
 
+.sidebar-badges-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+
 .sidebar-role-badge {
   display: inline-block;
   font-size: 0.72rem;
@@ -4932,8 +4940,13 @@ body.theme-dark .modal-close-x:hover {
   background: #dbeafe !important;
   padding: 2px 7px;
   border-radius: 6px;
-  margin-top: 3px;
   line-height: 1.2;
+}
+
+.sidebar-enterprise-badge {
+  color: #065f46 !important;
+  background: #d1fae5 !important;
+  border: 1px solid #a7f3d0 !important;
 }
 
 body.theme-dark .sidebar-avatar-btn {

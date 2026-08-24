@@ -263,12 +263,25 @@ export function getSidebarRoleLabel(role) {
   }
 }
 
+export function isEnterpriseTierUser() {
+  const signedIn = isLoggedIn();
+  if (!signedIn) return false;
+  const role = String(getCurrentUserRole() || "").toLowerCase();
+  if (role === "super_admin" || role === "hospital_admin" || role === "superadmin") return true;
+  const plan = String(localStorage.getItem("subscription_plan") || localStorage.getItem("drmeet_user_plan") || "").toLowerCase();
+  if (plan === "enterprise") return true;
+  if (localStorage.getItem("drmeet_enterprise_mode") === "true") return true;
+  if (localStorage.getItem("user_org_id") || localStorage.getItem("org_role")) return true;
+  return false;
+}
+
 export function updateSidebarAccountInfo() {
   const signedIn = isLoggedIn();
   const role = getCurrentUserRole();
   const fullName = getCurrentUserName();
   const roleLabel = getSidebarRoleLabel(role);
   const initial = (fullName || role || "U").charAt(0).toUpperCase();
+  const isEnterprise = isEnterpriseTierUser();
 
   const avatarEl = document.querySelector(".sidebar-avatar-circle");
   if (avatarEl) {
@@ -287,7 +300,10 @@ export function updateSidebarAccountInfo() {
     if (signedIn) {
       avatarNameEl.innerHTML = `
         <span class="sidebar-user-name">${escapeHtml(fullName || "My Account")}</span>
-        <span class="sidebar-role-badge">${escapeHtml(roleLabel)}</span>
+        <div class="sidebar-badges-wrap">
+          <span class="sidebar-role-badge">${escapeHtml(roleLabel)}</span>
+          ${isEnterprise ? `<span class="sidebar-role-badge sidebar-enterprise-badge">Enterprise</span>` : ""}
+        </div>
       `;
     } else {
       avatarNameEl.textContent = "My Account";
@@ -297,7 +313,7 @@ export function updateSidebarAccountInfo() {
   const accountMetaEl = document.getElementById("sidebar-account-meta");
   if (accountMetaEl) {
     accountMetaEl.innerHTML = signedIn
-      ? `<strong>${escapeHtml(fullName || "User")}</strong><span class="role-label">${escapeHtml(roleLabel)}</span>`
+      ? `<strong>${escapeHtml(fullName || "User")}</strong><div class="sidebar-badges-wrap" style="margin-top:2px;"><span class="role-label">${escapeHtml(roleLabel)}</span>${isEnterprise ? `<span class="sidebar-role-badge sidebar-enterprise-badge" style="margin-left: 4px;">Enterprise</span>` : ""}</div>`
       : "Not signed in";
   }
 }
