@@ -1576,17 +1576,17 @@ export async function renderCalendar(container, options = {}) {
             <p class="clinical-muted" style="margin: 0; font-size: 0.88rem;">Scheduled with Dr. ${escapeHtml(doctorName)}</p>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.75rem; margin-bottom: 1rem; background: #f8fafc; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid #e2e8f0; align-items: center;">
+          <div class="calendar-detail-sched-card" style="display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.75rem; margin-bottom: 1rem; background: #ffffff !important; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid #cbd5e1 !important; align-items: center; color: #0f172a !important;">
             <div>
-              <p style="margin: 0; font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Date</p>
+              <p class="calendar-detail-card-label" style="margin: 0; font-size: 0.75rem; color: #475569 !important; font-weight: 700; text-transform: uppercase;">Date</p>
               <div style="margin: 0.2rem 0 0; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-                <span style="font-size: 0.95rem; font-weight: 600;">🗓️ ${escapeHtml(formattedDate)}</span>
+                <span style="font-size: 0.95rem; font-weight: 700; color: #0f172a !important;">🗓️ ${escapeHtml(formattedDate)}</span>
                 <span class="status-pill status-${escapeHtml(statusClass)}" style="font-size: 0.75rem; padding: 0.15rem 0.5rem;">${escapeHtml(statusLabel)}</span>
               </div>
             </div>
             <div>
-              <p style="margin: 0; font-size: 0.75rem; color: #64748b; font-weight: 700; text-transform: uppercase;">Time</p>
-              <p style="margin: 0.2rem 0 0; font-size: 0.95rem; font-weight: 600;">⏰ ${escapeHtml(formattedTime)}</p>
+              <p class="calendar-detail-card-label" style="margin: 0; font-size: 0.75rem; color: #475569 !important; font-weight: 700; text-transform: uppercase;">Time</p>
+              <p style="margin: 0.2rem 0 0; font-size: 0.95rem; font-weight: 700; color: #0f172a !important;">⏰ ${escapeHtml(formattedTime)}</p>
             </div>
           </div>
 
