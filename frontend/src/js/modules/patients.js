@@ -270,7 +270,7 @@ export async function renderPatients(targetContainer = null) {
         </label>
       </div>
       <table>
-        <thead><tr><th>Name</th><th>Profile Type</th><th>Email</th><th>Phone</th><th>Date of Birth</th><th>Added</th>${isClinicalStaff ? "<th>Records</th>" : ""}<th>Actions</th></tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Added</th>${isClinicalStaff ? "<th>Records</th>" : ""}<th>Actions</th></tr></thead>
         <tbody id="patients-table-body"></tbody>
       </table>
       <div id="patient-form-modal" class="patient-form-modal-host" style="display:none"></div>
@@ -388,29 +388,36 @@ export async function renderPatients(targetContainer = null) {
 
     const renderRows = (list) => {
       if (!list || !list.length) {
-        bodyEl.innerHTML = `<tr><td colspan="${isClinicalStaff ? 8 : 7}" class="feedback" style="text-align: center; padding: 1.5rem;">No patient records found.</td></tr>`;
+        bodyEl.innerHTML = `<tr><td colspan="${isClinicalStaff ? 6 : 5}" class="feedback" style="text-align: center; padding: 1.5rem;">No patient records found.</td></tr>`;
         return;
       }
       bodyEl.innerHTML = list
         .map(
-          (p) => `
+          (p) => {
+            const isPrimary = typeof p.isPrimaryProfile !== "undefined"
+              ? p.isPrimaryProfile
+              : (!p.relationshipToAccountHolder && (!p.accountOwnerId || String(p.userId || "") === String(p.accountOwnerId || "")));
+            const dob = formatDateForInput(p.birthdate);
+            return `
             <tr>
               <td>
-                <div class="patient-name-cell" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: nowrap; white-space: nowrap;">
+                <div class="patient-name-cell" style="display: flex; align-items: center; gap: 0.75rem;">
                   ${renderPatientAvatarHtml(p)}
-                  <span class="patient-name-text" style="font-weight: 600; white-space: nowrap;">${escapeHtml(formatPatientDisplayName(p))}</span>
+                  <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: nowrap; white-space: nowrap;">
+                      <span class="patient-name-text" style="font-weight: 600; white-space: nowrap;">${escapeHtml(formatPatientDisplayName(p))}</span>
+                      ${dob && dob !== "—" ? `<span class="patient-dob-text" style="font-size: 0.8rem; color: var(--text-muted, #64748b); font-weight: normal;">(${escapeHtml(dob)})</span>` : ""}
+                    </div>
+                    ${isPrimary
+                      ? `<span class="badge badge-success" style="font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; background: #dcfce7; color: #166534; font-weight: 600; width: fit-content; line-height: 1.2;">Account Owner</span>`
+                      : (p.relationshipToAccountHolder
+                        ? `<span class="badge" style="font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; background: #f1f5f9; color: #475569; font-weight: 500; width: fit-content; line-height: 1.2;">Family Member (${escapeHtml(p.relationshipToAccountHolder)})</span>`
+                        : "")}
+                  </div>
                 </div>
               </td>
-              <td>${(() => {
-              const isPrimary = typeof p.isPrimaryProfile !== "undefined"
-                ? p.isPrimaryProfile
-                : (!p.relationshipToAccountHolder && (!p.accountOwnerId || String(p.userId || "") === String(p.accountOwnerId || "")));
-              if (isPrimary) return "Account Owner";
-              return p.relationshipToAccountHolder ? `Family Member (${escapeHtml(p.relationshipToAccountHolder)})` : "Family Member";
-            })()}</td>
               <td>${p.email || ""}</td>
               <td>${p.phone || ""}</td>
-              <td>${formatDateForInput(p.birthdate)}</td>
               <td>${formatCreatedDateHelper(p.createdAt || p.added)}</td>
               ${isClinicalStaff ? `<td>${renderRecordsCell(p)}</td>` : ""}
               <td>
@@ -419,7 +426,8 @@ export async function renderPatients(targetContainer = null) {
                 ${isAdminUser ? `<button type="button" class="btn btn-action-delete" onclick="window.deletePatient('${p._id}')">Delete</button>` : ""}
               </td>
             </tr>
-          `,
+          `;
+          },
         )
         .join("");
 
@@ -718,7 +726,7 @@ export async function showPatientForm(editId = null, familyMode = false) {
         <input name="phone" inputmode="numeric" pattern="[0-9]{10,11}" maxlength="11" title="Use 10 or 11 digits" placeholder="e.g. 09171234567" />
         <small>Digits only, 10-11 numbers.</small>
       </label>
-      <label>Date of Birth <input name="birthdate" type="date" /></label>
+      <label>Date of Birth <span style="color: #ef4444; font-weight: bold;">*</span> <input name="birthdate" type="date" required /></label>
       <label>Gender
         <select name="gender">
           <option value="">Select gender</option>
@@ -986,6 +994,11 @@ export async function showPatientForm(editId = null, familyMode = false) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const patient = Object.fromEntries(new FormData(form));
+    if (!String(patient.birthdate || "").trim()) {
+      showToast("Date of birth is required.", "error");
+      form.birthdate?.focus();
+      return;
+    }
     patient.isInsured = Boolean(
       document.getElementById("patient-is-insured")?.checked,
     );
