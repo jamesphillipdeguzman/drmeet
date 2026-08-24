@@ -5,6 +5,8 @@
 
 import {
     API_ORIGIN,
+    API_BASE,
+    DEFAULT_AVATAR_URL,
     MESSAGES_API,
     DASHBOARD_STATE_KEY,
     DASH_TAG_FLOAT,
@@ -422,13 +424,26 @@ function isNearBottom(el, threshold = 100) {
     return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
 }
 
+let patientSearchDebounceTimer = null;
+let lastPatientSearchQuery = "";
+let cachedPatientSearchResults = [];
+let isSearchingPatients = false;
+
 export function renderMessengerConversationList(rootEl) {
     const ui = messengerUi(rootEl);
     if (!ui.list || !isLoggedIn()) return;
     const currentUserId = getCurrentUserId();
+    const currentUserRole = String(getCurrentUserRole() || "").toLowerCase();
     const needle = String(dashboardState.conversationSearchFilter || "")
         .trim()
         .toLowerCase();
+
+    // Adapt search placeholder for clinical staff
+    const searchInput = rootEl.querySelector("[data-messenger-search]");
+    if (searchInput && (currentUserRole === "doctor" || currentUserRole === "receptionist")) {
+        searchInput.placeholder = "Search conversations or patients…";
+    }
+
     const conversations = Array.isArray(dashboardState.conversations)
         ? dashboardState.conversations
         : [];
@@ -437,6 +452,7 @@ export function renderMessengerConversationList(rootEl) {
         const right = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
         return right - left;
     });
+
     const filtered = sorted.filter((conv) => {
         if (!needle) return true;
         const participants = Array.isArray(conv.participants)
@@ -451,11 +467,42 @@ export function renderMessengerConversationList(rootEl) {
         return name.includes(needle) || last.includes(needle);
     });
 
+    // Trigger debounced patient search for doctor accounts when search query is active
+    if ((currentUserRole === "doctor" || currentUserRole === "receptionist") && needle) {
+        if (needle !== lastPatientSearchQuery) {
+            clearTimeout(patientSearchDebounceTimer);
+            patientSearchDebounceTimer = setTimeout(async () => {
+                lastPatientSearchQuery = needle;
+                isSearchingPatients = true;
+                try {
+                    const res = await apiRequest(
+                        `${API_BASE}/doctors/me/patients?q=${encodeURIComponent(needle)}&limit=10`
+                    );
+                    if (res.ok) {
+                        const data = await res.json();
+                        cachedPatientSearchResults = Array.isArray(data.patients) ? data.patients : [];
+                    } else {
+                        cachedPatientSearchResults = [];
+                    }
+                } catch {
+                    cachedPatientSearchResults = [];
+                } finally {
+                    isSearchingPatients = false;
+                    renderMessengerConversationList(rootEl);
+                }
+            }, 160);
+        }
+    } else if (!needle) {
+        cachedPatientSearchResults = [];
+        lastPatientSearchQuery = "";
+    }
+
     // Simple escape shim inside if not imported 
     const esc = (str) => String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-    ui.list.innerHTML = filtered.length
-        ? filtered
+    let convHtml = "";
+    if (filtered.length) {
+        convHtml = filtered
             .map((conv) => {
                 const participants = Array.isArray(conv.participants)
                     ? conv.participants
@@ -480,8 +527,55 @@ export function renderMessengerConversationList(rootEl) {
               </div>
             </button>`;
             })
-            .join("")
-        : `<div class="feedback messenger-empty-inbox">No conversations match.</div>`;
+            .join("");
+    }
+
+    let patientHtml = "";
+    if ((currentUserRole === "doctor" || currentUserRole === "receptionist") && needle && cachedPatientSearchResults.length) {
+        const patientItems = cachedPatientSearchResults.map((p) => {
+            const pUserId = p.userId ? String(p.userId) : "";
+            const existingConv = pUserId
+                ? conversations.find((c) =>
+                    Array.isArray(c.participants) && c.participants.some((part) => String(part._id) === pUserId)
+                  )
+                : null;
+            const fullName = `${p.title ? `${p.title} ` : ""}${p.firstName || ""} ${p.lastName || ""}`.trim() || "Patient";
+            return {
+                patient: p,
+                displayName: fullName,
+                existingConvId: existingConv?._id || "",
+            };
+        });
+
+        patientHtml = `
+            <div class="messenger-search-section-header" style="padding: 0.6rem 0.75rem 0.25rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #64748b); display: flex; align-items: center; justify-content: space-between;">
+              <span>Patients (${patientItems.length})</span>
+              <span style="font-size: 0.7rem; font-weight: normal; text-transform: none; color: #3b82f6;">Start chat</span>
+            </div>
+            ${patientItems
+                .map(({ patient: p, displayName, existingConvId }) => `
+                    <button type="button" class="messenger-conv-row messenger-patient-row" data-start-patient-chat="${esc(p._id)}" data-patient-user-id="${esc(p.userId || "")}" data-existing-conv-id="${esc(existingConvId)}" data-patient-name="${esc(displayName)}">
+                      <img class="person-avatar" src="${esc(p.photoUrl || DEFAULT_AVATAR_URL)}" alt="" />
+                      <div class="messenger-conv-meta">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
+                          <span class="messenger-conv-name">${esc(displayName)}</span>
+                          <span class="badge" style="font-size: 0.68rem; padding: 2px 6px; background: #e0f2fe; color: #0284c7; border-radius: 4px; font-weight: 600;">${existingConvId ? "Open Chat" : "New Chat"}</span>
+                        </div>
+                        <span class="messenger-conv-preview" style="color: var(--text-muted, #64748b); font-size: 0.78rem;">${esc(p.email || p.phone || "Patient")}</span>
+                      </div>
+                    </button>
+                `)
+                .join("")}
+        `;
+    }
+
+    if (convHtml || patientHtml) {
+        ui.list.innerHTML = convHtml + patientHtml;
+    } else if (isSearchingPatients) {
+        ui.list.innerHTML = `<div class="feedback messenger-empty-inbox">Searching patients…</div>`;
+    } else {
+        ui.list.innerHTML = `<div class="feedback messenger-empty-inbox">No conversations or patients match.</div>`;
+    }
 
     ui.list.querySelectorAll("[data-select-conversation]").forEach((row) => {
         row.addEventListener("click", async () => {
@@ -491,6 +585,57 @@ export function renderMessengerConversationList(rootEl) {
             ui.layout?.classList.add("messenger-show-thread");
             await loadMessages(conversationId);
             notifyDashboardSubscribers();
+        });
+    });
+
+    ui.list.querySelectorAll("[data-start-patient-chat]").forEach((row) => {
+        row.addEventListener("click", async () => {
+            const patientId = row.getAttribute("data-start-patient-chat");
+            const existingConvId = row.getAttribute("data-existing-conv-id");
+            if (!patientId && !existingConvId) return;
+
+            if (existingConvId) {
+                dashboardState.activeConversationId = String(existingConvId);
+                ui.layout?.classList.add("messenger-show-thread");
+                await loadMessages(existingConvId);
+                notifyDashboardSubscribers();
+                return;
+            }
+
+            row.style.pointerEvents = "none";
+            row.style.opacity = "0.7";
+            const previewEl = row.querySelector(".messenger-conv-preview");
+            if (previewEl) previewEl.textContent = "Starting conversation…";
+
+            try {
+                const res = await apiRequest(`${API_BASE}/messages/conversations/ensure/patient-doctor`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        patientId,
+                        doctorId: currentUserId,
+                    }),
+                });
+
+                if (!res.ok) {
+                    throw new Error(await getApiErrorMessage(res, "Failed to start conversation."));
+                }
+
+                const data = await res.json();
+                const newConvId = String(data.conversationId || "");
+                if (newConvId) {
+                    await loadConversations();
+                    dashboardState.activeConversationId = newConvId;
+                    ui.layout?.classList.add("messenger-show-thread");
+                    await loadMessages(newConvId);
+                    notifyDashboardSubscribers();
+                }
+            } catch (err) {
+                showToast(err?.message || "Failed to start conversation.", "error");
+                row.style.pointerEvents = "auto";
+                row.style.opacity = "1";
+                if (previewEl) previewEl.textContent = "Error starting chat";
+            }
         });
     });
 }

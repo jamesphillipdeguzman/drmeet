@@ -48,7 +48,7 @@ export async function listPatientsForDoctorSearch(doctorId, { q = "", limit = 40
   if (!ids.length) return [];
 
   const mongoIds = ids.map((id) => new mongoose.Types.ObjectId(id));
-  const needle = String(q || "").trim().toLowerCase();
+  const needle = String(q || "").trim();
 
   const query = {
     _id: { $in: mongoIds },
@@ -57,11 +57,25 @@ export async function listPatientsForDoctorSearch(doctorId, { q = "", limit = 40
 
   if (needle) {
     const rx = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const terms = needle.split(/\s+/).filter(Boolean);
+    const andTerms = terms.map((t) => {
+      const trx = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      return {
+        $or: [
+          { firstName: trx },
+          { lastName: trx },
+          { email: trx },
+          { phone: trx },
+        ],
+      };
+    });
+
     query.$or = [
       { firstName: rx },
       { lastName: rx },
       { email: rx },
       { phone: rx },
+      ...(andTerms.length > 1 ? [{ $and: andTerms }] : []),
     ];
   }
 
