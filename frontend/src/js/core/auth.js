@@ -188,12 +188,19 @@ export function applyUserRecordToLocalCache(user) {
     const photo =
       String(user.photoUrl || user.avatarUrl || picture || prev.photoUrl || prev.avatarUrl || "").trim() ||
       "";
+    const userPlan = String(user.subscriptionPlan || user.subscriptionTier || user.tier || prev.subscriptionPlan || "starter").toLowerCase();
+    const isEnterprise = userPlan === "enterprise";
+
     const merged = {
       ...prev,
       _id: id,
       firstName: user.firstName ?? prev.firstName ?? "",
       lastName: user.lastName ?? prev.lastName ?? "",
       role: user.role ?? prev.role ?? "",
+      subscriptionPlan: userPlan,
+      tier: user.tier ?? prev.tier ?? "",
+      organizationId: user.organizationId ?? prev.organizationId ?? "",
+      orgRole: user.orgRole ?? prev.orgRole ?? "",
       linkedDoctorId: user.linkedDoctorId ?? prev.linkedDoctorId ?? "",
       receptionistType: user.receptionistType ?? prev.receptionistType ?? "",
       photoUrl: photo,
@@ -202,6 +209,23 @@ export function applyUserRecordToLocalCache(user) {
       cachedAt: Date.now(),
     };
     localStorage.setItem(USER_CACHE_KEY, JSON.stringify(merged));
+    localStorage.setItem("subscription_plan", userPlan);
+    if (isEnterprise) {
+      localStorage.setItem("drmeet_enterprise_mode", "true");
+    } else {
+      localStorage.removeItem("drmeet_enterprise_mode");
+      localStorage.removeItem("drmeet_active_org_id");
+    }
+    if (user.organizationId) {
+      localStorage.setItem("user_org_id", user.organizationId);
+    } else {
+      localStorage.removeItem("user_org_id");
+    }
+    if (user.orgRole) {
+      localStorage.setItem("org_role", user.orgRole);
+    } else {
+      localStorage.removeItem("org_role");
+    }
   } catch (error) {
     /* ignore */
   }
@@ -214,23 +238,9 @@ export async function refreshCurrentUserCacheFromApi() {
     const res = await apiRequest(`${API_BASE}/users/${id}`);
     if (!res.ok) return;
     const user = await res.json();
-    const picture = user?.picture || user?.avatarUrl || user?.photoUrl || "";
-    const photo = String(user?.photoUrl || user?.avatarUrl || picture || "").trim();
-    localStorage.setItem(
-      USER_CACHE_KEY,
-      JSON.stringify({
-        _id: user?._id || id,
-        firstName: user?.firstName || "",
-        lastName: user?.lastName || "",
-        role: user?.role || "",
-        linkedDoctorId: user?.linkedDoctorId || "",
-        receptionistType: user?.receptionistType || "",
-        photoUrl: photo,
-        avatarUrl: photo,
-        picture,
-        cachedAt: Date.now(),
-      }),
-    );
+    if (user) {
+      applyUserRecordToLocalCache(user);
+    }
   } catch (error) {
     // non-blocking
   }
@@ -268,10 +278,23 @@ export function isEnterpriseTierUser() {
   if (!signedIn) return false;
   const role = String(getCurrentUserRole() || "").toLowerCase();
   if (role === "super_admin" || role === "hospital_admin" || role === "superadmin") return true;
-  const plan = String(localStorage.getItem("subscription_plan") || localStorage.getItem("drmeet_user_plan") || "").toLowerCase();
+
+  let cachedUser = null;
+  try {
+    cachedUser = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
+  } catch (e) {
+    cachedUser = {};
+  }
+
+  const cachedPlan = String(cachedUser?.subscriptionPlan || cachedUser?.subscriptionTier || cachedUser?.tier || "").toLowerCase();
+  const localPlan = String(localStorage.getItem("subscription_plan") || localStorage.getItem("drmeet_user_plan") || "").toLowerCase();
+
+  const plan = cachedPlan || localPlan;
   if (plan === "enterprise") return true;
-  if (localStorage.getItem("drmeet_enterprise_mode") === "true") return true;
-  if (localStorage.getItem("user_org_id") || localStorage.getItem("org_role")) return true;
+
+  const orgRole = String(cachedUser?.orgRole || localStorage.getItem("org_role") || "").toLowerCase();
+  if (orgRole === "org_admin" || orgRole === "department_head") return true;
+
   return false;
 }
 
@@ -556,6 +579,12 @@ export function renderLogin() {
     window.logoutUser = () => {
       localStorage.removeItem("token");
       localStorage.removeItem(USER_CACHE_KEY);
+      localStorage.removeItem("subscription_plan");
+      localStorage.removeItem("drmeet_user_plan");
+      localStorage.removeItem("drmeet_enterprise_mode");
+      localStorage.removeItem("user_org_id");
+      localStorage.removeItem("org_role");
+      localStorage.removeItem("drmeet_active_org_id");
       resetMessagingSocket();
       updateAuthNav();
       window.location.hash = "#login";
@@ -635,6 +664,9 @@ export function renderLogin() {
         if (data.token) {
           resetMessagingSocket();
           localStorage.setItem("token", data.token);
+          if (data.user) {
+            applyUserRecordToLocalCache(data.user);
+          }
           if (
             String(data.user?.role || getCurrentUserRole() || "").toLowerCase() ===
             "patient"
