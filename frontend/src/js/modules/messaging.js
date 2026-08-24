@@ -275,7 +275,7 @@ export async function loadMessages(conversationId) {
 }
 
 async function createOrGetConversation(patientId, doctorId) {
-    const res = await apiRequest(
+    let res = await apiRequest(
         `${MESSAGES_API}/conversations/ensure/patient-doctor`,
         {
             method: "POST",
@@ -287,30 +287,30 @@ async function createOrGetConversation(patientId, doctorId) {
     );
 
     if (!res.ok) {
-        const errorText = await res.text();
+        let errorText = await res.text();
         console.error("CREATE CONV ERROR:", errorText);
         throw new Error(errorText || "Failed to create conversation");
     }
 
-    const data = await res.json();
+    let data = await res.json();
     return data.conversationId;
 }
 
 export async function startConversationWithRecipient(recipientUserId, shellRoot = null) {
-    const currentUserId = getCurrentUserId();
-    const role = getCurrentUserRole();
+    let currentUserId = getCurrentUserId();
+    let role = getCurrentUserRole();
     if (!currentUserId || !recipientUserId) return null;
 
-    const patientId = role === "patient" ? currentUserId : recipientUserId;
-    const doctorId = role === "patient" ? (await resolveDoctorIdForPatientMessaging()) : currentUserId;
+    let patientId = role === "patient" ? currentUserId : recipientUserId;
+    let doctorId = role === "patient" ? (await resolveDoctorIdForPatientMessaging()) : currentUserId;
 
     try {
-        const convId = await createOrGetConversation(patientId, doctorId);
+        let convId = await createOrGetConversation(patientId, doctorId);
         if (convId) {
             dashboardState.activeConversationId = String(convId);
             await loadConversations();
             await loadMessages(convId);
-            const root = shellRoot || document.getElementById("floating-messenger-root");
+            let root = shellRoot || document.getElementById("floating-messenger-root");
             if (root) {
                 renderMessengerConversationList(root);
                 renderMessengerThread(root);
@@ -327,8 +327,8 @@ export async function sendMessage(text, options = {}) {
     let conversationId =
         options.conversationId || dashboardState.activeConversationId;
 
-    const userId = getCurrentUserId();
-    const role = getCurrentUserRole();
+    let userId = getCurrentUserId();
+    let role = getCurrentUserRole();
 
     if (!userId) {
         throw new Error("You must be logged in to send a message.");
@@ -338,15 +338,15 @@ export async function sendMessage(text, options = {}) {
         if (role !== "patient" && !(options.patientId && options.doctorId)) {
             throw new Error("Select a conversation before sending a message.");
         }
-        const doctorId =
+        let doctorId =
             options.doctorId || (await resolveDoctorIdForPatientMessaging());
-        const patientId = options.patientId || userId;
+        let patientId = options.patientId || userId;
         if (!doctorId) {
             throw new Error(
                 "No assigned doctor found. Book an appointment first so messaging can be enabled."
             );
         }
-        const createdConversationId = await createOrGetConversation(
+        let createdConversationId = await createOrGetConversation(
             patientId,
             doctorId
         );
@@ -355,7 +355,7 @@ export async function sendMessage(text, options = {}) {
         dashboardState.activeConversationId = conversationId;
     }
 
-    const res = await apiRequest(`${MESSAGES_API}/send`, {
+    let res = await apiRequest(`${MESSAGES_API}/send`, {
         method: "POST",
         headers: buildHeaders({
             "Content-Type": "application/json",
@@ -373,7 +373,7 @@ export async function sendMessage(text, options = {}) {
         throw new Error(await getApiErrorMessage(res, "Unable to send message"));
     }
 
-    const data = await res.json();
+    let data = await res.json();
 
     dashboardState.activeConversationId = String(
         data?.conversationId || conversationId
@@ -383,12 +383,17 @@ export async function sendMessage(text, options = {}) {
         dashboardState.messages = [...dashboardState.messages, data.message];
     }
 
-    const idx = dashboardState.conversations.findIndex(
+    let idx = dashboardState.conversations.findIndex(
         (c) => String(c._id) === String(conversationId)
     );
 
     if (idx !== -1 && data?.conversation) {
         dashboardState.conversations[idx] = data.conversation;
+    } else if (data?.conversation) {
+        dashboardState.conversations = [
+            data.conversation,
+            ...dashboardState.conversations,
+        ];
     }
 
     persistDashboardState();
