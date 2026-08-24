@@ -86,7 +86,7 @@ function doesDayMatch(ruleDayText, targetDayIndex) {
         return targetDayIndex === 0 || targetDayIndex === 6;
     }
 
-    const subRules = raw.split(/[,&/]+/).map((s) => s.trim()).filter(Boolean);
+    const subRules = raw.split(/[,&/|;]+/).map((s) => s.trim()).filter(Boolean);
     for (const sub of subRules) {
         const rangeParts = sub.split(/\s*(?:-|to)\s*/);
         if (rangeParts.length === 2) {
@@ -108,7 +108,7 @@ function doesDayMatch(ruleDayText, targetDayIndex) {
         const targetName = dayNames[targetDayIndex];
         const targetShort = targetName.substring(0, 3);
         const cleanSub = sub.replace(/[^a-z]/g, '');
-        if (cleanSub.includes(targetName) || cleanSub.includes(targetShort) || targetName.includes(cleanSub)) {
+        if (cleanSub === targetName || cleanSub === targetShort || cleanSub.startsWith(targetShort)) {
             return true;
         }
     }
@@ -168,13 +168,94 @@ function minutesToText(total) {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+function parseDoctorScheduleRules(doctor) {
+    if (!doctor) return [];
+    const rules = [];
+
+    const addRule = (dayText, timeText, startTime, endTime) => {
+        const cleanDay = String(dayText || '').trim();
+        const cleanTime = String(timeText || '').trim();
+        const cleanStart = String(startTime || '').trim();
+        const cleanEnd = String(endTime || '').trim();
+        if (!cleanDay && !cleanTime && !cleanStart && !cleanEnd) return;
+        rules.push({
+            dayText: cleanDay,
+            timeText: cleanTime,
+            startTime: cleanStart,
+            endTime: cleanEnd,
+        });
+    };
+
+    const parseRawBlock = (block) => {
+        if (!block) return;
+        const m = block.match(/^(.+?)\s+((?:\d{1,2}(?::\d{2})?:?\s*(?:a\.?m\.?|p\.?m\.?)?))\s*(?:-|:|to)\s*((?:\d{1,2}(?::\d{2})?:?\s*(?:a\.?m\.?|p\.?m\.?)?))$/i);
+        if (m) {
+            const lineDayText = m[1].replace(/[:,]+$/, '').trim();
+            addRule(lineDayText, '', m[2], m[3]);
+        } else {
+            const trMatch = block.match(/((?:\d{1,2})(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)\s*(?:-|:|to)\s*((?:\d{1,2})(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)/i);
+            if (trMatch) {
+                const dayPrefix = block.substring(0, trMatch.index).replace(/[:,]+$/, '').trim();
+                addRule(dayPrefix || block, '', trMatch[1], trMatch[2]);
+            } else {
+                addRule(block, '', '', '');
+            }
+        }
+    };
+
+    // 1. Text-based availability rules (e.g. "Tuesday - Thursday 8:00 - 11:00; Saturday 13:00 - 16:00")
+    const rawTexts = [
+        doctor.availabilityRules,
+        doctor.availabilityText,
+        typeof doctor.availability === 'string' ? doctor.availability : '',
+    ].filter(Boolean);
+
+    for (const raw of rawTexts) {
+        const blocks = parseAvailabilityLines(raw);
+        for (const block of blocks) {
+            parseRawBlock(block);
+        }
+    }
+
+    // 2. Structured array slots
+    const slots = Array.isArray(doctor.availability)
+        ? doctor.availability
+        : Array.isArray(doctor.schedule)
+            ? doctor.schedule
+            : [];
+
+    for (const slot of slots) {
+        if (!slot) continue;
+        if (typeof slot === 'string') {
+            const blocks = parseAvailabilityLines(slot);
+            for (const block of blocks) {
+                parseRawBlock(block);
+            }
+        } else if (typeof slot === 'object') {
+            const rawDay = String(slot.day || slot.dayOfWeek || slot.days || '').trim();
+            if (rawDay.includes(';') || rawDay.includes('|') || rawDay.includes('\n')) {
+                const blocks = parseAvailabilityLines(rawDay);
+                for (const block of blocks) {
+                    parseRawBlock(block);
+                }
+            } else if (slot.startTime && slot.endTime) {
+                addRule(rawDay, '', slot.startTime, slot.endTime);
+            } else if (slot.timeRange || slot.time) {
+                addRule(rawDay, slot.timeRange || slot.time, '', '');
+            } else if (rawDay) {
+                parseRawBlock(rawDay);
+            }
+        }
+    }
+
+    return rules;
+}
+
 function resolveDoctorDayWindows(doctor, dateStr) {
     if (!doctor) return { windows: [], isOffDay: false, hasRules: false };
-    const slots = Array.isArray(doctor.availability) ? doctor.availability : [];
-    let textRules = String(doctor.availabilityRules || doctor.availabilityText || '').trim();
 
-    const hasAnyRules = slots.length > 0 || Boolean(textRules);
-    if (!hasAnyRules) {
+    const rules = parseDoctorScheduleRules(doctor);
+    if (!rules.length) {
         return {
             windows: [{ startMins: 8 * 60, endMins: 12 * 60 }],
             isOffDay: false,
@@ -184,58 +265,32 @@ function resolveDoctorDayWindows(doctor, dateStr) {
 
     const targetDayIdx = getTargetDayIndex(dateStr);
     const matchedWindows = [];
+    const seenWindowKeys = new Set();
 
-    for (const slot of slots) {
-        if (!slot) continue;
-        const slotDay = String(slot.day || slot.dayOfWeek || slot.days || '');
-        if (targetDayIdx !== null && !doesDayMatch(slotDay, targetDayIdx)) {
+    for (const rule of rules) {
+        if (targetDayIdx !== null && !doesDayMatch(rule.dayText, targetDayIdx)) {
             continue;
         }
+
         let sMins = null;
         let eMins = null;
-        if (slot.startTime && slot.endTime) {
-            sMins = toMinutesWithContext(slot.startTime);
-            eMins = toMinutesWithContext(slot.endTime, sMins);
-        } else if (slot.timeRange || slot.time) {
-            const tr = String(slot.timeRange || slot.time || '');
-            const timeMatches = [...tr.matchAll(/((?:\d{1,2})(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)/gi)].map(m => m[1].trim()).filter(Boolean);
+
+        if (rule.startTime && rule.endTime) {
+            sMins = toMinutesWithContext(rule.startTime);
+            eMins = toMinutesWithContext(rule.endTime, sMins);
+        } else if (rule.timeText) {
+            const timeMatches = [...rule.timeText.matchAll(/((?:\d{1,2})(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)/gi)].map(m => m[1].trim()).filter(Boolean);
             if (timeMatches.length >= 2) {
                 sMins = toMinutesWithContext(timeMatches[0]);
                 eMins = toMinutesWithContext(timeMatches[1], sMins);
             }
         }
-        if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
-            matchedWindows.push({ startMins: sMins, endMins: eMins });
-        }
-    }
 
-    if (textRules) {
-        const blocks = parseAvailabilityLines(textRules);
-        for (const block of blocks) {
-            const m = block.match(/^(.+?)\s+((?:\d{1,2}(?::\d{2})?:?\s*(?:a\.?m\.?|p\.?m\.?)?))\s*(?:-|:|to)\s*((?:\d{1,2}(?::\d{2})?:?\s*(?:a\.?m\.?|p\.?m\.?)?))$/i);
-            if (m) {
-                const lineDayText = m[1].replace(/[:,]+$/, '').trim();
-                if (targetDayIdx !== null && !doesDayMatch(lineDayText, targetDayIdx)) {
-                    continue;
-                }
-                const sMins = toMinutesWithContext(m[2]);
-                const eMins = toMinutesWithContext(m[3], sMins);
-                if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
-                    matchedWindows.push({ startMins: sMins, endMins: eMins });
-                }
-            } else {
-                const trMatch = block.match(/((?:\d{1,2})(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)\s*(?:-|:|to)\s*((?:\d{1,2})(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)/i);
-                if (trMatch) {
-                    const dayPrefix = block.substring(0, trMatch.index).replace(/[:,]+$/, '').trim();
-                    if (targetDayIdx !== null && !doesDayMatch(dayPrefix || block, targetDayIdx)) {
-                        continue;
-                    }
-                    const sMins = toMinutesWithContext(trMatch[1]);
-                    const eMins = toMinutesWithContext(trMatch[2], sMins);
-                    if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
-                        matchedWindows.push({ startMins: sMins, endMins: eMins });
-                    }
-                }
+        if (typeof sMins === 'number' && typeof eMins === 'number' && eMins > sMins) {
+            const key = `${sMins}-${eMins}`;
+            if (!seenWindowKeys.has(key)) {
+                seenWindowKeys.add(key);
+                matchedWindows.push({ startMins: sMins, endMins: eMins });
             }
         }
     }

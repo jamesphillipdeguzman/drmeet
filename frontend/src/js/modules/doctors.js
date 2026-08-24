@@ -631,35 +631,36 @@ export async function showDoctorForm(editId = null) {
     ) {
       doctor.photoUrl = presetDoctorPhoto;
     }
-    const availability = (doctor.availabilityText || "")
-      .split("\n")
+    const rawAvailabilityLines = String(doctor.availabilityText || "")
+      .split(/(?:[|\n;]|\s*,\s*(?=(?:mon|tue|wed|thu|fri|sat|sun|daily|everyday|weekday|weekend)[a-z]*\b(?!\s*,)))/i)
       .map((row) => row.trim())
-      .filter(Boolean)
-      .map((row) => {
-        const match = row.match(
-          /^(.+?)\s+(\d{1,2}:\d{2}\s*-\s*\d{1,2}:\d{2})$/,
-        );
-        if (match) {
-          return {
-            day: match[1].trim(),
-            timeRange: match[2].replace(/\s+/g, ""),
-            startTime: match[2].split("-")[0].trim(),
-            endTime: match[2].split("-")[1].trim(),
-            location: {
-              clinicName: parseAffiliatedClinics(doctor.affiliatedClinics)[0] || "",
-            },
-          };
-        }
+      .filter(Boolean);
+
+    const availability = rawAvailabilityLines.map((row) => {
+      const match = row.match(
+        /^(.+?)\s+((?:\d{1,2}(?::\d{2})?:?\s*(?:a\.?m\.?|p\.?m\.?)?))\s*(?:-|:|to)\s*((?:\d{1,2}(?::\d{2})?:?\s*(?:a\.?m\.?|p\.?m\.?)?))$/i,
+      );
+      if (match) {
         return {
-          day: row,
-          timeRange: "",
-          startTime: "",
-          endTime: "",
+          day: match[1].replace(/[:,]+$/, "").trim(),
+          timeRange: `${match[2].trim()}-${match[3].trim()}`,
+          startTime: match[2].trim(),
+          endTime: match[3].trim(),
           location: {
             clinicName: parseAffiliatedClinics(doctor.affiliatedClinics)[0] || "",
           },
         };
-      });
+      }
+      return {
+        day: row,
+        timeRange: "",
+        startTime: "",
+        endTime: "",
+        location: {
+          clinicName: parseAffiliatedClinics(doctor.affiliatedClinics)[0] || "",
+        },
+      };
+    });
     const doctorPayload = {
       ...doctor,
       availabilityText: String(doctor.availabilityText || "").trim(),
