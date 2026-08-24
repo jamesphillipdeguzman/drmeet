@@ -81,6 +81,18 @@ const corsOptions = {
     'Authorization',
     'x-subscription-plan',
     'X-Subscription-Plan',
+    'x-enterprise-mode',
+    'X-Enterprise-Mode',
+    'x-requested-with',
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+  ],
+  exposedHeaders: [
+    'x-subscription-plan',
+    'X-Subscription-Plan',
+    'x-enterprise-mode',
+    'X-Enterprise-Mode',
   ],
 };
 
