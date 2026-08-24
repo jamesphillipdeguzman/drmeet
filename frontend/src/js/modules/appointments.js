@@ -1539,8 +1539,11 @@ export async function renderCalendar(container, options = {}) {
       }
     });
 
-    // Appointment Details Modal
+    // Appointment Details Modal (Single Instance Management)
     const openCalendarAppointmentDetails = (appointmentId) => {
+      // Remove any lingering overlays first
+      document.querySelectorAll(".calendar-detail-modal-overlay").forEach((el) => el.remove());
+
       const appointment = appointments.find(
         (row) => String(row._id) === String(appointmentId),
       );
@@ -1564,7 +1567,7 @@ export async function renderCalendar(container, options = {}) {
       const statusLabel = statusClass.charAt(0).toUpperCase() + statusClass.slice(1);
 
       const overlay = document.createElement("div");
-      overlay.className = "modal-overlay";
+      overlay.className = "modal-overlay calendar-detail-modal-overlay";
       overlay.innerHTML = `
         <div class="card modal-card-with-close calendar-detail-modal" style="border-top: 4px solid ${statusClass === "confirmed" ? "#2563eb" : statusClass === "completed" ? "#10b981" : statusClass === "cancelled" ? "#ef4444" : "#f59e0b"};">
           <button type="button" class="modal-close-x" aria-label="Close">&times;</button>
@@ -1611,7 +1614,16 @@ export async function renderCalendar(container, options = {}) {
         </div>
       `;
 
-      const close = () => overlay.remove();
+      const close = () => {
+        document.querySelectorAll(".calendar-detail-modal-overlay").forEach((el) => el.remove());
+        document.removeEventListener("keydown", onKeyDown);
+      };
+
+      const onKeyDown = (e) => {
+        if (e.key === "Escape") close();
+      };
+      document.addEventListener("keydown", onKeyDown);
+
       overlay.querySelector(".modal-close-x")?.addEventListener("click", close);
       overlay.querySelector("[data-calendar-detail-close]")?.addEventListener("click", close);
       overlay.addEventListener("click", (event) => {
@@ -1635,8 +1647,9 @@ export async function renderCalendar(container, options = {}) {
       document.body.appendChild(overlay);
     };
 
-    // Click handler for appointment blocks
-    mainContent.addEventListener("click", (event) => {
+    // Click handler scoped to newly rendered calendar section
+    const calSection = mainContent.querySelector(".calendar-section");
+    calSection?.addEventListener("click", (event) => {
       const apptBtn = event.target.closest("[data-calendar-appt-id]");
       if (apptBtn) {
         event.stopPropagation();
@@ -1646,7 +1659,7 @@ export async function renderCalendar(container, options = {}) {
 
       // If clicked on an empty day column in time grid, open new appointment form with pre-filled date
       const dayCol = event.target.closest(".time-grid-day-column");
-      if (dayCol && !event.target.closest(".time-grid-appt-block")) {
+      if (dayCol && !event.target.closest(".time-grid-appt-block") && !event.target.closest(".time-grid-break-block")) {
         const clickedDate = dayCol.getAttribute("data-calendar-day-date");
         if (clickedDate && typeof window.showAppointmentForm === "function") {
           window.showAppointmentForm();
