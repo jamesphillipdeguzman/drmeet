@@ -1233,7 +1233,6 @@ async function showClinicalTab(tab) {
       const payload = await res.json();
       const rawUpcoming = Array.isArray(payload.upcoming) ? payload.upcoming : [];
       const upcoming = rawUpcoming.filter((a) => String(a.status || "").toLowerCase() !== "cancelled");
-      const past = Array.isArray(payload.past) ? payload.past : [];
 
       const renderApptRow = (a) => {
         const pname =
@@ -1279,15 +1278,6 @@ async function showClinicalTab(tab) {
             <table class="clinical-table">
               <thead><tr><th>When</th><th>Time</th><th>Patient</th><th>Reason</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>${upcoming.length ? upcoming.map(renderApptRow).join("") : `<tr><td colspan="6" class="clinical-muted">No upcoming appointments.</td></tr>`}</tbody>
-            </table>
-          </div>
-        </section>
-        <section class="card clinical-appt-section">
-          <h4>Past</h4>
-          <div class="clinical-table-wrap">
-            <table class="clinical-table">
-              <thead><tr><th>When</th><th>Time</th><th>Patient</th><th>Reason</th><th>Status</th><th>Actions</th></tr></thead>
-              <tbody>${past.length ? past.map(renderApptRow).join("") : `<tr><td colspan="6" class="clinical-muted">No past appointments.</td></tr>`}</tbody>
             </table>
           </div>
         </section>
