@@ -77,14 +77,17 @@ function filterDocumentsForRequester(req, plain) {
   if (['hospital_admin', 'admin', 'super_admin', 'billing_specialist', 'receptionist'].includes(role)) {
     return []; // Block PHI documents from administrative / non-clinical staff
   }
+  if (role === 'patient') {
+    return raw.map(normalizePatientDocEntry);
+  }
   return raw
     .filter((d) => {
       const row = d.toObject ? d.toObject() : d;
       const up = row.uploaderId ? String(row.uploaderId) : '';
       const rec = row.receiverId ? String(row.receiverId) : '';
-      if (!up && !rec) return true;
+      const docId = row.doctorId ? String(row.doctorId) : '';
       if (!uid) return false;
-      return up === uid || rec === uid;
+      return up === uid || rec === uid || docId === uid;
     })
     .map(normalizePatientDocEntry);
 }
@@ -551,12 +554,31 @@ export const postPatient = async (req, res) => {
         docEntry.uploaderId = new mongoose.Types.ObjectId(uid);
       }
       if (role === 'patient' && uid) {
-        const recv = await primaryCareDoctorUserIdForPatient(patientData);
-        if (recv && mongoose.Types.ObjectId.isValid(recv)) {
-          docEntry.receiverId = new mongoose.Types.ObjectId(recv);
+        const careDocId = Array.isArray(patientData.careTeamDoctorIds) && patientData.careTeamDoctorIds[0]
+          ? String(patientData.careTeamDoctorIds[0])
+          : (patientData.doctorId ? String(patientData.doctorId) : '');
+        if (careDocId && mongoose.Types.ObjectId.isValid(careDocId)) {
+          docEntry.doctorId = new mongoose.Types.ObjectId(careDocId);
+          const d = await findDoctorById(careDocId);
+          if (d?.userId && mongoose.Types.ObjectId.isValid(String(d.userId))) {
+            docEntry.receiverId = new mongoose.Types.ObjectId(String(d.userId));
+          }
+        } else {
+          const recv = await primaryCareDoctorUserIdForPatient(patientData);
+          if (recv && mongoose.Types.ObjectId.isValid(recv)) {
+            docEntry.receiverId = new mongoose.Types.ObjectId(recv);
+          }
         }
-      } else if (['doctor', 'receptionist', 'admin'].includes(role) && patientData.userId) {
-        docEntry.receiverId = patientData.userId;
+      } else if (['doctor', 'receptionist', 'admin'].includes(role)) {
+        if (role === 'doctor' && uid) {
+          const docObj = await findDoctorByUserId(uid);
+          if (docObj?._id) {
+            docEntry.doctorId = docObj._id;
+          }
+        }
+        if (patientData.userId && mongoose.Types.ObjectId.isValid(String(patientData.userId))) {
+          docEntry.receiverId = new mongoose.Types.ObjectId(String(patientData.userId));
+        }
       }
       patientData.documents = [docEntry];
       console.log('[PATIENT][documents] POST create upload', {
@@ -692,12 +714,45 @@ export const updatePatient = async (req, res) => {
         docEntry.uploaderId = new mongoose.Types.ObjectId(uid);
       }
       if (role === 'patient' && uid) {
-        const recv = await doctorUserIdForPatientMessaging(existing);
+        let targetDoctorId = cleanedBody.doctorId || req.body.doctorId || null;
+        let recv = null;
+        if (targetDoctorId && mongoose.Types.ObjectId.isValid(targetDoctorId)) {
+          docEntry.doctorId = new mongoose.Types.ObjectId(targetDoctorId);
+          const targetDoc = await findDoctorById(targetDoctorId);
+          if (targetDoc?.userId) recv = String(targetDoc.userId);
+        } else {
+          const ids = Array.isArray(existing?.careTeamDoctorIds) ? existing.careTeamDoctorIds : [];
+          if (ids.length && mongoose.Types.ObjectId.isValid(String(ids[0]))) {
+            docEntry.doctorId = new mongoose.Types.ObjectId(String(ids[0]));
+            const targetDoc = await findDoctorById(ids[0]);
+            if (targetDoc?.userId) recv = String(targetDoc.userId);
+          } else {
+            const latestAppt = await Appointment.findOne({ patient: id })
+              .sort({ date: -1, createdAt: -1 })
+              .select('doctor')
+              .lean();
+            if (latestAppt?.doctor && mongoose.Types.ObjectId.isValid(String(latestAppt.doctor))) {
+              docEntry.doctorId = new mongoose.Types.ObjectId(String(latestAppt.doctor));
+              const targetDoc = await findDoctorById(String(latestAppt.doctor));
+              if (targetDoc?.userId) recv = String(targetDoc.userId);
+            } else {
+              recv = await doctorUserIdForPatientMessaging(existing);
+            }
+          }
+        }
         if (recv && mongoose.Types.ObjectId.isValid(recv)) {
           docEntry.receiverId = new mongoose.Types.ObjectId(recv);
         }
-      } else if (['doctor', 'receptionist', 'admin'].includes(role) && existing.userId) {
-        docEntry.receiverId = existing.userId;
+      } else if (['doctor', 'receptionist', 'admin'].includes(role)) {
+        if (role === 'doctor' && uid) {
+          const docObj = await findDoctorByUserId(uid);
+          if (docObj?._id) {
+            docEntry.doctorId = docObj._id;
+          }
+        }
+        if (existing.userId && mongoose.Types.ObjectId.isValid(String(existing.userId))) {
+          docEntry.receiverId = new mongoose.Types.ObjectId(String(existing.userId));
+        }
       }
       uploadedDocForNotify = docEntry;
       updates.documents = [...docs, docEntry];
