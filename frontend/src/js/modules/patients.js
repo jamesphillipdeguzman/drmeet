@@ -10,6 +10,7 @@ import {
 } from "../config/api.js";
 
 import {
+  attachClearButtons,
   escapeHtml,
   fileToDataUrl,
   showToast,
@@ -777,6 +778,7 @@ export async function showPatientForm(editId = null, familyMode = false) {
 
   const form = document.getElementById("patient-form");
   wireAvatarPresetGrid(form, form?.querySelector('[name="profilePhotoFile"]'));
+  attachClearButtons(form);
   const insuredCb = document.getElementById("patient-is-insured");
   const hmoWrap = document.getElementById("patient-hmo-wrap");
   const hmoSelect = document.getElementById("patient-hmo-select");

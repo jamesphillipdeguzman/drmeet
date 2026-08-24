@@ -159,21 +159,38 @@ export function attachClearButtons(scope = document) {
   fields.forEach((field) => {
     if (field.closest(".field-input-wrap")) return;
     const wrap = document.createElement("span");
-    wrap.className = "field-input-wrap";
+    const isSelect = field.tagName === "SELECT";
+    wrap.className = `field-input-wrap${isSelect ? " has-select" : ""}`;
     field.parentNode.insertBefore(wrap, field);
     wrap.appendChild(field);
+
+    const trailingWrap = document.createElement("span");
+    trailingWrap.className = "field-trailing-wrap";
+
     const clearBtn = document.createElement("button");
     clearBtn.type = "button";
     clearBtn.className = "field-clear-btn";
     clearBtn.setAttribute("aria-label", `Clear ${field.name || "field"}`);
     clearBtn.textContent = "×";
-    wrap.appendChild(clearBtn);
+    trailingWrap.appendChild(clearBtn);
+
+    if (isSelect) {
+      const chevron = document.createElement("span");
+      chevron.className = "field-select-chevron";
+      chevron.setAttribute("aria-hidden", "true");
+      chevron.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 4.5L6 8L9.5 4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      trailingWrap.appendChild(chevron);
+    }
+
+    wrap.appendChild(trailingWrap);
 
     const syncVisibility = () => {
       const hasValue = String(field.value || "").trim().length > 0;
       clearBtn.classList.toggle("visible", hasValue);
     };
-    clearBtn.addEventListener("click", () => {
+    clearBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
       if (field.tagName === "SELECT") {
         field.selectedIndex = 0;
       } else {

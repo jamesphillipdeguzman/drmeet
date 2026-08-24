@@ -848,27 +848,49 @@ textarea {
 }
 
 .field-input-wrap input,
-.field-input-wrap select,
 .field-input-wrap textarea {
-  padding-right: 2rem;
+  padding-right: 2.2rem;
+}
+
+.field-input-wrap select,
+.field-input-wrap.has-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 3.5rem;
+  cursor: pointer;
+}
+
+.field-trailing-wrap {
+  position: absolute;
+  right: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  pointer-events: none;
+  z-index: 2;
 }
 
 .field-clear-btn {
-  position: absolute;
-  right: 0.5rem;
-  top: 50%;
-  transform: translateY(-50%);
   border: none;
   border-radius: 999px;
-  width: 1.1rem;
-  height: 1.1rem;
+  width: 1.15rem;
+  height: 1.15rem;
   line-height: 1;
   padding: 0;
   background: rgba(83, 95, 130, 0.18);
   color: rgba(26, 37, 65, 0.55);
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0;
   pointer-events: none;
   box-shadow: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
 }
 
 .field-clear-btn.visible {
@@ -877,8 +899,24 @@ textarea {
 }
 
 .field-clear-btn:hover {
-  background: rgba(83, 95, 130, 0.25);
-  transform: translateY(-50%);
+  background: rgba(83, 95, 130, 0.3);
+  color: rgba(26, 37, 65, 0.85);
+}
+
+.field-select-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  color: #64748b;
+  pointer-events: none;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, color 0.15s ease;
+}
+
+.field-input-wrap:focus-within .field-select-chevron {
+  color: #0284c7;
 }
 
 .info-tooltip-trigger {
@@ -1931,8 +1969,21 @@ body.theme-dark .nav-link.active {
 }
 
 body.theme-dark .field-clear-btn {
-  background: rgba(255, 255, 255, 0.35);
-  color: #000;
+  background: rgba(255, 255, 255, 0.18);
+  color: #f1f5f9;
+}
+
+body.theme-dark .field-clear-btn:hover {
+  background: rgba(255, 255, 255, 0.32);
+  color: #ffffff;
+}
+
+body.theme-dark .field-select-chevron {
+  color: #94a3b8;
+}
+
+body.theme-dark .field-input-wrap:focus-within .field-select-chevron {
+  color: #38bdf8;
 }
 
 body.theme-dark .nav-link.nav-link-patient:hover,
