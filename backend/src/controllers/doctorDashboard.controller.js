@@ -345,6 +345,8 @@ export const getDoctorDashboardDocuments = async (req, res) => {
     const doctorPlain = ctx.doctor.toObject ? ctx.doctor.toObject() : ctx.doctor;
     const clinicDocs = (Array.isArray(doctorPlain.documents) ? doctorPlain.documents : []).map(
       (d) => ({
+        _id: d._id ? String(d._id) : null,
+        documentId: d._id ? String(d._id) : null,
         source: "clinic",
         docType: d.docType || "clinic",
         name: d.name || "Document",
@@ -469,6 +471,96 @@ export const postDoctorDashboardDocument = async (req, res) => {
   } catch (err) {
     console.error("[doctorDashboard] post document", err);
     return res.status(500).json({ error: "Failed to upload document." });
+  }
+};
+
+/**
+ * DELETE /api/doctors/me/documents
+ * DELETE /api/doctors/me/documents/:id
+ * query or body: { documentId, patientId, source, url }
+ */
+export const deleteDoctorDashboardDocument = async (req, res) => {
+  try {
+    const ctx = await requireDoctorProfile(req);
+    if (ctx.error) return res.status(ctx.error.status).json(ctx.error.body);
+
+    const docId = String(req.params.id || req.query.documentId || req.body?.documentId || req.body?.id || "").trim();
+    const patientId = String(req.query.patientId || req.body?.patientId || "").trim();
+    const source = String(req.query.source || req.body?.source || "").toLowerCase().trim();
+    const url = String(req.query.url || req.body?.url || "").trim();
+
+    if (!docId && !url) {
+      return res.status(400).json({ error: "documentId or url is required to delete a document." });
+    }
+
+    let deleted = false;
+
+    // 1. If patient document or patientId is provided:
+    if (source === "patient" || (patientId && mongoose.Types.ObjectId.isValid(patientId))) {
+      const targetPatientId = patientId && mongoose.Types.ObjectId.isValid(patientId) ? patientId : null;
+      const allowed = await collectAssignedPatientIds(String(ctx.doctor._id));
+      if (targetPatientId && !allowed.includes(String(targetPatientId))) {
+        return res.status(403).json({ error: "Patient is not assigned to your practice." });
+      }
+
+      const patients = targetPatientId
+        ? await Patient.find({ _id: targetPatientId, ...patientActiveQuery })
+        : await Patient.find({ _id: { $in: allowed }, ...patientActiveQuery });
+
+      for (const p of patients) {
+        const origLen = (p.documents || []).length;
+        p.documents = (p.documents || []).filter((d) => {
+          const matchId = docId && String(d._id) === docId;
+          const matchUrl = url && (String(d.fileUrl) === url || String(d.url) === url);
+          return !(matchId || matchUrl);
+        });
+        if (p.documents.length !== origLen) {
+          await p.save();
+          deleted = true;
+          break;
+        }
+      }
+    }
+
+    // 2. Also check doctor clinic library documents if not deleted yet or source is clinic
+    if (!deleted || source === "clinic") {
+      const doctor = await Doctor.findById(ctx.doctor._id);
+      if (doctor) {
+        const origLen = (doctor.documents || []).length;
+        doctor.documents = (doctor.documents || []).filter((d) => {
+          const matchId = docId && String(d._id) === docId;
+          const matchUrl = url && (String(d.fileUrl) === url || String(d.url) === url);
+          return !(matchId || matchUrl);
+        });
+        if (doctor.documents.length !== origLen) {
+          await doctor.save();
+          deleted = true;
+        }
+      }
+    }
+
+    if (!deleted) {
+      const allowed = await collectAssignedPatientIds(String(ctx.doctor._id));
+      const patients = await Patient.find({ _id: { $in: allowed }, ...patientActiveQuery });
+      for (const p of patients) {
+        const origLen = (p.documents || []).length;
+        p.documents = (p.documents || []).filter((d) => {
+          const matchId = docId && String(d._id) === docId;
+          const matchUrl = url && (String(d.fileUrl) === url || String(d.url) === url);
+          return !(matchId || matchUrl);
+        });
+        if (p.documents.length !== origLen) {
+          await p.save();
+          deleted = true;
+          break;
+        }
+      }
+    }
+
+    return res.status(200).json({ success: true, message: "Document deleted successfully." });
+  } catch (err) {
+    console.error("[doctorDashboard] delete document", err);
+    return res.status(500).json({ error: "Failed to delete document." });
   }
 };
 
