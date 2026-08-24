@@ -834,8 +834,11 @@ function updateAuthNav() {
     if (li.querySelector('a[href="#calendar"]')) {
       const calendarStaffRoles = new Set(["receptionist", "admin", "hospital_admin", "nurse"]);
       li.style.display = signedIn && calendarStaffRoles.has(String(role || "")) ? "" : "none";
+    } else if (li.querySelector('a[href="#users"]')) {
+      const usersStaffRoles = new Set(["doctor", "receptionist", "admin", "hospital_admin", "super_admin"]);
+      li.style.display = signedIn && usersStaffRoles.has(String(role || "")) ? "" : "none";
     } else {
-      const staffNavRoles = new Set(["receptionist", "admin", "hospital_admin", "super_admin"]);
+      const staffNavRoles = new Set(["doctor", "receptionist", "admin", "hospital_admin", "super_admin"]);
       li.style.display = signedIn && staffNavRoles.has(String(role || "")) ? "" : "none";
     }
   });
@@ -1435,9 +1438,12 @@ async function showClinicalTab(tab) {
                           : ""
                         }</p>
                           </div>
-                          <a class="btn btn-secondary btn-sm" href="${escapeHtml(
+                          <div class="clinical-doc-actions" style="display: flex; align-items: center; gap: 0.5rem;">
+                            <a class="btn btn-secondary btn-sm" href="${escapeHtml(
                           d.fileUrl || d.url || "#",
                         )}" target="_blank" rel="noopener noreferrer">Open</a>
+                            <button type="button" class="btn btn-danger btn-sm btn-delete-clinical-doc" data-doc-id="${escapeHtml(d._id || d.documentId || "")}" data-doc-source="${escapeHtml(d.source || "clinic")}" data-doc-patient-id="${escapeHtml(d.patientId || "")}" data-doc-url="${escapeHtml(d.fileUrl || d.url || "")}" data-doc-name="${escapeHtml(d.name || "Document")}">Delete</button>
+                          </div>
                         </li>`,
                     )
                     .join("")}
@@ -1451,6 +1457,45 @@ async function showClinicalTab(tab) {
         const container = panel.querySelector(".clinical-docs-grouped-container");
         if (container) {
           container.innerHTML = groupedHtml;
+
+          container.querySelectorAll(".btn-delete-clinical-doc").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+              const docId = btn.getAttribute("data-doc-id") || "";
+              const docSource = btn.getAttribute("data-doc-source") || "clinic";
+              const docPatientId = btn.getAttribute("data-doc-patient-id") || "";
+              const docUrl = btn.getAttribute("data-doc-url") || "";
+              const docName = btn.getAttribute("data-doc-name") || "this document";
+
+              const confirmed = window.confirm(`Are you sure you want to delete "${docName}"? This action cannot be undone.`);
+              if (!confirmed) return;
+
+              btn.disabled = true;
+              btn.textContent = "Deleting…";
+
+              try {
+                const resDel = await apiRequest(`${API_BASE}/doctors/me/documents`, {
+                  method: "DELETE",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    documentId: docId,
+                    source: docSource,
+                    patientId: docPatientId,
+                    url: docUrl,
+                  }),
+                });
+                if (!resDel.ok) {
+                  throw new Error(await getApiErrorMessage(resDel, "Failed to delete document."));
+                }
+                showToast("Document deleted successfully.");
+                sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
+                await showClinicalTab("documents");
+              } catch (err) {
+                showToast(err?.message || "Failed to delete document.", "error");
+                btn.disabled = false;
+                btn.textContent = "Delete";
+              }
+            });
+          });
         }
       };
 

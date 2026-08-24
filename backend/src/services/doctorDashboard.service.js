@@ -159,6 +159,8 @@ export async function aggregatePatientDocumentsForDoctor(doctorId) {
       }
 
       items.push({
+        _id: d._id ? String(d._id) : null,
+        documentId: d._id ? String(d._id) : null,
         source: "patient",
         patientId: pid,
         patientName: patientName || "Patient",

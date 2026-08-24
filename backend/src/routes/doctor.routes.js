@@ -16,6 +16,7 @@ import {
   patchDoctorDashboardAppointmentStatus,
   getDoctorDashboardDocuments,
   postDoctorDashboardDocument,
+  deleteDoctorDashboardDocument,
   getDoctorDashboardMessagesSummary,
   patchDoctorNotificationPrefs,
   getDoctorAppointmentBilling,
@@ -34,7 +35,7 @@ router.get(
   getDoctorDashboardOverview,
 );
 router.get(
-  '/me/payment-methods',
+  '/me/payment-methods/catalog',
   hybridAuth,
   requireRoles(['doctor']),
   getDoctorPaymentMethodsCatalog,
@@ -90,6 +91,18 @@ router.post(
   hybridAuth,
   requireRoles(['doctor']),
   postDoctorDashboardDocument,
+);
+router.delete(
+  '/me/documents',
+  hybridAuth,
+  requireRoles(['doctor']),
+  deleteDoctorDashboardDocument,
+);
+router.delete(
+  '/me/documents/:id',
+  hybridAuth,
+  requireRoles(['doctor']),
+  deleteDoctorDashboardDocument,
 );
 router.get(
   '/me/messages-summary',

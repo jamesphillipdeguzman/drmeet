@@ -267,6 +267,7 @@ export function createNavigation({
       pages = [
         { hash: "#home", label: "Home" },
         { hash: "#doctor-dashboard", label: "Clinical" },
+        { hash: "#users", label: "Users" },
         { hash: "#pricing", label: "Pricing" },
       ];
     } else if (isPatient) {
@@ -274,6 +275,15 @@ export function createNavigation({
         { hash: "#home", label: "Home" },
         { hash: "#book", label: "Book" },
         { hash: "#appointments", label: "Appointments" },
+      ];
+    } else if (isReceptionist) {
+      pages = [
+        { hash: "#home", label: "Home" },
+        { hash: "#book", label: "Book" },
+        { hash: "#patients", label: "Patients" },
+        { hash: "#appointments", label: "Appointments" },
+        { hash: "#calendar", label: "Calendar" },
+        { hash: "#users", label: "Users" },
       ];
     } else {
       pages = [
@@ -308,9 +318,9 @@ export function createNavigation({
       if (el.querySelector('a[href="#calendar"]')) {
         el.style.display = (isHospitalAdmin || isReceptionist || isNurse) && !isDoctor ? "" : "none";
       } else if (el.querySelector('a[href="#users"]')) {
-        el.style.display = (isSuperAdmin || isHospitalAdmin) ? "" : "none";
+        el.style.display = (isSuperAdmin || isHospitalAdmin || isDoctor || isReceptionist) ? "" : "none";
       } else {
-        el.style.display = (isSuperAdmin || isHospitalAdmin) ? "" : "none";
+        el.style.display = (isSuperAdmin || isHospitalAdmin || isDoctor || isReceptionist) ? "" : "none";
       }
     });
 
@@ -418,9 +428,15 @@ export function createNavigation({
         return;
       }
     } else if (role === "doctor") {
-      const allowed = new Set(["#home", "#doctor-dashboard", "#patients", "#appointments", "#calendar", "#book", "#pricing", "#settings", "#privacy", "#login", "#signup"]);
+      const allowed = new Set(["#home", "#doctor-dashboard", "#users", "#patients", "#appointments", "#calendar", "#book", "#pricing", "#settings", "#privacy", "#login", "#signup"]);
       if (!allowed.has(route)) {
         window.location.hash = "#doctor-dashboard";
+        return;
+      }
+    } else if (role === "receptionist" || role === "nurse") {
+      const allowed = new Set(["#home", "#doctor-dashboard", "#users", "#patients", "#appointments", "#calendar", "#book", "#pricing", "#settings", "#privacy", "#login", "#signup"]);
+      if (!allowed.has(route)) {
+        window.location.hash = "#home";
         return;
       }
     }
