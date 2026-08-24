@@ -2915,13 +2915,11 @@ async function renderEnterpriseView() {
   const isHospitalFacilityAdmin = getCurrentUserRole() === "hospital_admin" || getCurrentUserRole() === "admin";
   const isAdminUser = isPlatformSuperAdmin || isHospitalFacilityAdmin;
 
-  // On initial load of Enterprise Hospital Hierarchy page, reset active org id state if no hospital slug in hash
+  // On initial load of Enterprise Hospital Hierarchy page, preserve active org id state if available
   const hashMatch = (typeof window !== "undefined" && window.location.hash) ? window.location.hash.match(/#?\/?hospital\/([^/?#]+)/i) : null;
   if (!hashMatch) {
-    window.activeOrgId = "";
-    window._selectedOrgId = "";
-    if (typeof localStorage !== "undefined") {
-      localStorage.removeItem("drmeet_active_org_id");
+    if (!window.activeOrgId && typeof localStorage !== "undefined") {
+      window.activeOrgId = localStorage.getItem("drmeet_active_org_id") || "";
     }
   }
 
@@ -2972,6 +2970,10 @@ async function loadEnterpriseTree(
   const container = document.getElementById("enterprise-tree-container");
   if (!container) return;
 
+  const isPlatformSuperAdmin = getCurrentUserRole() === "super_admin";
+  const isHospitalFacilityAdmin = getCurrentUserRole() === "hospital_admin" || getCurrentUserRole() === "admin";
+  const isAdminUser = isPlatformSuperAdmin || isHospitalFacilityAdmin;
+
   // Capture current scroll positions before loading
   const savedWindowY = window.scrollY || document.documentElement.scrollTop || 0;
   const mainContentEl = document.getElementById("main-content");
@@ -3006,13 +3008,25 @@ async function loadEnterpriseTree(
       }
     }
 
-    const activeOrgId = targetOrgId || slugOrgId || window.activeOrgId || "";
+    let activeOrgId = targetOrgId || slugOrgId || window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || "";
 
     // Fetch available organizations for switcher
     const allOrgsRes = await apiRequest(`${API_BASE}/organization/all`).catch(() => null);
     let allOrgs = [];
     if (allOrgsRes && allOrgsRes.ok) {
       allOrgs = await allOrgsRes.json().catch(() => []);
+    }
+
+    // Auto-select hospital if not yet set and organizations exist
+    if (!activeOrgId && allOrgs.length > 0) {
+      const storedOrg = (typeof localStorage !== "undefined" ? (localStorage.getItem("drmeet_active_org_id") || localStorage.getItem("user_org_id")) : "") || "";
+      const matchedStored = storedOrg && allOrgs.find((o) => String(o._id) === String(storedOrg));
+      activeOrgId = String(matchedStored ? matchedStored._id : allOrgs[0]._id);
+      window.activeOrgId = activeOrgId;
+      window._selectedOrgId = activeOrgId;
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem("drmeet_active_org_id", activeOrgId);
+      }
     }
 
     // Toggle top "+ Add Department" button based on selection state
@@ -3029,7 +3043,7 @@ async function loadEnterpriseTree(
       }
     }
 
-    // --- EMPTY STATE VIEW (When no hospital is selected) ---
+    // --- EMPTY STATE VIEW (When no hospital is selected and none exist) ---
     if (!activeOrgId) {
       window.activeOrgId = "";
       window._selectedOrgId = "";
@@ -3051,16 +3065,18 @@ async function loadEnterpriseTree(
                     </option>
                   `).join("")}
                 </select>
-                <button 
-                  type="button" 
-                  id="btn-delete-hospital" 
-                  class="btn btn-sm btn-delete-hospital" 
-                  disabled
-                  style="font-size: 0.8rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: transparent; color: #94a3b8; font-weight: 600; cursor: not-allowed; opacity: 0.5; transition: all 0.2s;"
-                  title="Select a hospital facility to enable deletion"
-                >
-                  🗑️ Delete Hospital
-                </button>
+                ${isAdminUser ? `
+                  <button 
+                    type="button" 
+                    id="btn-delete-hospital" 
+                    class="btn btn-sm btn-delete-hospital" 
+                    disabled
+                    style="font-size: 0.8rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #cbd5e1; background: transparent; color: #94a3b8; font-weight: 600; cursor: not-allowed; opacity: 0.5; transition: all 0.2s;"
+                    title="Select a hospital facility to enable deletion"
+                  >
+                    🗑️ Delete Hospital
+                  </button>
+                ` : ""}
               </div>
               <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">Enterprise Tier</span>
             </div>
@@ -3110,7 +3126,7 @@ async function loadEnterpriseTree(
     const tree = await treeRes.json();
     window._lastOrgTree = tree;
 
-    const currentOrgId = String(tree.organization?._id || tree._id || activeOrgId);
+    const currentOrgId = String(tree.organization?._id || tree.id || tree._id || activeOrgId);
     if (currentOrgId) {
       window.activeOrgId = currentOrgId;
       window._selectedOrgId = currentOrgId;
@@ -3121,6 +3137,7 @@ async function loadEnterpriseTree(
 
     if (!allOrgs || allOrgs.length === 0) {
       if (tree.organization) allOrgs = [tree.organization];
+      else if (tree.name) allOrgs = [{ _id: currentOrgId, name: tree.name }];
     }
 
     const facilityName = tree.name || tree.organization?.name || "Hospital Facility";
@@ -3132,7 +3149,7 @@ async function loadEnterpriseTree(
       <div class="empty-workspace card p-8 text-center border-2 border-dashed border-gray-300 rounded-lg" style="padding: 2.5rem 1.5rem; text-align: center; margin-top: 1rem; border: 2px dashed #cbd5e1;">
         <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;">🏥</span>
         <p class="text-gray-500 font-medium" style="color: #64748b; font-weight: 500; margin-bottom: 0.75rem;">No departments added yet for this facility.</p>
-        <button class="btn btn-primary cta-primary mt-3" id="add-first-dept-btn">+ Add Department</button>
+        ${isAdminUser ? `<button class="btn btn-primary cta-primary mt-3" id="add-first-dept-btn">+ Add Department</button>` : ""}
       </div>
     ` : `
       <div class="departments-tree-grid" style="display: flex; flex-direction: column; gap: 1.25rem;">
@@ -3177,15 +3194,17 @@ async function loadEnterpriseTree(
                   </option>
                 `).join("")}
               </select>
-              <button 
-                type="button" 
-                id="btn-delete-hospital" 
-                class="btn btn-sm btn-delete-hospital" 
-                style="font-size: 0.8rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #fca5a5; background: transparent; color: #ef4444; font-weight: 600; cursor: pointer; transition: all 0.2s;"
-                title="Delete selected hospital facility"
-              >
-                🗑️ Delete Hospital
-              </button>
+              ${isAdminUser ? `
+                <button 
+                  type="button" 
+                  id="btn-delete-hospital" 
+                  class="btn btn-sm btn-delete-hospital" 
+                  style="font-size: 0.8rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #fca5a5; background: transparent; color: #ef4444; font-weight: 600; cursor: pointer; transition: all 0.2s;"
+                  title="Delete selected hospital facility"
+                >
+                  🗑️ Delete Hospital
+                </button>
+              ` : ""}
             </div>
             <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">Enterprise Tier</span>
           </div>
@@ -3213,11 +3232,13 @@ async function loadEnterpriseTree(
     `;
 
     container.querySelector("#add-first-dept-btn")?.addEventListener("click", () => showAddDepartmentModal());
-    container.querySelector("#btn-delete-hospital")?.addEventListener("click", () => {
-      const activeId = tree.organization?._id || window.activeOrgId || currentOrgId;
-      const activeName = facilityName || "Selected Hospital";
-      showDeleteHospitalModal(activeName, activeId);
-    });
+    if (isAdminUser) {
+      container.querySelector("#btn-delete-hospital")?.addEventListener("click", () => {
+        const activeId = tree.organization?._id || window.activeOrgId || currentOrgId;
+        const activeName = facilityName || "Selected Hospital";
+        showDeleteHospitalModal(activeName, activeId);
+      });
+    }
 
     const searchInput = container.querySelector("#hierarchy-search-input");
     const searchClearBtn = container.querySelector("#hierarchy-search-clear");
