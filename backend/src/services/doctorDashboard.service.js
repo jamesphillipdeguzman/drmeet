@@ -84,11 +84,12 @@ export function partitionAppointmentsByTime(appointments = []) {
   for (const raw of appointments) {
     const appt = raw?.toObject ? raw.toObject() : raw;
     const day = appt.date ? new Date(appt.date) : null;
+    const isCancelled = String(appt.status || "").toLowerCase() === "cancelled";
     if (!day || Number.isNaN(day.getTime())) {
       past.push(appt);
       continue;
     }
-    if (day >= start) upcoming.push(appt);
+    if (day >= start && !isCancelled) upcoming.push(appt);
     else past.push(appt);
   }
 

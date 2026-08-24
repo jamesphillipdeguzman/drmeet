@@ -1226,7 +1226,8 @@ async function showClinicalTab(tab) {
           await getApiErrorMessage(res, "Unable to load appointments."),
         );
       const payload = await res.json();
-      const upcoming = Array.isArray(payload.upcoming) ? payload.upcoming : [];
+      const rawUpcoming = Array.isArray(payload.upcoming) ? payload.upcoming : [];
+      const upcoming = rawUpcoming.filter((a) => String(a.status || "").toLowerCase() !== "cancelled");
       const past = Array.isArray(payload.past) ? payload.past : [];
 
       const renderApptRow = (a) => {
@@ -1235,7 +1236,7 @@ async function showClinicalTab(tab) {
             ? formatPatientDisplayName(a.patientId) ||
             String(a.patientId?.name || "")
             : "";
-        const dt = a.date ? new Date(a.date).toLocaleString() : "";
+        const dt = a.date && !isNaN(new Date(a.date)) ? new Date(a.date).toLocaleDateString() : (a.date || "");
         const statusValue = String(a.status || "pending").toLowerCase();
         const statusOpts = ["pending", "confirmed", "completed", "cancelled"]
           .map(
