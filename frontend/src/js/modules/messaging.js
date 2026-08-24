@@ -430,40 +430,40 @@ let cachedPatientSearchResults = [];
 let isSearchingPatients = false;
 
 export function renderMessengerConversationList(rootEl) {
-    const ui = messengerUi(rootEl);
+    let ui = messengerUi(rootEl);
     if (!ui.list || !isLoggedIn()) return;
-    const currentUserId = getCurrentUserId();
-    const currentUserRole = String(getCurrentUserRole() || "").toLowerCase();
-    const needle = String(dashboardState.conversationSearchFilter || "")
+    let currentUserId = getCurrentUserId();
+    let currentUserRole = String(getCurrentUserRole() || "").toLowerCase();
+    let needle = String(dashboardState.conversationSearchFilter || "")
         .trim()
         .toLowerCase();
 
     // Adapt search placeholder for clinical staff
-    const searchInput = rootEl.querySelector("[data-messenger-search]");
+    let searchInput = rootEl.querySelector("[data-messenger-search]");
     if (searchInput && (currentUserRole === "doctor" || currentUserRole === "receptionist")) {
         searchInput.placeholder = "Search conversations or patients…";
     }
 
-    const conversations = Array.isArray(dashboardState.conversations)
+    let conversations = Array.isArray(dashboardState.conversations)
         ? dashboardState.conversations
         : [];
-    const sorted = [...conversations].sort((a, b) => {
-        const left = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
-        const right = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+    let sorted = [...conversations].sort((a, b) => {
+        let left = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+        let right = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
         return right - left;
     });
 
-    const filtered = sorted.filter((conv) => {
+    let filtered = sorted.filter((conv) => {
         if (!needle) return true;
-        const participants = Array.isArray(conv.participants)
+        let participants = Array.isArray(conv.participants)
             ? conv.participants
             : [];
-        const other =
+        let other =
             participants.find((p) => String(p._id) !== String(currentUserId)) ||
             participants[0] ||
             null;
-        const name = participantDisplayName(other).toLowerCase();
-        const last = String(conv.lastMessage || "").toLowerCase();
+        let name = participantDisplayName(other).toLowerCase();
+        let last = String(conv.lastMessage || "").toLowerCase();
         return name.includes(needle) || last.includes(needle);
     });
 
@@ -475,11 +475,11 @@ export function renderMessengerConversationList(rootEl) {
                 lastPatientSearchQuery = needle;
                 isSearchingPatients = true;
                 try {
-                    const res = await apiRequest(
+                    let res = await apiRequest(
                         `${API_BASE}/doctors/me/patients?q=${encodeURIComponent(needle)}&limit=10`
                     );
                     if (res.ok) {
-                        const data = await res.json();
+                        let data = await res.json();
                         cachedPatientSearchResults = Array.isArray(data.patients) ? data.patients : [];
                     } else {
                         cachedPatientSearchResults = [];
@@ -498,24 +498,24 @@ export function renderMessengerConversationList(rootEl) {
     }
 
     // Simple escape shim inside if not imported 
-    const esc = (str) => String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    let esc = (str) => String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
     let convHtml = "";
     if (filtered.length) {
         convHtml = filtered
             .map((conv) => {
-                const participants = Array.isArray(conv.participants)
+                let participants = Array.isArray(conv.participants)
                     ? conv.participants
                     : [];
-                const other =
+                let other =
                     participants.find((p) => String(p._id) !== String(currentUserId)) ||
                     participants[0] ||
                     null;
-                const otherName = participantDisplayName(other);
-                const otherAvatar = participantAvatarUrl(other);
-                const lastMsg = conv.lastMessage || "";
-                const typingLabel = conversationTypingLabel(conv._id, currentUserId);
-                const active =
+                let otherName = participantDisplayName(other);
+                let otherAvatar = participantAvatarUrl(other);
+                let lastMsg = conv.lastMessage || "";
+                let typingLabel = conversationTypingLabel(conv._id, currentUserId);
+                let active =
                     String(dashboardState.activeConversationId) === String(conv._id);
 
                 return `
@@ -532,14 +532,14 @@ export function renderMessengerConversationList(rootEl) {
 
     let patientHtml = "";
     if ((currentUserRole === "doctor" || currentUserRole === "receptionist") && needle && cachedPatientSearchResults.length) {
-        const patientItems = cachedPatientSearchResults.map((p) => {
-            const pUserId = p.userId ? String(p.userId) : "";
-            const existingConv = pUserId
+        let patientItems = cachedPatientSearchResults.map((p) => {
+            let pUserId = p.userId ? String(p.userId) : "";
+            let existingConv = pUserId
                 ? conversations.find((c) =>
                     Array.isArray(c.participants) && c.participants.some((part) => String(part._id) === pUserId)
                   )
                 : null;
-            const fullName = `${p.title ? `${p.title} ` : ""}${p.firstName || ""} ${p.lastName || ""}`.trim() || "Patient";
+            let fullName = `${p.title ? `${p.title} ` : ""}${p.firstName || ""} ${p.lastName || ""}`.trim() || "Patient";
             return {
                 patient: p,
                 displayName: fullName,
@@ -579,7 +579,7 @@ export function renderMessengerConversationList(rootEl) {
 
     ui.list.querySelectorAll("[data-select-conversation]").forEach((row) => {
         row.addEventListener("click", async () => {
-            const conversationId = row.getAttribute("data-select-conversation");
+            let conversationId = row.getAttribute("data-select-conversation");
             if (!conversationId) return;
             dashboardState.activeConversationId = String(conversationId);
             ui.layout?.classList.add("messenger-show-thread");
@@ -590,8 +590,8 @@ export function renderMessengerConversationList(rootEl) {
 
     ui.list.querySelectorAll("[data-start-patient-chat]").forEach((row) => {
         row.addEventListener("click", async () => {
-            const patientId = row.getAttribute("data-start-patient-chat");
-            const existingConvId = row.getAttribute("data-existing-conv-id");
+            let patientId = row.getAttribute("data-start-patient-chat");
+            let existingConvId = row.getAttribute("data-existing-conv-id");
             if (!patientId && !existingConvId) return;
 
             if (existingConvId) {
@@ -604,11 +604,11 @@ export function renderMessengerConversationList(rootEl) {
 
             row.style.pointerEvents = "none";
             row.style.opacity = "0.7";
-            const previewEl = row.querySelector(".messenger-conv-preview");
+            let previewEl = row.querySelector(".messenger-conv-preview");
             if (previewEl) previewEl.textContent = "Starting conversation…";
 
             try {
-                const res = await apiRequest(`${API_BASE}/messages/conversations/ensure/patient-doctor`, {
+                let res = await apiRequest(`${API_BASE}/messages/conversations/ensure/patient-doctor`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -621,8 +621,8 @@ export function renderMessengerConversationList(rootEl) {
                     throw new Error(await getApiErrorMessage(res, "Failed to start conversation."));
                 }
 
-                const data = await res.json();
-                const newConvId = String(data.conversationId || "");
+                let data = await res.json();
+                let newConvId = String(data.conversationId || "");
                 if (newConvId) {
                     await loadConversations();
                     dashboardState.activeConversationId = newConvId;
