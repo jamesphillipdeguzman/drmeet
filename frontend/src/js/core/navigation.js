@@ -267,8 +267,6 @@ export function createNavigation({
       pages = [
         { hash: "#home", label: "Home" },
         { hash: "#doctor-dashboard", label: "Clinical" },
-        { hash: "#patients", label: "Patients" },
-        { hash: "#appointments", label: "Appointments" },
         { hash: "#pricing", label: "Pricing" },
       ];
     } else if (isPatient) {
@@ -293,13 +291,13 @@ export function createNavigation({
 
     document.querySelectorAll('a[href="#book"]').forEach((el) => {
       const parentLi = el.closest("li") || el;
-      const isAllowedBook = isPatient || isDoctor || isNurse || isReceptionist;
+      const isAllowedBook = isPatient || isNurse || isReceptionist;
       parentLi.style.display = isAllowedBook ? "" : "none";
     });
 
     document.querySelectorAll('.nav-li-non-doctor-patients, a[href="#patients"]').forEach((el) => {
       const parentLi = el.closest("li") || el;
-      parentLi.style.display = (isPatient || isSuperAdmin) ? "none" : "";
+      parentLi.style.display = (isPatient || isSuperAdmin || isDoctor) ? "none" : "";
     });
 
     document.querySelectorAll(".nav-li-non-doctor").forEach((el) => {
@@ -308,7 +306,7 @@ export function createNavigation({
 
     document.querySelectorAll(".nav-li-staff-only").forEach((el) => {
       if (el.querySelector('a[href="#calendar"]')) {
-        el.style.display = (isHospitalAdmin || isReceptionist || isNurse || isDoctor) ? "" : "none";
+        el.style.display = (isHospitalAdmin || isReceptionist || isNurse) && !isDoctor ? "" : "none";
       } else if (el.querySelector('a[href="#users"]')) {
         el.style.display = (isSuperAdmin || isHospitalAdmin) ? "" : "none";
       } else {

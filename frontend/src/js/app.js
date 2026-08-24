@@ -823,16 +823,21 @@ function updateAuthNav() {
   }
   const nonDoctorPatientsLi = document.querySelector(".nav-li-non-doctor-patients");
   if (nonDoctorPatientsLi) {
-    nonDoctorPatientsLi.style.display = role !== "doctor" ? "" : "none";
+    nonDoctorPatientsLi.style.display = signedIn && role !== "doctor" && role !== "super_admin" && role !== "patient" ? "" : "none";
   }
   const nonDoctorApptLi = document.querySelector(".nav-li-non-doctor");
   if (nonDoctorApptLi) {
-    nonDoctorApptLi.style.display = signedIn && role !== "doctor" ? "" : "none";
+    nonDoctorApptLi.style.display = signedIn && role !== "doctor" && role !== "super_admin" ? "" : "none";
   }
   const staffNavLis = document.querySelectorAll(".nav-li-staff-only");
-  const staffNavRoles = new Set(["doctor", "receptionist", "admin"]);
   staffNavLis.forEach((li) => {
-    li.style.display = signedIn && staffNavRoles.has(String(role || "")) ? "" : "none";
+    if (li.querySelector('a[href="#calendar"]')) {
+      const calendarStaffRoles = new Set(["receptionist", "admin", "hospital_admin", "nurse"]);
+      li.style.display = signedIn && calendarStaffRoles.has(String(role || "")) ? "" : "none";
+    } else {
+      const staffNavRoles = new Set(["receptionist", "admin", "hospital_admin", "super_admin"]);
+      li.style.display = signedIn && staffNavRoles.has(String(role || "")) ? "" : "none";
+    }
   });
   if (signedIn) {
     mountFloatingChatWidget();
