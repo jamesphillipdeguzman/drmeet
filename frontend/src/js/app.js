@@ -272,8 +272,14 @@ function normalizeFetchErrorMessage(err, fallbackMessage) {
 
 export function buildHeaders(baseHeaders = {}) {
   const token = localStorage.getItem("token");
-  const plan = localStorage.getItem("subscription_plan") || "starter";
-  const headers = { ...baseHeaders, "x-subscription-plan": plan };
+  const isEnt = typeof isEnterpriseTierUser === "function" ? isEnterpriseTierUser() : (localStorage.getItem("subscription_plan") === "enterprise" || localStorage.getItem("drmeet_enterprise_mode") === "true");
+  const plan = isEnt ? "enterprise" : (localStorage.getItem("subscription_plan") || "starter");
+  const isEntMode = localStorage.getItem("drmeet_enterprise_mode") === "true";
+  const headers = {
+    ...baseHeaders,
+    "x-subscription-plan": plan,
+    ...(isEntMode || isEnt ? { "x-enterprise-mode": "true" } : {}),
+  };
   return token
     ? { ...headers, Authorization: `Bearer ${token}` }
     : headers;
@@ -843,7 +849,7 @@ function updateAuthNav() {
       li.style.display = signedIn && staffNavRoles.has(String(role || "")) ? "" : "none";
     }
   });
-  const isEnterpriseUser = role === "super_admin" || role === "hospital_admin" || String(localStorage.getItem("subscription_plan") || "").toLowerCase() === "enterprise" || String(localStorage.getItem("drmeet_user_plan") || "").toLowerCase() === "enterprise" || localStorage.getItem("drmeet_enterprise_mode") === "true" || Boolean(localStorage.getItem("user_org_id") || localStorage.getItem("org_role"));
+  const isEnterpriseUser = typeof isEnterpriseTierUser === "function" ? isEnterpriseTierUser() : (role === "super_admin" || role === "hospital_admin");
   document.querySelectorAll(".nav-li-enterprise-only, a[href='#enterprise']").forEach((el) => {
     const parentLi = el.closest("li") || el;
     parentLi.style.display = signedIn && isEnterpriseUser ? "" : "none";

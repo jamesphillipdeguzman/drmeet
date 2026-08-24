@@ -161,6 +161,12 @@ export function setupShellInteractions() {
     }
     localStorage.removeItem("token");
     localStorage.removeItem(USER_CACHE_KEY);
+    localStorage.removeItem("subscription_plan");
+    localStorage.removeItem("drmeet_user_plan");
+    localStorage.removeItem("drmeet_enterprise_mode");
+    localStorage.removeItem("user_org_id");
+    localStorage.removeItem("org_role");
+    localStorage.removeItem("drmeet_active_org_id");
     clearSessionExpiredState();
     resetMessagingSocket();
     if (updateAuthNav) updateAuthNav();

@@ -1,3 +1,5 @@
+import { isEnterpriseTierUser } from "./auth.js";
+
 export function createNavigation({
   navLinks,
   commandPalette,
@@ -246,7 +248,7 @@ export function createNavigation({
     const isNurse = userRole === "nurse";
     const isStaff = isDoctor || isNurse || isReceptionist || isHospitalAdmin || isSuperAdmin;
 
-    const isEnterpriseUser = isSuperAdmin || isHospitalAdmin || String(localStorage.getItem("subscription_plan") || "").toLowerCase() === "enterprise" || String(localStorage.getItem("drmeet_user_plan") || "").toLowerCase() === "enterprise" || localStorage.getItem("drmeet_enterprise_mode") === "true" || Boolean(localStorage.getItem("user_org_id") || localStorage.getItem("org_role"));
+    const isEnterpriseUser = typeof isEnterpriseTierUser === "function" ? isEnterpriseTierUser() : (isSuperAdmin || isHospitalAdmin);
 
     let pages = [];
     if (isSuperAdmin) {
@@ -299,7 +301,7 @@ export function createNavigation({
       ];
     }
 
-    if (route === "#enterprise" && !pages.some((p) => p.hash === "#enterprise")) {
+    if (isEnterpriseUser && route === "#enterprise" && !pages.some((p) => p.hash === "#enterprise")) {
       pages.push({ hash: "#enterprise", label: "Enterprise" });
     }
 
@@ -451,6 +453,15 @@ export function createNavigation({
       const allowed = new Set(["#home", "#doctor-dashboard", "#users", "#enterprise", "#patients", "#appointments", "#calendar", "#book", "#pricing", "#settings", "#privacy", "#login", "#signup"]);
       if (!allowed.has(route)) {
         window.location.hash = "#home";
+        return;
+      }
+    }
+
+    // Strict Enterprise route access protection guard
+    if (route === "#enterprise" || raw.includes("hospital/")) {
+      const isEnt = typeof isEnterpriseTierUser === "function" ? isEnterpriseTierUser() : (role === "super_admin" || role === "hospital_admin");
+      if (!isEnt) {
+        window.location.hash = role === "doctor" ? "#doctor-dashboard" : "#home";
         return;
       }
     }
