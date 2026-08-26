@@ -5,23 +5,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MyDrMeet - Virtual Doctor Consultations</title>
-    <meta name="description" content="Connect with healthcare professionals securely and easily through online video consultations." />
+    <meta name="description"
+        content="Connect with healthcare professionals securely and easily through online video consultations." />
 
     <!-- Open Graph / Facebook / Messenger / Teams -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://mydrmeet.netlify.app/" />
     <meta property="og:site_name" content="MyDrMeet" />
     <meta property="og:title" content="MyDrMeet - Virtual Doctor Consultations" />
-    <meta property="og:description" content="Connect with healthcare professionals securely and easily through online video consultations." />
-    <meta property="og:image" content="https://mydrmeet.netlify.app/images/hero.webp" />
+    <meta property="og:description"
+        content="Connect with healthcare professionals securely and easily through online video consultations." />
+    <meta property="og:image" content="https://mydrmeet.netlify.app/images/hero.png" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta property="twitter:domain" content="mydrmeet.netlify.app" />
     <meta property="twitter:url" content="https://mydrmeet.netlify.app/" />
     <meta name="twitter:title" content="MyDrMeet - Virtual Doctor Consultations" />
-    <meta name="twitter:description" content="Connect with healthcare professionals securely and easily through online video consultations." />
-    <meta name="twitter:image" content="https://mydrmeet.netlify.app/images/hero.webp" />
+    <meta name="twitter:description"
+        content="Connect with healthcare professionals securely and easily through online video consultations." />
+    <meta name="twitter:image" content="https://mydrmeet.netlify.app/images/hero.png" />
 
     <link rel="icon" type="image/png" href="images/drmeet-logo.webp" />
     <script>
@@ -47,7 +50,8 @@
                 <button id="sidebar-toggle" class="icon-button" type="button" aria-label="Toggle Sidebar">☰</button>
             </div>
             <div class="sidebar-user-menu">
-                <button id="sidebar-user-trigger" class="sidebar-avatar-btn" type="button" aria-label="Open account menu">
+                <button id="sidebar-user-trigger" class="sidebar-avatar-btn" type="button"
+                    aria-label="Open account menu">
                     <span class="sidebar-avatar-circle">U</span>
                     <span class="sidebar-avatar-name">My Account</span>
                 </button>
@@ -57,24 +61,66 @@
                 </div>
             </div>
             <ul class="nav-links">
-                <li><a href="#home" class="nav-link active"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1z"/></svg></span><span class="nav-label">Home</span></a></li>
-                <li class="nav-li-doctor-dash" style="display:none"><a href="#doctor-dashboard" class="nav-link nav-link-doctor-dash"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v2H4V5zm2 4h12v2H6V9zm0 4h8v2H6v-2zm0 4h12v2H6v-2z"/></svg></span><span class="nav-label">Clinical</span></a></li>
-                <li><a href="#book" class="nav-link nav-link-patient"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm2 6h4v4H7v-4z"/></svg></span><span class="nav-label">Book a visit</span></a></li>
-                <li class="nav-li-non-doctor-patients"><a href="#patients" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-8 2-8 4.5V21h16v-2.5C20 16 16.4 14 12 14z"/></svg></span><span class="nav-label">Patients</span></a></li>
-                <li class="nav-li-non-doctor" style="display:none"><a href="#appointments" class="nav-link nav-link-appointments"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M7 2h2v2h6V2h2v2h3v18H4V4h3zm11 8H6v10h12zm-6 2h2v5h-4v-2h2z"/></svg></span><span class="nav-label">Appointments</span></a></li>
-                <li><a href="https://medreftool.netlify.app" target="_blank" rel="noopener noreferrer" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M19 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h13c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h1v14H6V4zm13 16H9V4h10v16z"/><path d="M11 9h2v2h2v2h-2v2h-2v-2H9v-2h2V9z"/></svg></span><span class="nav-label">Medical Reference</span></a></li>
-                <li><a href="#pricing" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.39 12.19c-.31.11-.64.19-1 .24v1.07h-1.5v-1.03c-1.13-.1-2.06-.83-2.28-1.94h1.72c.12.44.53.75 1.06.78v-2.24c-1.18-.35-2.31-.83-2.31-2.29 0-1.13.88-1.97 2.03-2.09V5.5h1.5v1.02c1.02.09 1.77.72 1.96 1.63h-1.68c-.11-.34-.41-.61-.91-.65v2.1c1.26.39 2.45.82 2.45 2.33 0 1.25-.97 2.06-2.22 2.26v1.03z"/></svg></span><span class="nav-label">Pricing</span><span id="nav-pricing-badge" class="upgrade-badge ml-auto hidden text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"></span></a></li>
-                <li class="nav-li-staff-only" style="display:none"><a href="#calendar" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v13a3 3 0 0 0 3 3h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H6a1 1 0 0 1-1-1V10h14zm0-12H5V6h14z"/></svg></span><span class="nav-label">Calendar</span></a></li>
-                <li class="nav-li-staff-only" style="display:none"><a href="#users" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 9a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm7 3-2-.4a6.8 6.8 0 0 0-1-1.8l1.2-1.7-1.4-1.4-1.7 1.2a6.8 6.8 0 0 0-1.8-1L12 4 11.7 2h-1.4L10 4a6.8 6.8 0 0 0-1.8 1L6.5 3.8 5.1 5.2l1.2 1.7a6.8 6.8 0 0 0-1 1.8L3 12l2 .3a6.8 6.8 0 0 0 1 1.8L4.8 16l1.4 1.4 1.7-1.2a6.8 6.8 0 0 0 1.8 1l.3 2h1.4l.3-2a6.8 6.8 0 0 0 1.8-1l1.7 1.2 1.4-1.4-1.2-1.7a6.8 6.8 0 0 0 1-1.8z"/></svg></span><span class="nav-label">Users</span></a></li>
-                <li class="nav-li-enterprise-only" style="display:none"><a href="#enterprise" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2V9zm0 4h-2v2h2v-2z"/></svg></span><span class="nav-label">Enterprise</span></a></li>
-                <li><a href="#login" class="nav-link" id="login-link"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M10 17v-3h6v-4h-6V7l-5 5zM14 3h7v18h-7v-2h5V5h-5z"/></svg></span><span class="nav-label">Login</span></a></li>
+                <li><a href="#home" class="nav-link active"><span class="nav-icon"><svg viewBox="0 0 24 24">
+                                <path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1z" />
+                            </svg></span><span class="nav-label">Home</span></a></li>
+                <li class="nav-li-doctor-dash" style="display:none"><a href="#doctor-dashboard"
+                        class="nav-link nav-link-doctor-dash"><span class="nav-icon"><svg viewBox="0 0 24 24"
+                                aria-hidden="true">
+                                <path d="M4 5h16v2H4V5zm2 4h12v2H6V9zm0 4h8v2H6v-2zm0 4h12v2H6v-2z" />
+                            </svg></span><span class="nav-label">Clinical</span></a></li>
+                <li><a href="#book" class="nav-link nav-link-patient"><span class="nav-icon"><svg viewBox="0 0 24 24"
+                                aria-hidden="true">
+                                <path
+                                    d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5zm2 6h4v4H7v-4z" />
+                            </svg></span><span class="nav-label">Book a visit</span></a></li>
+                <li class="nav-li-non-doctor-patients"><a href="#patients" class="nav-link"><span class="nav-icon"><svg
+                                viewBox="0 0 24 24">
+                                <path
+                                    d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-8 2-8 4.5V21h16v-2.5C20 16 16.4 14 12 14z" />
+                            </svg></span><span class="nav-label">Patients</span></a></li>
+                <li class="nav-li-non-doctor" style="display:none"><a href="#appointments"
+                        class="nav-link nav-link-appointments"><span class="nav-icon"><svg viewBox="0 0 24 24">
+                                <path d="M7 2h2v2h6V2h2v2h3v18H4V4h3zm11 8H6v10h12zm-6 2h2v5h-4v-2h2z" />
+                            </svg></span><span class="nav-label">Appointments</span></a></li>
+                <li><a href="https://medreftool.netlify.app" target="_blank" rel="noopener noreferrer"
+                        class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24">
+                                <path
+                                    d="M19 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h13c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 4h1v14H6V4zm13 16H9V4h10v16z" />
+                                <path d="M11 9h2v2h2v2h-2v2h-2v-2H9v-2h2V9z" />
+                            </svg></span><span class="nav-label">Medical Reference</span></a></li>
+                <li><a href="#pricing" class="nav-link"><span class="nav-icon"><svg viewBox="0 0 24 24">
+                                <path
+                                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.39 12.19c-.31.11-.64.19-1 .24v1.07h-1.5v-1.03c-1.13-.1-2.06-.83-2.28-1.94h1.72c.12.44.53.75 1.06.78v-2.24c-1.18-.35-2.31-.83-2.31-2.29 0-1.13.88-1.97 2.03-2.09V5.5h1.5v1.02c1.02.09 1.77.72 1.96 1.63h-1.68c-.11-.34-.41-.61-.91-.65v2.1c1.26.39 2.45.82 2.45 2.33 0 1.25-.97 2.06-2.22 2.26v1.03z" />
+                            </svg></span><span class="nav-label">Pricing</span><span id="nav-pricing-badge"
+                            class="upgrade-badge ml-auto hidden text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"></span></a>
+                </li>
+                <li class="nav-li-staff-only" style="display:none"><a href="#calendar" class="nav-link"><span
+                            class="nav-icon"><svg viewBox="0 0 24 24">
+                                <path
+                                    d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v13a3 3 0 0 0 3 3h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H6a1 1 0 0 1-1-1V10h14zm0-12H5V6h14z" />
+                            </svg></span><span class="nav-label">Calendar</span></a></li>
+                <li class="nav-li-staff-only" style="display:none"><a href="#users" class="nav-link"><span
+                            class="nav-icon"><svg viewBox="0 0 24 24">
+                                <path
+                                    d="M12 9a3 3 0 1 0-3-3 3 3 0 0 0 3 3zm7 3-2-.4a6.8 6.8 0 0 0-1-1.8l1.2-1.7-1.4-1.4-1.7 1.2a6.8 6.8 0 0 0-1.8-1L12 4 11.7 2h-1.4L10 4a6.8 6.8 0 0 0-1.8 1L6.5 3.8 5.1 5.2l1.2 1.7a6.8 6.8 0 0 0-1 1.8L3 12l2 .3a6.8 6.8 0 0 0 1 1.8L4.8 16l1.4 1.4 1.7-1.2a6.8 6.8 0 0 0 1.8 1l.3 2h1.4l.3-2a6.8 6.8 0 0 0 1.8-1l1.7 1.2 1.4-1.4-1.2-1.7a6.8 6.8 0 0 0 1-1.8z" />
+                            </svg></span><span class="nav-label">Users</span></a></li>
+                <li class="nav-li-enterprise-only" style="display:none"><a href="#enterprise" class="nav-link"><span
+                            class="nav-icon"><svg viewBox="0 0 24 24">
+                                <path
+                                    d="M12 7V3H2v18h20V7H12zM6 19H4v-2h2v2zm0-4H4v-2h2v2zm0-4H4V9h2v2zm0-4H4V5h2v2zm4 12H8v-2h2v2zm0-4H8v-2h2v2zm0-4H8V9h2v2zm0-4H8V5h2v2zm10 12h-8v-2h2v-2h-2v-2h2v-2h-2V9h8v10zm-2-8h-2v2h2V9zm0 4h-2v2h2v-2z" />
+                            </svg></span><span class="nav-label">Enterprise</span></a></li>
+                <li><a href="#login" class="nav-link" id="login-link"><span class="nav-icon"><svg viewBox="0 0 24 24">
+                                <path d="M10 17v-3h6v-4h-6V7l-5 5zM14 3h7v18h-7v-2h5V5h-5z" />
+                            </svg></span><span class="nav-label">Login</span></a></li>
             </ul>
         </aside>
         <section class="content-shell">
             <div id="session-expired-banner" class="session-expired-banner" hidden role="alert"></div>
             <header class="topbar">
                 <div id="topbar-nav-tools" class="topbar-nav-tools"></div>
-                <button id="command-palette-trigger" type="button" class="btn ghost btn-secondary">Open search (Ctrl/Cmd+K)</button>
+                <button id="command-palette-trigger" type="button" class="btn ghost btn-secondary">Open search
+                    (Ctrl/Cmd+K)</button>
             </header>
             <main id="main-content">
                 <!-- Dynamic content will be injected here by app.js -->
@@ -86,14 +132,19 @@
                     <a href="#privacy">Privacy</a>
                 </div>
                 <div class="footer-social">
-                    <a href="https://facebook.com" target="_blank" rel="noreferrer" aria-label="Facebook"><img src="images/facebook-circle-fill.svg" alt="Facebook" class="social-icon" /></a>
-                    <a href="https://youtube.com" target="_blank" rel="noreferrer" aria-label="YouTube"><img src="images/youtube-fill.svg" alt="YouTube" class="social-icon" /></a>
-                    <a href="https://x.com" target="_blank" rel="noreferrer" aria-label="X (Twitter)"><img src="images/twitter-x-fill.svg" alt="X" class="social-icon" /></a>
+                    <a href="https://facebook.com" target="_blank" rel="noreferrer" aria-label="Facebook"><img
+                            src="images/facebook-circle-fill.svg" alt="Facebook" class="social-icon" /></a>
+                    <a href="https://youtube.com" target="_blank" rel="noreferrer" aria-label="YouTube"><img
+                            src="images/youtube-fill.svg" alt="YouTube" class="social-icon" /></a>
+                    <a href="https://x.com" target="_blank" rel="noreferrer" aria-label="X (Twitter)"><img
+                            src="images/twitter-x-fill.svg" alt="X" class="social-icon" /></a>
                 </div>
                 <div id="live-visitor-counter-container" class="my-2 flex items-center justify-center">
-                    <div id="live-visitor-counter" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-800/90 border border-slate-700/60 text-xs text-slate-300 shadow-sm backdrop-blur-sm transition-all duration-300">
+                    <div id="live-visitor-counter"
+                        class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-800/90 border border-slate-700/60 text-xs text-slate-300 shadow-sm backdrop-blur-sm transition-all duration-300">
                         <span class="relative flex h-2 w-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                         </span>
                         <span id="visitor-count-text">👁️ Live Visitors: Loading...</span>
@@ -107,27 +158,32 @@
         <div class="command-panel">
             <div class="command-panel-head">
                 <strong>Search</strong>
-                <button id="command-close-btn" type="button" class="btn btn-secondary btn-sm" aria-label="Close search">Close</button>
+                <button id="command-close-btn" type="button" class="btn btn-secondary btn-sm"
+                    aria-label="Close search">Close</button>
             </div>
             <input id="command-input" type="text" placeholder="Jump to pages, doctors, patients, appointments..." />
             <ul id="command-results"></ul>
         </div>
     </div>
     <div id="floating-chat-widget" class="floating-chat-widget hidden" aria-hidden="true">
-        <button type="button" id="floating-chat-toggle" class="floating-chat-fab" aria-label="Open messages" aria-expanded="false">💬</button>
+        <button type="button" id="floating-chat-toggle" class="floating-chat-fab" aria-label="Open messages"
+            aria-expanded="false">💬</button>
         <div id="floating-chat-panel" class="floating-chat-panel hidden" role="dialog" aria-label="Messages">
             <div class="floating-chat-panel-head">
                 <span>Messages</span>
                 <div class="floating-chat-head-actions">
-                    <button type="button" id="floating-chat-close" class="btn btn-secondary btn-sm" aria-label="Close">×</button>
+                    <button type="button" id="floating-chat-close" class="btn btn-secondary btn-sm"
+                        aria-label="Close">×</button>
                 </div>
             </div>
             <div class="floating-chat-body messenger-panel-body">
-                <div id="floating-messenger-root" class="messenger-shell messenger-shell--floating" data-messenger-scope="floating">
+                <div id="floating-messenger-root" class="messenger-shell messenger-shell--floating"
+                    data-messenger-scope="floating">
                     <div class="messenger-layout" data-messenger-layout>
                         <aside class="messenger-sidebar">
                             <div class="messenger-sidebar-toolbar">
-                                <input type="search" data-messenger-search class="messenger-search-input" placeholder="Search conversations…" autocomplete="off" />
+                                <input type="search" data-messenger-search class="messenger-search-input"
+                                    placeholder="Search conversations…" autocomplete="off" />
                             </div>
                             <div class="messenger-conversation-list" data-messenger-conversation-list></div>
                         </aside>
@@ -138,31 +194,45 @@
                             <div class="messenger-thread-panel hidden" data-messenger-active>
                                 <header class="messenger-thread-topbar">
                                     <div class="messenger-peer">
-                                        <img data-messenger-peer-avatar class="person-avatar" alt="" src="images/user-line.svg" />
+                                        <img data-messenger-peer-avatar class="person-avatar" alt=""
+                                            src="images/user-line.svg" />
                                         <strong data-messenger-peer-name>Chat</strong>
                                     </div>
-                                    <button type="button" class="messenger-thread-close-x" data-messenger-clear type="button" aria-label="Close conversation">&times;</button>
+                                    <button type="button" class="messenger-thread-close-x" data-messenger-clear
+                                        type="button" aria-label="Close conversation">&times;</button>
                                 </header>
                                 <p class="typing-indicator messenger-typing" data-messenger-typing></p>
                                 <div class="messenger-thread-body">
-                                    <button type="button" class="messenger-thread-fab" data-messenger-compose aria-label="Compose message" title="Compose">
-                                        <img src="images/edit-circle-line.svg" alt="" width="22" height="22" class="messenger-action-icon message-compose-icon" />
+                                    <button type="button" class="messenger-thread-fab" data-messenger-compose
+                                        aria-label="Compose message" title="Compose">
+                                        <img src="images/edit-circle-line.svg" alt="" width="22" height="22"
+                                            class="messenger-action-icon message-compose-icon" />
                                     </button>
                                     <div class="messenger-thread-scroll thread-list" data-messenger-scroll></div>
-                                    <div class="messenger-attachment-queue hidden" data-messenger-attachment-preview aria-live="polite"></div>
+                                    <div class="messenger-attachment-queue hidden" data-messenger-attachment-preview
+                                        aria-live="polite"></div>
                                     <footer class="messenger-compose-footer thread-drawer-reply">
-                                        <label class="messenger-file-upload message-compose-btn" title="Attach file" aria-label="Attach file">
-                                            <img src="images/chat-upload-line.svg" alt="" class="messenger-action-icon message-compose-icon" width="22" height="22" />
-                                            <input type="file" data-messenger-file-input accept="image/*,.pdf,.doc,.docx,.txt" />
+                                        <label class="messenger-file-upload message-compose-btn" title="Attach file"
+                                            aria-label="Attach file">
+                                            <img src="images/chat-upload-line.svg" alt=""
+                                                class="messenger-action-icon message-compose-icon" width="22"
+                                                height="22" />
+                                            <input type="file" data-messenger-file-input
+                                                accept="image/*,.pdf,.doc,.docx,.txt" />
                                         </label>
 
                                         <div class="message-compose-pill">
-                                            <textarea id="floating-messenger-reply" class="messenger-compose-input" data-messenger-reply-text rows="2" placeholder="Type a message…" autocomplete="off" aria-label="Message"></textarea>
-                                            <button type="button" class="message-compose-emoji" aria-label="Insert emoji" title="Emoji">😊</button>
+                                            <textarea id="floating-messenger-reply" class="messenger-compose-input"
+                                                data-messenger-reply-text rows="2" placeholder="Type a message…"
+                                                autocomplete="off" aria-label="Message"></textarea>
+                                            <button type="button" class="message-compose-emoji"
+                                                aria-label="Insert emoji" title="Emoji">😊</button>
                                         </div>
 
-                                        <button type="button" class="messenger-send-icon-btn message-compose-btn" data-messenger-send aria-label="Send message" title="Send">
-                                            <img src="images/send-plane-2-line.svg" alt="" width="22" height="22" class="messenger-action-icon message-compose-icon" />
+                                        <button type="button" class="messenger-send-icon-btn message-compose-btn"
+                                            data-messenger-send aria-label="Send message" title="Send">
+                                            <img src="images/send-plane-2-line.svg" alt="" width="22" height="22"
+                                                class="messenger-action-icon message-compose-icon" />
                                         </button>
                                     </footer>
                                 </div>
