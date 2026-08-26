@@ -106,10 +106,7 @@ import {
   PAYMENT_METHOD_CATEGORIES_FALLBACK,
 } from "./modules/appointments.js";
 
-import {
-  initUsersModule,
-  renderUsers,
-} from "./modules/users.js";
+import { initUsersModule, renderUsers } from "./modules/users.js";
 
 import {
   initShell,
@@ -118,8 +115,11 @@ import {
   setupShellInteractions,
 } from "./core/shell.js";
 
-export { formatDoctorDisplayName, ensureDoctorSpecialtiesLoaded, getDoctorSpecialties };
-
+export {
+  formatDoctorDisplayName,
+  ensureDoctorSpecialtiesLoaded,
+  getDoctorSpecialties,
+};
 
 // SPA navigation and dynamic content rendering variables
 let mainContent = null;
@@ -175,19 +175,36 @@ function updateSidebarAccountInfoAndPlan() {
   updateSidebarAccountInfo();
   if (isLoggedIn()) {
     const role = getCurrentUserRole();
-    if (role === "doctor" || role === "receptionist" || role === "hospital_admin" || role === "super_admin") {
-      const isEnt = typeof isEnterpriseTierUser === "function" ? isEnterpriseTierUser() : (localStorage.getItem("subscription_plan") === "enterprise" || localStorage.getItem("drmeet_enterprise_mode") === "true");
-      const plan = isEnt ? "enterprise" : (localStorage.getItem("subscription_plan") || "starter");
-      const planName = plan === "pro" ? "Clinic Pro" : plan === "enterprise" ? "Enterprise" : "Starter (Free)";
+    if (
+      role === "doctor" ||
+      role === "receptionist" ||
+      role === "hospital_admin" ||
+      role === "super_admin"
+    ) {
+      const isEnt =
+        typeof isEnterpriseTierUser === "function"
+          ? isEnterpriseTierUser()
+          : localStorage.getItem("subscription_plan") === "enterprise" ||
+            localStorage.getItem("drmeet_enterprise_mode") === "true";
+      const plan = isEnt
+        ? "enterprise"
+        : localStorage.getItem("subscription_plan") || "starter";
+      const planName =
+        plan === "pro"
+          ? "Clinic Pro"
+          : plan === "enterprise"
+            ? "Enterprise"
+            : "Starter (Free)";
       const accountMetaEl = document.getElementById("sidebar-account-meta");
       if (accountMetaEl) {
         const fullName = getCurrentUserName();
         const roleLabel = getSidebarRoleLabel(role);
-        const planBadge = plan === "pro"
-          ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 mt-1">Clinic Pro</span>`
-          : plan === "enterprise"
-            ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 mt-1">Enterprise</span>`
-            : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-800 dark:bg-slate-850 dark:text-slate-350 mt-1">Starter</span>`;
+        const planBadge =
+          plan === "pro"
+            ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300 mt-1">Clinic Pro</span>`
+            : plan === "enterprise"
+              ? `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 mt-1">Enterprise</span>`
+              : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-800 dark:bg-slate-850 dark:text-slate-350 mt-1">Starter</span>`;
         accountMetaEl.innerHTML = `
           <strong>${escapeHtml(fullName || "User")}</strong>
           <span class="role-label">${escapeHtml(roleLabel)}</span>
@@ -199,13 +216,16 @@ function updateSidebarAccountInfoAndPlan() {
       if (pricingBadge) {
         if (plan === "pro") {
           pricingBadge.textContent = "Pro";
-          pricingBadge.className = "upgrade-badge ml-auto text-[9px] px-1.5 py-0.5 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider block";
+          pricingBadge.className =
+            "upgrade-badge ml-auto text-[9px] px-1.5 py-0.5 rounded bg-indigo-600 text-white font-bold uppercase tracking-wider block";
         } else if (plan === "enterprise") {
           pricingBadge.textContent = "Ent";
-          pricingBadge.className = "upgrade-badge ml-auto text-[9px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold uppercase tracking-wider block";
+          pricingBadge.className =
+            "upgrade-badge ml-auto text-[9px] px-1.5 py-0.5 rounded bg-emerald-600 text-white font-bold uppercase tracking-wider block";
         } else {
           pricingBadge.textContent = "Upgrade";
-          pricingBadge.className = "upgrade-badge ml-auto text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold uppercase tracking-wider block animate-pulse";
+          pricingBadge.className =
+            "upgrade-badge ml-auto text-[9px] px-1.5 py-0.5 rounded bg-amber-500 text-white font-bold uppercase tracking-wider block animate-pulse";
         }
       }
     }
@@ -243,9 +263,9 @@ function wireAvatarPresetGrid(root, fileInput) {
     btn.addEventListener("click", () => {
       const url = btn.getAttribute("data-preset-url") || "";
       if (!isAllowedPresetImageUrl(url)) return;
-      root.querySelectorAll(".avatar-preset-btn").forEach((b) =>
-        b.classList.remove("is-selected"),
-      );
+      root
+        .querySelectorAll(".avatar-preset-btn")
+        .forEach((b) => b.classList.remove("is-selected"));
       btn.classList.add("is-selected");
       if (hidden) hidden.value = url;
       if (fileInput) fileInput.value = "";
@@ -255,9 +275,9 @@ function wireAvatarPresetGrid(root, fileInput) {
     fileInput.addEventListener("change", () => {
       if (fileInput.files?.[0]) {
         if (hidden) hidden.value = "";
-        root.querySelectorAll(".avatar-preset-btn").forEach((b) =>
-          b.classList.remove("is-selected"),
-        );
+        root
+          .querySelectorAll(".avatar-preset-btn")
+          .forEach((b) => b.classList.remove("is-selected"));
       }
     });
   }
@@ -272,20 +292,29 @@ function normalizeFetchErrorMessage(err, fallbackMessage) {
 
 export function buildHeaders(baseHeaders = {}) {
   const token = localStorage.getItem("token");
-  const isEnt = typeof isEnterpriseTierUser === "function" ? isEnterpriseTierUser() : (localStorage.getItem("subscription_plan") === "enterprise" || localStorage.getItem("drmeet_enterprise_mode") === "true");
-  const plan = isEnt ? "enterprise" : (localStorage.getItem("subscription_plan") || "starter");
+  const isEnt =
+    typeof isEnterpriseTierUser === "function"
+      ? isEnterpriseTierUser()
+      : localStorage.getItem("subscription_plan") === "enterprise" ||
+        localStorage.getItem("drmeet_enterprise_mode") === "true";
+  const plan = isEnt
+    ? "enterprise"
+    : localStorage.getItem("subscription_plan") || "starter";
   const isEntMode = localStorage.getItem("drmeet_enterprise_mode") === "true";
   const headers = {
     ...baseHeaders,
     "x-subscription-plan": plan,
     ...(isEntMode || isEnt ? { "x-enterprise-mode": "true" } : {}),
   };
-  return token
-    ? { ...headers, Authorization: `Bearer ${token}` }
-    : headers;
+  return token ? { ...headers, Authorization: `Bearer ${token}` } : headers;
 }
 
-export async function apiRequest(url, options = {}, retries = 2, delayMs = 1500) {
+export async function apiRequest(
+  url,
+  options = {},
+  retries = 2,
+  delayMs = 1500,
+) {
   const urlStr = typeof url === "string" ? url : "";
   const skipAuthBlock =
     /\/auth\/(login|signup|status)/.test(urlStr) ||
@@ -304,7 +333,11 @@ export async function apiRequest(url, options = {}, retries = 2, delayMs = 1500)
   let attempt = 0;
   while (attempt <= retries) {
     try {
-      const res = await fetch(url, { ...options, headers, credentials: "include" });
+      const res = await fetch(url, {
+        ...options,
+        headers,
+        credentials: "include",
+      });
       if (res.status === 401 && !skipAuthBlock) {
         try {
           const data = await res.clone().json();
@@ -372,9 +405,15 @@ if (typeof window !== "undefined") {
 
 function buildDoctorAvailabilityLabel(doctor) {
   if (!doctor) return "No availability listed";
-  const rules = String(doctor.availabilityRules || doctor.availabilityText || "").trim();
+  const rules = String(
+    doctor.availabilityRules || doctor.availabilityText || "",
+  ).trim();
   if (rules) {
-    return rules.split("\n").map((r) => r.trim()).filter(Boolean).join(" | ");
+    return rules
+      .split("\n")
+      .map((r) => r.trim())
+      .filter(Boolean)
+      .join(" | ");
   }
   if (typeof doctor.availability === "string" && doctor.availability.trim()) {
     return doctor.availability.trim();
@@ -385,23 +424,28 @@ function buildDoctorAvailabilityLabel(doctor) {
       ? doctor.schedule
       : [];
   if (!slots.length) return "No availability listed";
-  return slots
-    .map((slot) => {
-      if (typeof slot === "string") return slot.trim();
-      if (!slot) return "";
-      if (slot.timeRange) return `${slot.day || "Day"} ${slot.timeRange}`.trim();
-      if (slot.startTime || slot.endTime) {
-        return `${slot.day || "Day"} ${slot.startTime || "--:--"}-${slot.endTime || "--:--"}`.trim();
-      }
-      return String(slot.day || "").trim();
-    })
-    .filter(Boolean)
-    .join(" | ") || "No availability listed";
+  return (
+    slots
+      .map((slot) => {
+        if (typeof slot === "string") return slot.trim();
+        if (!slot) return "";
+        if (slot.timeRange)
+          return `${slot.day || "Day"} ${slot.timeRange}`.trim();
+        if (slot.startTime || slot.endTime) {
+          return `${slot.day || "Day"} ${slot.startTime || "--:--"}-${slot.endTime || "--:--"}`.trim();
+        }
+        return String(slot.day || "").trim();
+      })
+      .filter(Boolean)
+      .join(" | ") || "No availability listed"
+  );
 }
 
 function normalizeTimeText(value) {
   if (!value) return "";
-  const str = String(value || "").trim().toLowerCase();
+  const str = String(value || "")
+    .trim()
+    .toLowerCase();
 
   let hh = null;
   let mm = null;
@@ -421,7 +465,13 @@ function normalizeTimeText(value) {
     }
   }
 
-  if (hh === null || mm === null || !Number.isFinite(hh) || !Number.isFinite(mm)) return "";
+  if (
+    hh === null ||
+    mm === null ||
+    !Number.isFinite(hh) ||
+    !Number.isFinite(mm)
+  )
+    return "";
   if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return "";
 
   const roundedMins = mm < 15 ? 0 : mm < 45 ? 30 : 60;
@@ -439,7 +489,8 @@ function isSameDay(d1, d2) {
   if (!d1 || !d2) return false;
   const date1 = new Date(d1);
   const date2 = new Date(d2);
-  if (Number.isNaN(date1.getTime()) || Number.isNaN(date2.getTime())) return false;
+  if (Number.isNaN(date1.getTime()) || Number.isNaN(date2.getTime()))
+    return false;
   return (
     date1.getFullYear() === date2.getFullYear() &&
     date1.getMonth() === date2.getMonth() &&
@@ -448,7 +499,9 @@ function isSameDay(d1, d2) {
 }
 
 function parseTimeToMinutes(timeText) {
-  const match = String(timeText || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  const match = String(timeText || "")
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})$/);
   if (!match) return null;
   const hh = Number(match[1]);
   const mm = Number(match[2]);
@@ -466,16 +519,22 @@ function isPastSlot(dateVal, timeText, bufferMinutes = 0) {
     const slotMins = parseTimeToMinutes(timeText);
     if (slotMins === null) return false;
     const currentMins = now.getHours() * 60 + now.getMinutes();
-    return slotMins < (currentMins + bufferMinutes);
+    return slotMins < currentMins + bufferMinutes;
   }
 
   const dMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const nowMidnight = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  );
   return dMidnight < nowMidnight;
 }
 
 function formatTimeLabel(time24) {
-  const m = String(time24 || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  const m = String(time24 || "")
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})$/);
   if (!m) return time24;
   let h = Number(m[1]);
   const min = m[2];
@@ -485,7 +544,13 @@ function formatTimeLabel(time24) {
   return `${String(h).padStart(2, "0")}:${min} ${period}`;
 }
 
-function build30MinTimeOptions(selectedTime = "", suggestedTimes = [], conflictingTimes = [], isOffDay = false, operatingSlots = []) {
+function build30MinTimeOptions(
+  selectedTime = "",
+  suggestedTimes = [],
+  conflictingTimes = [],
+  isOffDay = false,
+  operatingSlots = [],
+) {
   if (isOffDay) {
     return `<option value="">No available time slots on this date</option>`;
   }
@@ -508,7 +573,9 @@ function build30MinTimeOptions(selectedTime = "", suggestedTimes = [], conflicti
     }
   }
 
-  const conflicts = new Set((conflictingTimes || []).map((t) => normalizeTimeText(t)));
+  const conflicts = new Set(
+    (conflictingTimes || []).map((t) => normalizeTimeText(t)),
+  );
   const normSelected = normalizeTimeText(selectedTime);
 
   if (normSelected && !slots.includes(normSelected) && !isOffDay) {
@@ -567,13 +634,22 @@ function buildBookingTimeGridHtml({
 
 window.addEventListener("DOMContentLoaded", () => {
   // Enforce patient limit check getter/setter
-  let _showPatientForm = typeof window._rawShowPatientForm === "function" ? window._rawShowPatientForm : (typeof window.showPatientForm === "function" ? window.showPatientForm : null);
+  let _showPatientForm =
+    typeof window._rawShowPatientForm === "function"
+      ? window._rawShowPatientForm
+      : typeof window.showPatientForm === "function"
+        ? window.showPatientForm
+        : null;
   Object.defineProperty(window, "showPatientForm", {
     get() {
       return async function (editId = null, familyMode = false) {
         if (!editId) {
           const plan = localStorage.getItem("subscription_plan") || "starter";
-          const role = String(typeof getCurrentUserRole === "function" ? getCurrentUserRole() : "").toLowerCase();
+          const role = String(
+            typeof getCurrentUserRole === "function"
+              ? getCurrentUserRole()
+              : "",
+          ).toLowerCase();
           if (plan === "starter" && ["doctor", "receptionist"].includes(role)) {
             try {
               const res = await apiRequest(`${API_BASE}/patients`);
@@ -586,13 +662,17 @@ window.addEventListener("DOMContentLoaded", () => {
                       <div class="text-4xl mb-3">⚠️</div>
                       <p class="text-sm text-slate-600 dark:text-slate-400">You have reached the limit of <strong>10 active patients</strong> on the Starter plan. Please upgrade to Clinic Pro for unlimited patient records.</p>
                       <button type="button" id="pricing-modal-upgrade" class="mt-6 w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors cursor-pointer">Upgrade to Pro</button>
-                    </div>`
+                    </div>`,
                   );
-                  document.getElementById("pricing-modal-upgrade")?.addEventListener("click", () => {
-                    const dialog = document.getElementById("pricing-interaction-dialog");
-                    dialog?.close();
-                    window.location.hash = "#pricing";
-                  });
+                  document
+                    .getElementById("pricing-modal-upgrade")
+                    ?.addEventListener("click", () => {
+                      const dialog = document.getElementById(
+                        "pricing-interaction-dialog",
+                      );
+                      dialog?.close();
+                      window.location.hash = "#pricing";
+                    });
                   return;
                 }
               }
@@ -613,7 +693,7 @@ window.addEventListener("DOMContentLoaded", () => {
         window._rawShowPatientForm = val;
       }
     },
-    configurable: true
+    configurable: true,
   });
 
   // DOM element selections
@@ -783,11 +863,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
 async function initLiveVisitorCounter() {
   const visitorCountEl = document.getElementById("visitor-count-text");
-  const sidebarVisitorCountEl = document.getElementById("sidebar-visitor-count-text");
+  const sidebarVisitorCountEl = document.getElementById(
+    "sidebar-visitor-count-text",
+  );
 
   let visitorId = localStorage.getItem("drmeet_visitor_id");
   if (!visitorId) {
-    visitorId = "v_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
+    visitorId =
+      "v_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
     localStorage.setItem("drmeet_visitor_id", visitorId);
   }
 
@@ -815,10 +898,10 @@ async function initLiveVisitorCounter() {
   } catch (err) {
     console.warn("Visitor counter fetch fallback:", err);
     if (visitorCountEl) visitorCountEl.textContent = "👁️ 1,248 Total Visitors";
-    if (sidebarVisitorCountEl) sidebarVisitorCountEl.textContent = "👁️ 1,248 Total Visitors";
+    if (sidebarVisitorCountEl)
+      sidebarVisitorCountEl.textContent = "👁️ 1,248 Total Visitors";
   }
 }
-
 
 function updateAuthNav() {
   const loginLink = document.getElementById("login-link");
@@ -828,32 +911,66 @@ function updateAuthNav() {
   if (doctorDashLi) {
     doctorDashLi.style.display = signedIn && role === "doctor" ? "" : "none";
   }
-  const nonDoctorPatientsLi = document.querySelector(".nav-li-non-doctor-patients");
+  const nonDoctorPatientsLi = document.querySelector(
+    ".nav-li-non-doctor-patients",
+  );
   if (nonDoctorPatientsLi) {
-    nonDoctorPatientsLi.style.display = signedIn && role !== "doctor" && role !== "super_admin" && role !== "patient" ? "" : "none";
+    nonDoctorPatientsLi.style.display =
+      signedIn &&
+      role !== "doctor" &&
+      role !== "super_admin" &&
+      role !== "patient"
+        ? ""
+        : "none";
   }
   const nonDoctorApptLi = document.querySelector(".nav-li-non-doctor");
   if (nonDoctorApptLi) {
-    nonDoctorApptLi.style.display = signedIn && role !== "doctor" && role !== "super_admin" ? "" : "none";
+    nonDoctorApptLi.style.display =
+      signedIn && role !== "doctor" && role !== "super_admin" ? "" : "none";
   }
   const staffNavLis = document.querySelectorAll(".nav-li-staff-only");
   staffNavLis.forEach((li) => {
     if (li.querySelector('a[href="#calendar"]')) {
-      const calendarStaffRoles = new Set(["receptionist", "admin", "hospital_admin", "nurse"]);
-      li.style.display = signedIn && calendarStaffRoles.has(String(role || "")) ? "" : "none";
+      const calendarStaffRoles = new Set([
+        "receptionist",
+        "admin",
+        "hospital_admin",
+        "nurse",
+      ]);
+      li.style.display =
+        signedIn && calendarStaffRoles.has(String(role || "")) ? "" : "none";
     } else if (li.querySelector('a[href="#users"]')) {
-      const usersStaffRoles = new Set(["doctor", "receptionist", "admin", "hospital_admin", "super_admin"]);
-      li.style.display = signedIn && usersStaffRoles.has(String(role || "")) ? "" : "none";
+      const usersStaffRoles = new Set([
+        "doctor",
+        "receptionist",
+        "admin",
+        "hospital_admin",
+        "super_admin",
+      ]);
+      li.style.display =
+        signedIn && usersStaffRoles.has(String(role || "")) ? "" : "none";
     } else {
-      const staffNavRoles = new Set(["doctor", "receptionist", "admin", "hospital_admin", "super_admin"]);
-      li.style.display = signedIn && staffNavRoles.has(String(role || "")) ? "" : "none";
+      const staffNavRoles = new Set([
+        "doctor",
+        "receptionist",
+        "admin",
+        "hospital_admin",
+        "super_admin",
+      ]);
+      li.style.display =
+        signedIn && staffNavRoles.has(String(role || "")) ? "" : "none";
     }
   });
-  const isEnterpriseUser = typeof isEnterpriseTierUser === "function" ? isEnterpriseTierUser() : (role === "super_admin" || role === "hospital_admin");
-  document.querySelectorAll(".nav-li-enterprise-only, a[href='#enterprise']").forEach((el) => {
-    const parentLi = el.closest("li") || el;
-    parentLi.style.display = signedIn && isEnterpriseUser ? "" : "none";
-  });
+  const isEnterpriseUser =
+    typeof isEnterpriseTierUser === "function"
+      ? isEnterpriseTierUser()
+      : role === "super_admin" || role === "hospital_admin";
+  document
+    .querySelectorAll(".nav-li-enterprise-only, a[href='#enterprise']")
+    .forEach((el) => {
+      const parentLi = el.closest("li") || el;
+      parentLi.style.display = signedIn && isEnterpriseUser ? "" : "none";
+    });
   if (signedIn) {
     mountFloatingChatWidget();
   } else {
@@ -924,7 +1041,10 @@ function sortMessagesByRecent(messages) {
 
 export function participantAvatarUrl(participant) {
   const raw = String(
-    participant?.avatarUrl || participant?.photoUrl || participant?.picture || "",
+    participant?.avatarUrl ||
+      participant?.photoUrl ||
+      participant?.picture ||
+      "",
   ).trim();
   return raw || DEFAULT_AVATAR_URL;
 }
@@ -987,12 +1107,16 @@ window.openPatientMessagingContext = async function (patientId) {
     const res = await apiRequest(`${API_BASE}/patients/${patientId}`);
     const patient = res.ok ? await res.json() : { _id: patientId };
 
-    const recipientUserId = typeof resolvePatientMessageRecipient === "function"
-      ? await resolvePatientMessageRecipient(patient)
-      : (patient.userId || patient._id);
+    const recipientUserId =
+      typeof resolvePatientMessageRecipient === "function"
+        ? await resolvePatientMessageRecipient(patient)
+        : patient.userId || patient._id;
 
     if (!recipientUserId) {
-      showToast("Patient does not have a linked user account for direct messaging.", "error");
+      showToast(
+        "Patient does not have a linked user account for direct messaging.",
+        "error",
+      );
       return;
     }
 
@@ -1026,9 +1150,13 @@ window.openDoctorMessagingContext = async function (doctorIdOrUserId) {
       const docRes = await apiRequest(`${API_BASE}/doctors`);
       if (docRes.ok) {
         const doctors = await docRes.json();
-        const doc = Array.isArray(doctors) && doctors.find(
-          (d) => String(d._id) === String(doctorIdOrUserId) || String(d.userId) === String(doctorIdOrUserId),
-        );
+        const doc =
+          Array.isArray(doctors) &&
+          doctors.find(
+            (d) =>
+              String(d._id) === String(doctorIdOrUserId) ||
+              String(d.userId) === String(doctorIdOrUserId),
+          );
         if (doc?.userId) {
           doctorUserId = String(doc.userId);
         }
@@ -1184,13 +1312,17 @@ async function showClinicalTab(tab) {
   const panel = document.getElementById("clinical-tab-panel");
   if (!panel) return;
   const reuseClinicalPatientSearch =
-    tab === "patients" ? document.getElementById("clinical-patient-search") : null;
-  const isClinicalPatientListRefresh =
-    Boolean(reuseClinicalPatientSearch && panel.contains(reuseClinicalPatientSearch));
+    tab === "patients"
+      ? document.getElementById("clinical-patient-search")
+      : null;
+  const isClinicalPatientListRefresh = Boolean(
+    reuseClinicalPatientSearch && panel.contains(reuseClinicalPatientSearch),
+  );
 
   if (isClinicalPatientListRefresh) {
     const ul = panel.querySelector(".clinical-patient-list");
-    if (ul) ul.innerHTML = `<li class="feedback clinical-loading">Searching…</li>`;
+    if (ul)
+      ul.innerHTML = `<li class="feedback clinical-loading">Searching…</li>`;
   } else {
     panel.innerHTML = `<p class="feedback clinical-loading">Loading…</p>`;
   }
@@ -1229,7 +1361,9 @@ async function showClinicalTab(tab) {
 
     if (tab === "patients") {
       panel.innerHTML = `<div id="clinical-patients-mgmt-container"></div>`;
-      const mgmtContainer = document.getElementById("clinical-patients-mgmt-container");
+      const mgmtContainer = document.getElementById(
+        "clinical-patients-mgmt-container",
+      );
       if (mgmtContainer && typeof renderPatients === "function") {
         await renderPatients(mgmtContainer);
       }
@@ -1246,26 +1380,36 @@ async function showClinicalTab(tab) {
           await getApiErrorMessage(res, "Unable to load appointments."),
         );
       const payload = await res.json();
-      const rawUpcoming = Array.isArray(payload.upcoming) ? payload.upcoming : [];
-      const upcoming = rawUpcoming.filter((a) => String(a.status || "").toLowerCase() !== "cancelled");
+      const rawUpcoming = Array.isArray(payload.upcoming)
+        ? payload.upcoming
+        : [];
+      const upcoming = rawUpcoming.filter(
+        (a) => String(a.status || "").toLowerCase() !== "cancelled",
+      );
 
       const renderApptRow = (a) => {
         const pname =
           typeof a.patientId === "object"
             ? formatPatientDisplayName(a.patientId) ||
-            String(a.patientId?.name || "")
+              String(a.patientId?.name || "")
             : "";
-        const dt = a.date && !isNaN(new Date(a.date)) ? new Date(a.date).toLocaleDateString() : (a.date || "");
+        const dt =
+          a.date && !isNaN(new Date(a.date))
+            ? new Date(a.date).toLocaleDateString()
+            : a.date || "";
         const statusValue = String(a.status || "pending").toLowerCase();
         const statusOpts = ["pending", "confirmed", "completed", "cancelled"]
-          .map(
-            (st) => {
-              const label = st === "completed" ? "complete" : st;
-              return `<option value="${st}" ${statusValue === st ? "selected" : ""}>${label}</option>`;
-            },
-          )
+          .map((st) => {
+            const label = st === "completed" ? "complete" : st;
+            return `<option value="${st}" ${statusValue === st ? "selected" : ""}>${label}</option>`;
+          })
           .join("");
-        const rawPatientId = String(a.patient?._id || a.patient || (typeof a.patientId === "object" ? a.patientId?._id : "") || "");
+        const rawPatientId = String(
+          a.patient?._id ||
+            a.patient ||
+            (typeof a.patientId === "object" ? a.patientId?._id : "") ||
+            "",
+        );
         return `
           <tr data-appt-id="${escapeHtml(String(a._id))}">
             <td>${escapeHtml(dt)}</td>
@@ -1304,10 +1448,12 @@ async function showClinicalTab(tab) {
         </section>
       `;
 
-      document.getElementById("clinical-appt-refresh")?.addEventListener("click", () => {
-        sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
-        void showClinicalTab("appointments");
-      });
+      document
+        .getElementById("clinical-appt-refresh")
+        ?.addEventListener("click", () => {
+          sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
+          void showClinicalTab("appointments");
+        });
       panel.querySelectorAll(".clinical-appt-status").forEach((sel) => {
         sel.addEventListener("change", async () => {
           const tr = sel.closest("tr");
@@ -1334,7 +1480,9 @@ async function showClinicalTab(tab) {
         });
       });
 
-      const mgmtContainer = document.getElementById("clinical-appointments-mgmt-container");
+      const mgmtContainer = document.getElementById(
+        "clinical-appointments-mgmt-container",
+      );
       if (mgmtContainer && typeof renderAppointments === "function") {
         await renderAppointments(mgmtContainer);
       }
@@ -1345,7 +1493,9 @@ async function showClinicalTab(tab) {
 
     if (tab === "calendar") {
       panel.innerHTML = `<div id="clinical-calendar-container" class="clinical-calendar-wrap"></div>`;
-      const calContainer = document.getElementById("clinical-calendar-container");
+      const calContainer = document.getElementById(
+        "clinical-calendar-container",
+      );
       if (calContainer && typeof renderCalendar === "function") {
         await renderCalendar(calContainer);
       }
@@ -1416,7 +1566,8 @@ async function showClinicalTab(tab) {
           : docs;
 
         const groupedDocs = filteredDocs.reduce((acc, d) => {
-          const groupKey = String(d.patientName || "").trim() || "Shared Clinic Library";
+          const groupKey =
+            String(d.patientName || "").trim() || "Shared Clinic Library";
           if (!acc[groupKey]) acc[groupKey] = [];
           acc[groupKey].push(d);
           return acc;
@@ -1424,90 +1575,114 @@ async function showClinicalTab(tab) {
 
         const groupedHtml = Object.keys(groupedDocs).length
           ? Object.entries(groupedDocs)
-            .map(
-              ([groupKey, groupItems], index) => {
-                const divider = index > 0 ? `<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0;" />` : "";
+              .map(([groupKey, groupItems], index) => {
+                const divider =
+                  index > 0
+                    ? `<hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0;" />`
+                    : "";
                 return `
                   ${divider}
                   <div class="clinical-doc-group">
                     <h5 class="clinical-doc-group-heading" style="font-weight: 600; color: #1e3a8a; font-size: 1.1rem; margin-top: 1.5rem; margin-bottom: 0.5rem;">${escapeHtml(groupKey)}</h5>
                     <ul class="clinical-doc-list">
                       ${groupItems
-                    .map(
-                      (d) => `
+                        .map(
+                          (d) => `
                         <li class="card clinical-doc-row">
                           <div>
                             <span style="font-weight: normal;">${escapeHtml(d.name || "Document")}</span>
                             <p class="clinical-muted">${escapeHtml(
-                        d.source === "patient"
-                          ? "Patient chart"
-                          : d.source === "clinic"
-                            ? "Clinic library"
-                            : d.source || "—",
-                      )}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
-                            <p class="clinical-muted">${d.uploadedAt
-                          ? escapeHtml(new Date(d.uploadedAt).toLocaleString())
-                          : ""
-                        }</p>
+                              d.source === "patient"
+                                ? "Patient chart"
+                                : d.source === "clinic"
+                                  ? "Clinic library"
+                                  : d.source || "—",
+                            )}${d.patientName ? ` · ${escapeHtml(d.patientName)}` : ""}</p>
+                            <p class="clinical-muted">${
+                              d.uploadedAt
+                                ? escapeHtml(
+                                    new Date(d.uploadedAt).toLocaleString(),
+                                  )
+                                : ""
+                            }</p>
                           </div>
                           <div class="clinical-doc-actions" style="display: flex; align-items: center; gap: 0.5rem;">
                             <a class="btn btn-secondary btn-sm" href="${escapeHtml(
-                          d.fileUrl || d.url || "#",
-                        )}" target="_blank" rel="noopener noreferrer">Open</a>
+                              d.fileUrl || d.url || "#",
+                            )}" target="_blank" rel="noopener noreferrer">Open</a>
                             <button type="button" class="btn btn-danger btn-sm btn-delete-clinical-doc" data-doc-id="${escapeHtml(d._id || d.documentId || "")}" data-doc-source="${escapeHtml(d.source || "clinic")}" data-doc-patient-id="${escapeHtml(d.patientId || "")}" data-doc-url="${escapeHtml(d.fileUrl || d.url || "")}" data-doc-name="${escapeHtml(d.name || "Document")}">Delete</button>
                           </div>
                         </li>`,
-                    )
-                    .join("")}
+                        )
+                        .join("")}
                     </ul>
                   </div>`;
-              }
-            )
-            .join("")
+              })
+              .join("")
           : `<ul class="clinical-doc-list"><li class="feedback">No documents yet.</li></ul>`;
 
-        const container = panel.querySelector(".clinical-docs-grouped-container");
+        const container = panel.querySelector(
+          ".clinical-docs-grouped-container",
+        );
         if (container) {
           container.innerHTML = groupedHtml;
 
-          container.querySelectorAll(".btn-delete-clinical-doc").forEach((btn) => {
-            btn.addEventListener("click", async () => {
-              const docId = btn.getAttribute("data-doc-id") || "";
-              const docSource = btn.getAttribute("data-doc-source") || "clinic";
-              const docPatientId = btn.getAttribute("data-doc-patient-id") || "";
-              const docUrl = btn.getAttribute("data-doc-url") || "";
-              const docName = btn.getAttribute("data-doc-name") || "this document";
+          container
+            .querySelectorAll(".btn-delete-clinical-doc")
+            .forEach((btn) => {
+              btn.addEventListener("click", async () => {
+                const docId = btn.getAttribute("data-doc-id") || "";
+                const docSource =
+                  btn.getAttribute("data-doc-source") || "clinic";
+                const docPatientId =
+                  btn.getAttribute("data-doc-patient-id") || "";
+                const docUrl = btn.getAttribute("data-doc-url") || "";
+                const docName =
+                  btn.getAttribute("data-doc-name") || "this document";
 
-              const confirmed = window.confirm(`Are you sure you want to delete "${docName}"? This action cannot be undone.`);
-              if (!confirmed) return;
+                const confirmed = window.confirm(
+                  `Are you sure you want to delete "${docName}"? This action cannot be undone.`,
+                );
+                if (!confirmed) return;
 
-              btn.disabled = true;
-              btn.textContent = "Deleting…";
+                btn.disabled = true;
+                btn.textContent = "Deleting…";
 
-              try {
-                const resDel = await apiRequest(`${API_BASE}/doctors/me/documents`, {
-                  method: "DELETE",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    documentId: docId,
-                    source: docSource,
-                    patientId: docPatientId,
-                    url: docUrl,
-                  }),
-                });
-                if (!resDel.ok) {
-                  throw new Error(await getApiErrorMessage(resDel, "Failed to delete document."));
+                try {
+                  const resDel = await apiRequest(
+                    `${API_BASE}/doctors/me/documents`,
+                    {
+                      method: "DELETE",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        documentId: docId,
+                        source: docSource,
+                        patientId: docPatientId,
+                        url: docUrl,
+                      }),
+                    },
+                  );
+                  if (!resDel.ok) {
+                    throw new Error(
+                      await getApiErrorMessage(
+                        resDel,
+                        "Failed to delete document.",
+                      ),
+                    );
+                  }
+                  showToast("Document deleted successfully.");
+                  sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
+                  await showClinicalTab("documents");
+                } catch (err) {
+                  showToast(
+                    err?.message || "Failed to delete document.",
+                    "error",
+                  );
+                  btn.disabled = false;
+                  btn.textContent = "Delete";
                 }
-                showToast("Document deleted successfully.");
-                sessionStorage.removeItem(DOCTOR_OVERVIEW_CACHE_KEY);
-                await showClinicalTab("documents");
-              } catch (err) {
-                showToast(err?.message || "Failed to delete document.", "error");
-                btn.disabled = false;
-                btn.textContent = "Delete";
-              }
+              });
             });
-          });
         }
       };
 
@@ -1517,7 +1692,8 @@ async function showClinicalTab(tab) {
         const hint = document.getElementById("clinical-doc-patient-hint");
         if (sc === "patient") {
           patientSel.required = true;
-          if (hint) hint.textContent = "Choose a patient when saving to a chart.";
+          if (hint)
+            hint.textContent = "Choose a patient when saving to a chart.";
         } else {
           patientSel.required = false;
           if (hint) hint.textContent = "Filter recent uploads by this patient.";
@@ -1565,14 +1741,11 @@ async function showClinicalTab(tab) {
               documentName: fd.get("documentName"),
               documentFileData,
             };
-            const resUp = await apiRequest(
-              `${API_BASE}/doctors/me/documents`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-              },
-            );
+            const resUp = await apiRequest(`${API_BASE}/doctors/me/documents`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
             if (!resUp.ok)
               throw new Error(
                 await getApiErrorMessage(resUp, "Upload failed."),
@@ -1614,9 +1787,10 @@ async function showClinicalTab(tab) {
       const overview = await resOverview.json();
       const allDoctors = resDocs.ok ? await resDocs.json() : [];
       const currentUserId = getCurrentUserId();
-      const myDoctor = allDoctors.find(
-        (d) => String(d.userId || "") === String(currentUserId || "")
-      ) || (allDoctors.length ? allDoctors[0] : null);
+      const myDoctor =
+        allDoctors.find(
+          (d) => String(d.userId || "") === String(currentUserId || ""),
+        ) || (allDoctors.length ? allDoctors[0] : null);
 
       const prefs = overview.notificationPrefs || {};
 
@@ -1653,12 +1827,16 @@ async function showClinicalTab(tab) {
               <button type="submit" class="btn btn-secondary btn-action-edit">Invite Receptionist</button>
             </form>
             <div id="invite-receptionist-feedback" class="feedback" style="display:none; margin-top: 0.5rem;"></div>
-            ${myDoctor ? `
+            ${
+              myDoctor
+                ? `
               <label style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
                 <input type="checkbox" id="doctor-allow-receptionist-docs" ${myDoctor.allowReceptionistSendDocuments ? "checked" : ""} />
                 <span>Allow receptionist to send patient documents</span>
               </label>
-            ` : ""}
+            `
+                : ""
+            }
           </section>
 
           <section class="card" style="margin-top: 1rem;">
@@ -1675,64 +1853,102 @@ async function showClinicalTab(tab) {
         </div>
       `;
 
-      document.getElementById("clinical-edit-doctor-btn")?.addEventListener("click", () => {
-        const docId = myDoctor?._id || myDoctor?.id || null;
-        if (typeof showDoctorForm === "function") {
-          showDoctorForm(docId);
-        } else if (typeof window.showDoctorForm === "function") {
-          window.showDoctorForm(docId);
-        }
-      });
-
-      document.getElementById("invite-receptionist-form")?.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        const feedback = document.getElementById("invite-receptionist-feedback");
-        const email = String(new FormData(form).get("email") || "").trim();
-        const receptionistName = String(new FormData(form).get("receptionistName") || "").trim();
-        if (!email) return;
-        if (feedback) {
-          feedback.style.display = "block";
-          feedback.className = "feedback";
-          feedback.textContent = "Inviting receptionist...";
-        }
-        try {
-          const inviteRes = await apiRequest(`${API_BASE}/doctors/clinic-staff/invite`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, receptionistName }),
-          });
-          if (!inviteRes.ok) throw new Error(await getApiErrorMessage(inviteRes, "Failed to invite receptionist"));
-          const data = await inviteRes.json();
-          if (feedback) {
-            feedback.className = "feedback success";
-            feedback.textContent = data.message + (data.emailStatus === "failed" ? " (Email failed to send)" : " (Invitation email sent)");
-          }
-          form.reset();
-        } catch (error) {
-          if (feedback) {
-            feedback.className = "feedback error";
-            feedback.textContent = error.message || "Failed to invite receptionist.";
-          }
-        }
-      });
-
-      if (myDoctor) {
-        document.getElementById("doctor-allow-receptionist-docs")?.addEventListener("change", async (e) => {
-          const checked = e.target.checked;
-          try {
-            const upRes = await apiRequest(`${API_BASE}/doctors/${myDoctor._id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ allowReceptionistSendDocuments: checked }),
-            });
-            if (!upRes.ok) throw new Error(await getApiErrorMessage(upRes, "Failed to update permission"));
-            showToast("Receptionist document permission updated.");
-          } catch (error) {
-            e.target.checked = !checked;
-            showToast(error.message || "Failed to update permission.", "error");
+      document
+        .getElementById("clinical-edit-doctor-btn")
+        ?.addEventListener("click", () => {
+          const docId = myDoctor?._id || myDoctor?.id || null;
+          if (typeof showDoctorForm === "function") {
+            showDoctorForm(docId);
+          } else if (typeof window.showDoctorForm === "function") {
+            window.showDoctorForm(docId);
           }
         });
+
+      document
+        .getElementById("invite-receptionist-form")
+        ?.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const form = event.currentTarget;
+          const feedback = document.getElementById(
+            "invite-receptionist-feedback",
+          );
+          const email = String(new FormData(form).get("email") || "").trim();
+          const receptionistName = String(
+            new FormData(form).get("receptionistName") || "",
+          ).trim();
+          if (!email) return;
+          if (feedback) {
+            feedback.style.display = "block";
+            feedback.className = "feedback";
+            feedback.textContent = "Inviting receptionist...";
+          }
+          try {
+            const inviteRes = await apiRequest(
+              `${API_BASE}/doctors/clinic-staff/invite`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, receptionistName }),
+              },
+            );
+            if (!inviteRes.ok)
+              throw new Error(
+                await getApiErrorMessage(
+                  inviteRes,
+                  "Failed to invite receptionist",
+                ),
+              );
+            const data = await inviteRes.json();
+            if (feedback) {
+              feedback.className = "feedback success";
+              feedback.textContent =
+                data.message +
+                (data.emailStatus === "failed"
+                  ? " (Email failed to send)"
+                  : " (Invitation email sent)");
+            }
+            form.reset();
+          } catch (error) {
+            if (feedback) {
+              feedback.className = "feedback error";
+              feedback.textContent =
+                error.message || "Failed to invite receptionist.";
+            }
+          }
+        });
+
+      if (myDoctor) {
+        document
+          .getElementById("doctor-allow-receptionist-docs")
+          ?.addEventListener("change", async (e) => {
+            const checked = e.target.checked;
+            try {
+              const upRes = await apiRequest(
+                `${API_BASE}/doctors/${myDoctor._id}`,
+                {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    allowReceptionistSendDocuments: checked,
+                  }),
+                },
+              );
+              if (!upRes.ok)
+                throw new Error(
+                  await getApiErrorMessage(
+                    upRes,
+                    "Failed to update permission",
+                  ),
+                );
+              showToast("Receptionist document permission updated.");
+            } catch (error) {
+              e.target.checked = !checked;
+              showToast(
+                error.message || "Failed to update permission.",
+                "error",
+              );
+            }
+          });
       }
 
       document
@@ -1786,7 +2002,7 @@ async function showClinicalTab(tab) {
       const pname = (a) =>
         typeof a.patientId === "object"
           ? formatPatientDisplayName(a.patientId) ||
-          String(a.patientId?.name || "Patient")
+            String(a.patientId?.name || "Patient")
           : "Patient";
       const patientPhoto = (a) => {
         const o = a.patientId;
@@ -1816,30 +2032,37 @@ async function showClinicalTab(tab) {
                 </tr>
               </thead>
               <tbody>
-                ${rows.length
-          ? rows
-            .map((a) => {
-              const b = a.billing || {};
-              const dt = a.date
-                ? escapeHtml(new Date(a.date).toLocaleString())
-                : "—";
-              const pimg = escapeHtml(
-                patientPhoto(a) || DEFAULT_AVATAR_URL,
-              );
-              const docLinks = [];
-              if (b.claimUrl) {
-                docLinks.push(`<a href="${escapeHtml(b.claimUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 2px 8px; font-size: 0.7rem; border-radius: 12px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-weight: 600; text-decoration: none; border: 1px solid rgba(59, 130, 246, 0.3);">HMO Card</a>`);
-              }
-              if (b.soaUrl) {
-                docLinks.push(`<a href="${escapeHtml(b.soaUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 2px 8px; font-size: 0.7rem; border-radius: 12px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-weight: 600; text-decoration: none; border: 1px solid rgba(59, 130, 246, 0.3);">SOA</a>`);
-              }
-              if (b.invoiceUrl) {
-                docLinks.push(`<a href="${escapeHtml(b.invoiceUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 2px 8px; font-size: 0.7rem; border-radius: 12px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-weight: 600; text-decoration: none; border: 1px solid rgba(59, 130, 246, 0.3);">Receipt</a>`);
-              }
+                ${
+                  rows.length
+                    ? rows
+                        .map((a) => {
+                          const b = a.billing || {};
+                          const dt = a.date
+                            ? escapeHtml(new Date(a.date).toLocaleString())
+                            : "—";
+                          const pimg = escapeHtml(
+                            patientPhoto(a) || DEFAULT_AVATAR_URL,
+                          );
+                          const docLinks = [];
+                          if (b.claimUrl) {
+                            docLinks.push(
+                              `<a href="${escapeHtml(b.claimUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 2px 8px; font-size: 0.7rem; border-radius: 12px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-weight: 600; text-decoration: none; border: 1px solid rgba(59, 130, 246, 0.3);">HMO Card</a>`,
+                            );
+                          }
+                          if (b.soaUrl) {
+                            docLinks.push(
+                              `<a href="${escapeHtml(b.soaUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 2px 8px; font-size: 0.7rem; border-radius: 12px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-weight: 600; text-decoration: none; border: 1px solid rgba(59, 130, 246, 0.3);">SOA</a>`,
+                            );
+                          }
+                          if (b.invoiceUrl) {
+                            docLinks.push(
+                              `<a href="${escapeHtml(b.invoiceUrl)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 2px 8px; font-size: 0.7rem; border-radius: 12px; background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-weight: 600; text-decoration: none; border: 1px solid rgba(59, 130, 246, 0.3);">Receipt</a>`,
+                            );
+                          }
 
-              const documentsCellContent = docLinks.length
-                ? `<div class="billing-doc-links-row" style="display: flex; gap: 4px; flex-wrap: wrap;">${docLinks.join(" ")}</div>`
-                : `
+                          const documentsCellContent = docLinks.length
+                            ? `<div class="billing-doc-links-row" style="display: flex; gap: 4px; flex-wrap: wrap;">${docLinks.join(" ")}</div>`
+                            : `
                 <div class="inline-billing-upload-wrap" style="display: flex; gap: 4px; align-items: center;">
                   <select class="inline-billing-doc-kind-sel" data-appt-id="${escapeHtml(String(a._id))}" aria-label="Upload document type" style="padding: 2px 4px; font-size: 0.75rem;">
                     <option value="claim">HMO Card</option>
@@ -1853,7 +2076,7 @@ async function showClinicalTab(tab) {
                 </div>
                 `;
 
-              return `<tr>
+                          return `<tr>
                     <td>${dt}</td>
                     <td class="clinical-billing-patient-cell"><span class="clinical-billing-patient-identity"><img class="clinical-billing-patient-avatar" src="${pimg}" alt="" width="32" height="32" />${escapeHtml(pname(a))}</span></td>
                     <td>${escapeHtml(String(b.consultationFee ?? 0))}</td>
@@ -1865,10 +2088,10 @@ async function showClinicalTab(tab) {
                     <td>${documentsCellContent}</td>
                     <td><button type="button" class="btn btn-secondary btn-sm clinical-billing-edit" data-appt-id="${escapeHtml(String(a._id))}">Edit</button></td>
                   </tr>`;
-            })
-            .join("")
-          : `<tr><td colspan="9" class="clinical-muted">No appointments yet.</td></tr>`
-        }
+                        })
+                        .join("")
+                    : `<tr><td colspan="9" class="clinical-muted">No appointments yet.</td></tr>`
+                }
               </tbody>
             </table>
           </div>
@@ -1934,9 +2157,9 @@ async function showClinicalTab(tab) {
           lines.length > 0
             ? lines
             : [
-              { description: "", amount: 0 },
-              { description: "", amount: 0 },
-            ];
+                { description: "", amount: 0 },
+                { description: "", amount: 0 },
+              ];
         const savedMethod = String(b.paymentMethod || "").trim();
         const savedCat = String(b.paymentMethodCategory || "").trim();
         let initialCat = savedCat;
@@ -1988,15 +2211,15 @@ async function showClinicalTab(tab) {
               <fieldset class="clinical-service-lines">
                 <legend>Services (line items)</legend>
                 ${[0, 1, 2, 3]
-            .map((i) => {
-              const line = svcRows[i] || { description: "", amount: 0 };
-              return `
+                  .map((i) => {
+                    const line = svcRows[i] || { description: "", amount: 0 };
+                    return `
                   <div class="clinical-service-line">
                     <input type="text" name="svc_desc_${i}" placeholder="Description" value="${escapeHtml(String(line.description || ""))}" />
                     <input type="number" name="svc_amt_${i}" placeholder="Amount" step="0.01" min="0" value="${escapeHtml(String(line.amount ?? 0))}" />
                   </div>`;
-            })
-            .join("")}
+                  })
+                  .join("")}
               </fieldset>
               <label>Payment status
                 <select name="paymentStatus">
@@ -2097,7 +2320,8 @@ async function showClinicalTab(tab) {
             return;
           }
           const kind = String(
-            dlg.querySelector("#clinical-billing-doc-kind-sel")?.value || "claim",
+            dlg.querySelector("#clinical-billing-doc-kind-sel")?.value ||
+              "claim",
           ).toLowerCase();
           if (!["soa", "invoice", "claim"].includes(kind)) {
             showToast("Invalid document type.", "error");
@@ -2244,7 +2468,8 @@ async function showClinicalTab(tab) {
           const labelBtn = input.closest("label");
           let originalText = "Upload";
           if (labelBtn) {
-            originalText = labelBtn.childNodes[0]?.textContent?.trim() || "Upload";
+            originalText =
+              labelBtn.childNodes[0]?.textContent?.trim() || "Upload";
             labelBtn.style.pointerEvents = "none";
             labelBtn.innerHTML = `Uploading…<input type="file" class="inline-billing-doc-input" data-appt-id="${escapeHtml(String(id))}" accept=".pdf,.png,.jpg,.jpeg,.webp,image/*" style="display: none;" />`;
           }
@@ -2323,11 +2548,11 @@ function renderDoctorDashboard() {
       </header>
       <nav class="clinical-dash-tabs" role="tablist" aria-label="Clinical sections">
         ${tabs
-      .map(
-        (t) =>
-          `<button type="button" role="tab" class="clinical-tab ${tab === t.id ? "clinical-tab-active" : ""}" data-clinical-tab="${t.id}" aria-selected="${tab === t.id ? "true" : "false"}">${escapeHtml(t.label)}</button>`,
-      )
-      .join("")}
+          .map(
+            (t) =>
+              `<button type="button" role="tab" class="clinical-tab ${tab === t.id ? "clinical-tab-active" : ""}" data-clinical-tab="${t.id}" aria-selected="${tab === t.id ? "true" : "false"}">${escapeHtml(t.label)}</button>`,
+          )
+          .join("")}
       </nav>
       <div id="clinical-tab-panel" class="clinical-tab-panel" role="tabpanel"></div>
     </div>
@@ -2378,7 +2603,12 @@ async function renderSettings() {
   );
   const presetRole = getCurrentUserRole() === "doctor" ? "doctor" : "patient";
   const plan = localStorage.getItem("subscription_plan") || "starter";
-  const planName = plan === "pro" ? "Clinic Pro (₱2,499/mo)" : plan === "enterprise" ? "Enterprise (Custom)" : "Starter (Free)";
+  const planName =
+    plan === "pro"
+      ? "Clinic Pro (₱2,499/mo)"
+      : plan === "enterprise"
+        ? "Enterprise (Custom)"
+        : "Starter (Free)";
 
   mainContent.innerHTML = `
     <h2 class="page-title">Settings</h2>
@@ -2406,8 +2636,9 @@ async function renderSettings() {
         </select>
       </label>
     </section>
-    ${role !== "patient"
-      ? `<section class="card settings-enterprise-card">
+    ${
+      role !== "patient"
+        ? `<section class="card settings-enterprise-card">
       <h3>Enterprise / Hospital Management View</h3>
       <p class="signup-lead">Toggle multi-doctor hospital workspace, organizational tree hierarchy, and room management.</p>
       <div class="mt-2" style="margin-top: 0.75rem;">
@@ -2421,15 +2652,16 @@ async function renderSettings() {
         </button>
       </div>
     </section>`
-      : ""
+        : ""
     }
     <section class="card">
       <h3>Notifications</h3>
       <p class="signup-lead">Appointment and message alerts can be expanded here in a future update.</p>
       <label><input type="checkbox" id="settings-notify-email" disabled /> Email reminders (coming soon)</label>
     </section>
-    ${isStaffBookingPolicyRole
-      ? `<section class="card settings-subscription-card">
+    ${
+      isStaffBookingPolicyRole
+        ? `<section class="card settings-subscription-card">
       <h3>Subscription & Plan</h3>
       <p class="signup-lead">Manage your clinic subscription and billing plan.</p>
       <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
@@ -2438,12 +2670,13 @@ async function renderSettings() {
           <strong style="font-size: 1.15rem;" class="text-slate-800 dark:text-slate-200" id="settings-current-plan-name">${planName}</strong>
         </div>
         <div>
-          ${plan === "starter"
-        ? `<button type="button" class="btn btn-primary" onclick="window.location.hash = '#pricing';">Upgrade Plan</button>`
-        : plan === "pro"
-          ? `<button type="button" class="btn btn-secondary btn-action-delete" id="settings-cancel-sub-btn">Cancel Subscription</button>`
-          : `<button type="button" class="btn btn-secondary" onclick="window.location.hash = '#pricing';">Change Plan</button>`
-      }
+          ${
+            plan === "starter"
+              ? `<button type="button" class="btn btn-primary" onclick="window.location.hash = '#pricing';">Upgrade Plan</button>`
+              : plan === "pro"
+                ? `<button type="button" class="btn btn-secondary btn-action-delete" id="settings-cancel-sub-btn">Cancel Subscription</button>`
+                : `<button type="button" class="btn btn-secondary" onclick="window.location.hash = '#pricing';">Change Plan</button>`
+          }
         </div>
       </div>
     </section>
@@ -2456,12 +2689,14 @@ async function renderSettings() {
       <button type="button" class="btn btn-primary" id="settings-save-booking-limit">Save booking limit</button>
       <p id="settings-booking-limit-feedback" class="feedback" style="display:none" role="status"></p>
     </section>`
-      : ""
+        : ""
     }
     <div id="settings-admin-subscriptions-container"></div>
   `;
   const profCard = mainContent.querySelector(".settings-profile-card");
-  const settingsFileInput = document.getElementById("settings-profile-photo-file");
+  const settingsFileInput = document.getElementById(
+    "settings-profile-photo-file",
+  );
   if (profCard && settingsFileInput) {
     wireAvatarPresetGrid(profCard, settingsFileInput);
   }
@@ -2491,7 +2726,9 @@ async function renderSettings() {
           body: JSON.stringify(body),
         });
         if (!res.ok)
-          throw new Error(await getApiErrorMessage(res, "Unable to save photo."));
+          throw new Error(
+            await getApiErrorMessage(res, "Unable to save photo."),
+          );
         const savedUser = await res.json();
         applyUserRecordToLocalCache(savedUser);
         await refreshCurrentUserCacheFromApi();
@@ -2561,13 +2798,16 @@ async function renderSettings() {
           return;
         }
         try {
-          const res = await apiRequest(`${API_BASE}/appointments/booking-policy`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              maxPatientsPerDay,
-            }),
-          });
+          const res = await apiRequest(
+            `${API_BASE}/appointments/booking-policy`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                maxPatientsPerDay,
+              }),
+            },
+          );
           if (!res.ok) {
             throw new Error(
               await getApiErrorMessage(res, "Unable to save booking limit."),
@@ -2583,7 +2823,8 @@ async function renderSettings() {
           if (feedback) {
             feedback.style.display = "block";
             feedback.className = "feedback error";
-            feedback.textContent = err?.message || "Unable to save booking limit.";
+            feedback.textContent =
+              err?.message || "Unable to save booking limit.";
           }
           showToast(err?.message || "Unable to save booking limit.", "error");
         }
@@ -2601,31 +2842,42 @@ async function renderSettings() {
               <button type="button" id="confirm-cancel-sub" class="w-full py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold transition-colors cursor-pointer">Yes, Downgrade</button>
               <button type="button" id="keep-cancel-sub" class="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-semibold transition-colors cursor-pointer">Keep Clinic Pro</button>
             </div>
-          </div>`
+          </div>`,
         );
 
         const dialog = document.getElementById("pricing-interaction-dialog");
 
-        document.getElementById("confirm-cancel-sub")?.addEventListener("click", () => {
-          localStorage.setItem("subscription_plan", "starter");
-          showToast("Subscription cancelled. Downgraded to Starter plan.", "success");
-          dialog?.close();
-          updateSidebarAccountInfoAndPlan();
-          void renderSettings();
-        });
+        document
+          .getElementById("confirm-cancel-sub")
+          ?.addEventListener("click", () => {
+            localStorage.setItem("subscription_plan", "starter");
+            showToast(
+              "Subscription cancelled. Downgraded to Starter plan.",
+              "success",
+            );
+            dialog?.close();
+            updateSidebarAccountInfoAndPlan();
+            void renderSettings();
+          });
 
-        document.getElementById("keep-cancel-sub")?.addEventListener("click", () => {
-          dialog?.close();
-        });
+        document
+          .getElementById("keep-cancel-sub")
+          ?.addEventListener("click", () => {
+            dialog?.close();
+          });
       });
   }
 
   const entBtn = document.getElementById("btn-toggle-enterprise-view");
   if (entBtn) {
     entBtn.addEventListener("click", () => {
-      const isCurrentlyEnabled = localStorage.getItem("drmeet_enterprise_mode") === "true";
+      const isCurrentlyEnabled =
+        localStorage.getItem("drmeet_enterprise_mode") === "true";
       const newEnabledState = !isCurrentlyEnabled;
-      localStorage.setItem("drmeet_enterprise_mode", newEnabledState ? "true" : "false");
+      localStorage.setItem(
+        "drmeet_enterprise_mode",
+        newEnabledState ? "true" : "false",
+      );
 
       if (newEnabledState) {
         entBtn.textContent = "Disable Hospital View";
@@ -2643,7 +2895,9 @@ async function renderSettings() {
   }
 
   if (isSuperAdminUser()) {
-    void renderAdminSubscriptionsTable("settings-admin-subscriptions-container");
+    void renderAdminSubscriptionsTable(
+      "settings-admin-subscriptions-container",
+    );
   }
 }
 
@@ -2651,7 +2905,7 @@ function isSuperAdminUser() {
   let cache = {};
   try {
     cache = JSON.parse(localStorage.getItem(USER_CACHE_KEY) || "{}");
-  } catch (e) { }
+  } catch (e) {}
 
   const userRole = getCurrentUserRole();
   const orgRole = localStorage.getItem("org_role") || cache.orgRole || "";
@@ -2667,12 +2921,20 @@ function isSuperAdminUser() {
 }
 
 function isEnterpriseAdminUser() {
-  const role = String(typeof getCurrentUserRole === "function" ? getCurrentUserRole() : "").toLowerCase();
+  const role = String(
+    typeof getCurrentUserRole === "function" ? getCurrentUserRole() : "",
+  ).toLowerCase();
   const orgRole = localStorage.getItem("org_role") || "";
-  return ["super_admin", "hospital_admin", "admin", "superadmin"].includes(role) || isSuperAdminUser() || orgRole === "department_head";
+  return (
+    ["super_admin", "hospital_admin", "admin", "superadmin"].includes(role) ||
+    isSuperAdminUser() ||
+    orgRole === "department_head"
+  );
 }
 
-async function renderAdminSubscriptionsTable(containerId = "settings-admin-subscriptions-container") {
+async function renderAdminSubscriptionsTable(
+  containerId = "settings-admin-subscriptions-container",
+) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
@@ -2687,10 +2949,19 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
     const res = await apiRequest(`${API_BASE}/admin/subscriptions-overview`);
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || errData.message || "Failed to load admin subscription overview.");
+      throw new Error(
+        errData.error ||
+          errData.message ||
+          "Failed to load admin subscription overview.",
+      );
     }
     const data = await res.json();
-    const summary = data.summary || { totalUsers: 0, starterCount: 0, proCount: 0, enterpriseCount: 0 };
+    const summary = data.summary || {
+      totalUsers: 0,
+      starterCount: 0,
+      proCount: 0,
+      enterpriseCount: 0,
+    };
     const users = Array.isArray(data.users) ? data.users : [];
 
     container.innerHTML = `
@@ -2762,12 +3033,28 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
               </tr>
             </thead>
             <tbody>
-              ${users.length === 0 ? `<tr><td colspan="6" style="padding: 1rem; text-align: center; color: #94a3b8;">No registered users found.</td></tr>` : `
-                ${users.map((u) => {
-      const tierBadgeColor = u.currentTier === "Enterprise" ? "background:#f3e8ff; color:#6b21a8; border:1px solid #d8b4fe;" : u.currentTier === "Pro" ? "background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;" : "background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;";
-      const roleBadgeColor = u.role === "admin" || u.role === "superadmin" ? "background:#fee2e2; color:#991b1b;" : u.role === "doctor" ? "background:#dcfce7; color:#166534;" : "background:#f3f4f6; color:#374151;";
-      const formattedDate = u.joinedDate ? new Date(u.joinedDate).toLocaleDateString() : "—";
-      return `
+              ${
+                users.length === 0
+                  ? `<tr><td colspan="6" style="padding: 1rem; text-align: center; color: #94a3b8;">No registered users found.</td></tr>`
+                  : `
+                ${users
+                  .map((u) => {
+                    const tierBadgeColor =
+                      u.currentTier === "Enterprise"
+                        ? "background:#f3e8ff; color:#6b21a8; border:1px solid #d8b4fe;"
+                        : u.currentTier === "Pro"
+                          ? "background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;"
+                          : "background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;";
+                    const roleBadgeColor =
+                      u.role === "admin" || u.role === "superadmin"
+                        ? "background:#fee2e2; color:#991b1b;"
+                        : u.role === "doctor"
+                          ? "background:#dcfce7; color:#166534;"
+                          : "background:#f3f4f6; color:#374151;";
+                    const formattedDate = u.joinedDate
+                      ? new Date(u.joinedDate).toLocaleDateString()
+                      : "—";
+                    return `
                     <tr style="border-bottom: 1px solid #f1f5f9;">
                       <td style="padding: 8px 10px;">
                         <strong>${escapeHtml(u.name)}</strong>
@@ -2784,8 +3071,10 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
                       <td style="padding: 8px 10px; color: #64748b; font-size: 0.8rem;">${formattedDate}</td>
                     </tr>
                   `;
-    }).join("")}
-              `}
+                  })
+                  .join("")}
+              `
+              }
             </tbody>
           </table>
         </div>
@@ -2803,11 +3092,24 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
         tbody.innerHTML = `<tr id="no-users-found-row"><td colspan="6" style="padding: 1.5rem; text-align: center; color: #64748b; font-weight: 500;" class="text-center py-6 text-gray-500">No accounts found matching your search.</td></tr>`;
         return;
       }
-      tbody.innerHTML = filteredUsers.map((u) => {
-        const tierBadgeColor = u.currentTier === "Enterprise" ? "background:#f3e8ff; color:#6b21a8; border:1px solid #d8b4fe;" : u.currentTier === "Pro" ? "background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;" : "background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;";
-        const roleBadgeColor = u.role === "admin" || u.role === "superadmin" ? "background:#fee2e2; color:#991b1b;" : u.role === "doctor" ? "background:#dcfce7; color:#166534;" : "background:#f3f4f6; color:#374151;";
-        const formattedDate = u.joinedDate ? new Date(u.joinedDate).toLocaleDateString() : "—";
-        return `
+      tbody.innerHTML = filteredUsers
+        .map((u) => {
+          const tierBadgeColor =
+            u.currentTier === "Enterprise"
+              ? "background:#f3e8ff; color:#6b21a8; border:1px solid #d8b4fe;"
+              : u.currentTier === "Pro"
+                ? "background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc;"
+                : "background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;";
+          const roleBadgeColor =
+            u.role === "admin" || u.role === "superadmin"
+              ? "background:#fee2e2; color:#991b1b;"
+              : u.role === "doctor"
+                ? "background:#dcfce7; color:#166534;"
+                : "background:#f3f4f6; color:#374151;";
+          const formattedDate = u.joinedDate
+            ? new Date(u.joinedDate).toLocaleDateString()
+            : "—";
+          return `
           <tr style="border-bottom: 1px solid #f1f5f9;">
             <td style="padding: 8px 10px;">
               <strong>${escapeHtml(u.name)}</strong>
@@ -2824,10 +3126,13 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
             <td style="padding: 8px 10px; color: #64748b; font-size: 0.8rem;">${formattedDate}</td>
           </tr>
         `;
-      }).join("");
+        })
+        .join("");
     };
 
-    const searchInput = document.getElementById("superadmin-search-input") || document.getElementById("admin-user-search");
+    const searchInput =
+      document.getElementById("superadmin-search-input") ||
+      document.getElementById("admin-user-search");
     const searchClear = document.getElementById("superadmin-search-clear");
     if (searchInput) {
       const applyFilter = () => {
@@ -2843,9 +3148,19 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
           const name = (u.name || "").toLowerCase();
           const email = (u.email || "").toLowerCase();
           const roleStr = (u.role || "").toLowerCase();
-          const plan = (u.currentTier || u.subscriptionPlan || "").toLowerCase();
+          const plan = (
+            u.currentTier ||
+            u.subscriptionPlan ||
+            ""
+          ).toLowerCase();
           const orgName = (u.organizationName || "").toLowerCase();
-          return name.includes(q) || email.includes(q) || roleStr.includes(q) || plan.includes(q) || orgName.includes(q);
+          return (
+            name.includes(q) ||
+            email.includes(q) ||
+            roleStr.includes(q) ||
+            plan.includes(q) ||
+            orgName.includes(q)
+          );
         });
         renderTableRows(filtered);
       };
@@ -2857,9 +3172,11 @@ async function renderAdminSubscriptionsTable(containerId = "settings-admin-subsc
       });
     }
 
-    document.getElementById(`${containerId}-refresh-btn`)?.addEventListener("click", () => {
-      void renderAdminSubscriptionsTable(containerId);
-    });
+    document
+      .getElementById(`${containerId}-refresh-btn`)
+      ?.addEventListener("click", () => {
+        void renderAdminSubscriptionsTable(containerId);
+      });
   } catch (err) {
     container.innerHTML = `
       <div class="card" style="margin-top: 1.5rem; border-left: 4px solid #ef4444;">
@@ -2896,11 +3213,20 @@ async function renderEnterpriseView() {
   }
 
   // 2. Doctor / Provider Plan Guard: Check if provider is on an Enterprise plan or linked to an org
-  const userPlan = (localStorage.getItem("subscription_plan") || "").toLowerCase();
-  const isEnterpriseMode = localStorage.getItem("drmeet_enterprise_mode") === "true";
+  const userPlan = (
+    localStorage.getItem("subscription_plan") || ""
+  ).toLowerCase();
+  const isEnterpriseMode =
+    localStorage.getItem("drmeet_enterprise_mode") === "true";
   const userOrgId = localStorage.getItem("drmeet_active_org_id") || "";
 
-  if (userRole === "doctor" && userPlan !== "enterprise" && !isEnterpriseMode && !userOrgId && !isSuperAdminUser()) {
+  if (
+    userRole === "doctor" &&
+    userPlan !== "enterprise" &&
+    !isEnterpriseMode &&
+    !userOrgId &&
+    !isSuperAdminUser()
+  ) {
     mainContent.innerHTML = `
       <section class="card" style="background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%); border: 1px solid rgba(14, 165, 233, 0.2); padding: 3rem 1.5rem; text-align: center; margin: 2rem auto; max-width: 640px;">
         <span style="font-size: 3.5rem; display: block; margin-bottom: 0.75rem;">🏢</span>
@@ -2918,11 +3244,16 @@ async function renderEnterpriseView() {
   }
 
   const isPlatformSuperAdmin = getCurrentUserRole() === "super_admin";
-  const isHospitalFacilityAdmin = getCurrentUserRole() === "hospital_admin" || getCurrentUserRole() === "admin";
+  const isHospitalFacilityAdmin =
+    getCurrentUserRole() === "hospital_admin" ||
+    getCurrentUserRole() === "admin";
   const isAdminUser = isPlatformSuperAdmin || isHospitalFacilityAdmin;
 
   // On initial load of Enterprise Hospital Hierarchy page, preserve active org id state if available
-  const hashMatch = (typeof window !== "undefined" && window.location.hash) ? window.location.hash.match(/#?\/?hospital\/([^/?#]+)/i) : null;
+  const hashMatch =
+    typeof window !== "undefined" && window.location.hash
+      ? window.location.hash.match(/#?\/?hospital\/([^/?#]+)/i)
+      : null;
   if (!hashMatch) {
     if (!window.activeOrgId && typeof localStorage !== "undefined") {
       window.activeOrgId = localStorage.getItem("drmeet_active_org_id") || "";
@@ -2937,12 +3268,20 @@ async function renderEnterpriseView() {
       </div>
       <div style="display:flex; gap:0.5rem; flex-wrap: wrap; align-items: center;">
         <button type="button" class="btn btn-secondary" id="enterprise-refresh-btn">Refresh Tree</button>
-        ${isPlatformSuperAdmin ? `
+        ${
+          isPlatformSuperAdmin
+            ? `
           <button type="button" class="btn btn-secondary" id="enterprise-add-hospital-top-btn">+ Add New Hospital</button>
-        ` : ""}
-        ${isAdminUser ? `
+        `
+            : ""
+        }
+        ${
+          isAdminUser
+            ? `
           <button type="button" class="cta-primary" id="enterprise-add-dept-top-btn" disabled style="opacity:0.5; cursor:not-allowed;">+ Add Department</button>
-        ` : ""}
+        `
+            : ""
+        }
       </div>
     </div>
     <div id="enterprise-tree-container"><div class="feedback">Loading hospital tree...</div></div>
@@ -2950,22 +3289,33 @@ async function renderEnterpriseView() {
     <div id="enterprise-modal-container" style="display:none;"></div>
   `;
 
-  document.getElementById("enterprise-refresh-btn")?.addEventListener("click", () => void loadEnterpriseTree(window.activeOrgId || ""));
+  document
+    .getElementById("enterprise-refresh-btn")
+    ?.addEventListener(
+      "click",
+      () => void loadEnterpriseTree(window.activeOrgId || ""),
+    );
   if (isAdminUser) {
-    document.getElementById("enterprise-add-hospital-top-btn")?.addEventListener("click", () => showAddHospitalModal());
-    document.getElementById("enterprise-add-dept-top-btn")?.addEventListener("click", () => {
-      if (!window.activeOrgId) {
-        showToast("Please select a hospital facility first.", "warning");
-        return;
-      }
-      showAddDepartmentModal();
-    });
+    document
+      .getElementById("enterprise-add-hospital-top-btn")
+      ?.addEventListener("click", () => showAddHospitalModal());
+    document
+      .getElementById("enterprise-add-dept-top-btn")
+      ?.addEventListener("click", () => {
+        if (!window.activeOrgId) {
+          showToast("Please select a hospital facility first.", "warning");
+          return;
+        }
+        showAddDepartmentModal();
+      });
   }
 
   await loadEnterpriseTree(window.activeOrgId || "");
 
   if (isSuperAdminUser()) {
-    await renderAdminSubscriptionsTable("enterprise-admin-subscriptions-container");
+    await renderAdminSubscriptionsTable(
+      "enterprise-admin-subscriptions-container",
+    );
   }
 }
 
@@ -2977,11 +3327,14 @@ async function loadEnterpriseTree(
   if (!container) return;
 
   const isPlatformSuperAdmin = getCurrentUserRole() === "super_admin";
-  const isHospitalFacilityAdmin = getCurrentUserRole() === "hospital_admin" || getCurrentUserRole() === "admin";
+  const isHospitalFacilityAdmin =
+    getCurrentUserRole() === "hospital_admin" ||
+    getCurrentUserRole() === "admin";
   const isAdminUser = isPlatformSuperAdmin || isHospitalFacilityAdmin;
 
   // Capture current scroll positions before loading
-  const savedWindowY = window.scrollY || document.documentElement.scrollTop || 0;
+  const savedWindowY =
+    window.scrollY || document.documentElement.scrollTop || 0;
   const mainContentEl = document.getElementById("main-content");
   const savedMainY = mainContentEl ? mainContentEl.scrollTop : 0;
 
@@ -2992,12 +3345,17 @@ async function loadEnterpriseTree(
   }
 
   try {
-    const hashMatch = (typeof window !== "undefined" && window.location.hash) ? window.location.hash.match(/#?\/?hospital\/([^/?#]+)/i) : null;
+    const hashMatch =
+      typeof window !== "undefined" && window.location.hash
+        ? window.location.hash.match(/#?\/?hospital\/([^/?#]+)/i)
+        : null;
     let slugOrgId = "";
     if (hashMatch && hashMatch[1]) {
       const slug = hashMatch[1];
       try {
-        const slugRes = await apiRequest(`${API_BASE}/organization/by-slug/${encodeURIComponent(slug)}`);
+        const slugRes = await apiRequest(
+          `${API_BASE}/organization/by-slug/${encodeURIComponent(slug)}`,
+        );
         if (slugRes.ok) {
           const orgData = await slugRes.json();
           if (orgData && orgData._id) {
@@ -3014,10 +3372,19 @@ async function loadEnterpriseTree(
       }
     }
 
-    let activeOrgId = targetOrgId || slugOrgId || window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || "";
+    let activeOrgId =
+      targetOrgId ||
+      slugOrgId ||
+      window.activeOrgId ||
+      (typeof localStorage !== "undefined"
+        ? localStorage.getItem("drmeet_active_org_id")
+        : "") ||
+      "";
 
     // Fetch available organizations for switcher
-    const allOrgsRes = await apiRequest(`${API_BASE}/organization/all`).catch(() => null);
+    const allOrgsRes = await apiRequest(`${API_BASE}/organization/all`).catch(
+      () => null,
+    );
     let allOrgs = [];
     if (allOrgsRes && allOrgsRes.ok) {
       allOrgs = await allOrgsRes.json().catch(() => []);
@@ -3025,8 +3392,13 @@ async function loadEnterpriseTree(
 
     // Auto-select hospital if not yet set and organizations exist
     if (!activeOrgId && allOrgs.length > 0) {
-      const storedOrg = (typeof localStorage !== "undefined" ? (localStorage.getItem("drmeet_active_org_id") || localStorage.getItem("user_org_id")) : "") || "";
-      const matchedStored = storedOrg && allOrgs.find((o) => String(o._id) === String(storedOrg));
+      const storedOrg =
+        (typeof localStorage !== "undefined"
+          ? localStorage.getItem("drmeet_active_org_id") ||
+            localStorage.getItem("user_org_id")
+          : "") || "";
+      const matchedStored =
+        storedOrg && allOrgs.find((o) => String(o._id) === String(storedOrg));
       activeOrgId = String(matchedStored ? matchedStored._id : allOrgs[0]._id);
       window.activeOrgId = activeOrgId;
       window._selectedOrgId = activeOrgId;
@@ -3036,7 +3408,9 @@ async function loadEnterpriseTree(
     }
 
     // Toggle top "+ Add Department" button based on selection state
-    const addDeptTopBtn = document.getElementById("enterprise-add-dept-top-btn");
+    const addDeptTopBtn = document.getElementById(
+      "enterprise-add-dept-top-btn",
+    );
     if (addDeptTopBtn) {
       if (activeOrgId) {
         addDeptTopBtn.disabled = false;
@@ -3065,13 +3439,19 @@ async function loadEnterpriseTree(
                 <h3 id="enterprise-header-facility-name" class="hospital-title-display hospital-name-display" style="margin: 0; font-size: 1.35rem; color: #0284c7;">🏥 Hospital Hierarchy</h3>
                 <select id="hospital-facility-switcher" class="hospital-switcher" style="font-size: 0.85rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #0284c7; background: #ffffff; color: #0284c7; font-weight: 600; cursor: pointer;">
                   <option value="" disabled selected>-- Select a Hospital --</option>
-                  ${allOrgs.map((o) => `
+                  ${allOrgs
+                    .map(
+                      (o) => `
                     <option value="${o._id}">
                       ${escapeHtml(o.name)}
                     </option>
-                  `).join("")}
+                  `,
+                    )
+                    .join("")}
                 </select>
-                ${isAdminUser ? `
+                ${
+                  isAdminUser
+                    ? `
                   <button 
                     type="button" 
                     id="btn-delete-hospital" 
@@ -3082,7 +3462,9 @@ async function loadEnterpriseTree(
                   >
                     🗑️ Delete Hospital
                   </button>
-                ` : ""}
+                `
+                    : ""
+                }
               </div>
               <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">Enterprise Tier</span>
             </div>
@@ -3098,7 +3480,9 @@ async function loadEnterpriseTree(
         </div>
       `;
 
-      const hospitalSelect = document.getElementById("hospital-facility-switcher");
+      const hospitalSelect = document.getElementById(
+        "hospital-facility-switcher",
+      );
       if (hospitalSelect) {
         hospitalSelect.value = "";
         hospitalSelect.addEventListener("change", async (e) => {
@@ -3111,9 +3495,12 @@ async function loadEnterpriseTree(
             localStorage.setItem("drmeet_active_org_id", selectedOrgId);
           }
 
-          const treeContainer = document.querySelector("#enterprise-tree-container");
+          const treeContainer = document.querySelector(
+            "#enterprise-tree-container",
+          );
           if (treeContainer) {
-            treeContainer.innerHTML = '<div class="feedback" style="padding: 2rem; text-align: center; color: #64748b;">Loading facility hierarchy...</div>';
+            treeContainer.innerHTML =
+              '<div class="feedback" style="padding: 2rem; text-align: center; color: #64748b;">Loading facility hierarchy...</div>';
           }
           await loadEnterpriseTree(selectedOrgId);
         });
@@ -3123,7 +3510,9 @@ async function loadEnterpriseTree(
 
     // --- POPULATED STATE VIEW (When a hospital is selected) ---
     const orgIdQuery = `?orgId=${encodeURIComponent(activeOrgId)}`;
-    const treeRes = await apiRequest(`${API_BASE}/organization/tree${orgIdQuery}`);
+    const treeRes = await apiRequest(
+      `${API_BASE}/organization/tree${orgIdQuery}`,
+    );
 
     if (!treeRes.ok) {
       const errData = await treeRes.json().catch(() => ({}));
@@ -3132,7 +3521,9 @@ async function loadEnterpriseTree(
     const tree = await treeRes.json();
     window._lastOrgTree = tree;
 
-    const currentOrgId = String(tree.organization?._id || tree.id || tree._id || activeOrgId);
+    const currentOrgId = String(
+      tree.organization?._id || tree.id || tree._id || activeOrgId,
+    );
     if (currentOrgId) {
       window.activeOrgId = currentOrgId;
       window._selectedOrgId = currentOrgId;
@@ -3146,18 +3537,30 @@ async function loadEnterpriseTree(
       else if (tree.name) allOrgs = [{ _id: currentOrgId, name: tree.name }];
     }
 
-    const facilityName = tree.name || tree.organization?.name || "Hospital Facility";
-    const doctorMeterPercent = Math.min(100, Math.round(((tree.activeDoctors || 0) / (tree.maxDoctorSeats || 150)) * 100));
-    const roomMeterPercent = Math.min(100, Math.round(((tree.activeRooms || 0) / (tree.maxRooms || 50)) * 100));
+    const facilityName =
+      tree.name || tree.organization?.name || "Hospital Facility";
+    const doctorMeterPercent = Math.min(
+      100,
+      Math.round(
+        ((tree.activeDoctors || 0) / (tree.maxDoctorSeats || 150)) * 100,
+      ),
+    );
+    const roomMeterPercent = Math.min(
+      100,
+      Math.round(((tree.activeRooms || 0) / (tree.maxRooms || 50)) * 100),
+    );
     const depts = Array.isArray(tree.departments) ? tree.departments : [];
 
-    const departmentsContentHtml = depts.length === 0 ? `
+    const departmentsContentHtml =
+      depts.length === 0
+        ? `
       <div class="empty-workspace card p-8 text-center border-2 border-dashed border-gray-300 rounded-lg" style="padding: 2.5rem 1.5rem; text-align: center; margin-top: 1rem; border: 2px dashed #cbd5e1;">
         <span style="font-size: 2.5rem; display: block; margin-bottom: 0.5rem;">🏥</span>
         <p class="text-gray-500 font-medium" style="color: #64748b; font-weight: 500; margin-bottom: 0.75rem;">No departments added yet for this facility.</p>
         ${isAdminUser ? `<button class="btn btn-primary cta-primary mt-3" id="add-first-dept-btn">+ Add Department</button>` : ""}
       </div>
-    ` : `
+    `
+        : `
       <div class="departments-tree-grid" style="display: flex; flex-direction: column; gap: 1.25rem;">
         ${depts.map((dept) => buildDepartmentCardHtml(dept)).join("")}
       </div>
@@ -3194,13 +3597,19 @@ async function loadEnterpriseTree(
               <h3 id="enterprise-header-facility-name" class="hospital-title-display hospital-name-display" style="margin: 0; font-size: 1.35rem; color: #0284c7;">🏥 ${escapeHtml(facilityName)}</h3>
               <select id="hospital-facility-switcher" class="hospital-switcher" style="font-size: 0.85rem; padding: 4px 10px; border-radius: 8px; border: 1px solid #0284c7; background: #ffffff; color: #0284c7; font-weight: 600; cursor: pointer;">
                 <option value="" disabled>-- Select a Hospital --</option>
-                ${allOrgs.map((o) => `
+                ${allOrgs
+                  .map(
+                    (o) => `
                   <option value="${o._id}" ${String(o._id) === String(currentOrgId) ? "selected" : ""}>
                     ${escapeHtml(o.name)}
                   </option>
-                `).join("")}
+                `,
+                  )
+                  .join("")}
               </select>
-              ${isAdminUser ? `
+              ${
+                isAdminUser
+                  ? `
                 <button 
                   type="button" 
                   id="btn-delete-hospital" 
@@ -3210,7 +3619,9 @@ async function loadEnterpriseTree(
                 >
                   🗑️ Delete Hospital
                 </button>
-              ` : ""}
+              `
+                  : ""
+              }
             </div>
             <span style="font-size: 0.85rem; font-weight: 600; text-transform: uppercase; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px;">Enterprise Tier</span>
           </div>
@@ -3237,13 +3648,18 @@ async function loadEnterpriseTree(
       ${departmentsContentHtml}
     `;
 
-    container.querySelector("#add-first-dept-btn")?.addEventListener("click", () => showAddDepartmentModal());
+    container
+      .querySelector("#add-first-dept-btn")
+      ?.addEventListener("click", () => showAddDepartmentModal());
     if (isAdminUser) {
-      container.querySelector("#btn-delete-hospital")?.addEventListener("click", () => {
-        const activeId = tree.organization?._id || window.activeOrgId || currentOrgId;
-        const activeName = facilityName || "Selected Hospital";
-        showDeleteHospitalModal(activeName, activeId);
-      });
+      container
+        .querySelector("#btn-delete-hospital")
+        ?.addEventListener("click", () => {
+          const activeId =
+            tree.organization?._id || window.activeOrgId || currentOrgId;
+          const activeName = facilityName || "Selected Hospital";
+          showDeleteHospitalModal(activeName, activeId);
+        });
     }
 
     const searchInput = container.querySelector("#hierarchy-search-input");
@@ -3254,14 +3670,18 @@ async function loadEnterpriseTree(
       if (searchClearBtn) {
         searchClearBtn.style.display = q.length > 0 ? "block" : "none";
       }
-      const deptCards = Array.from(container.querySelectorAll(".department-card"));
+      const deptCards = Array.from(
+        container.querySelectorAll(".department-card"),
+      );
 
       let matchCount = 0;
 
       deptCards.forEach((card) => {
         const deptName = (card.dataset.deptName || "").toLowerCase();
         const roomCards = Array.from(card.querySelectorAll(".room-card"));
-        const doctorCards = Array.from(card.querySelectorAll(".doctor-draggable-card"));
+        const doctorCards = Array.from(
+          card.querySelectorAll(".doctor-draggable-card"),
+        );
 
         const deptMatches = deptName.includes(q);
 
@@ -3269,7 +3689,7 @@ async function loadEnterpriseTree(
         roomCards.forEach((rc) => {
           const text = (rc.textContent || "").toLowerCase();
           const matches = text.includes(q);
-          rc.style.display = (!q || matches || deptMatches) ? "" : "none";
+          rc.style.display = !q || matches || deptMatches ? "" : "none";
           if (matches) matchingRooms++;
         });
 
@@ -3277,11 +3697,12 @@ async function loadEnterpriseTree(
         doctorCards.forEach((dc) => {
           const text = (dc.textContent || "").toLowerCase();
           const matches = text.includes(q);
-          dc.style.display = (!q || matches || deptMatches) ? "" : "none";
+          dc.style.display = !q || matches || deptMatches ? "" : "none";
           if (matches) matchingDoctors++;
         });
 
-        const cardMatches = !q || deptMatches || matchingRooms > 0 || matchingDoctors > 0;
+        const cardMatches =
+          !q || deptMatches || matchingRooms > 0 || matchingDoctors > 0;
 
         card.style.display = cardMatches ? "" : "none";
         if (cardMatches) matchCount++;
@@ -3293,8 +3714,10 @@ async function loadEnterpriseTree(
         if (!noMatchEl && grid) {
           noMatchEl = document.createElement("div");
           noMatchEl.id = "hierarchy-no-match-feedback";
-          noMatchEl.className = "card text-center p-6 text-gray-500 dark:text-slate-400 mt-4";
-          noMatchEl.style.cssText = "padding: 2rem; text-align: center; margin-top: 1rem;";
+          noMatchEl.className =
+            "card text-center p-6 text-gray-500 dark:text-slate-400 mt-4";
+          noMatchEl.style.cssText =
+            "padding: 2rem; text-align: center; margin-top: 1rem;";
           grid.appendChild(noMatchEl);
         }
         if (noMatchEl) {
@@ -3315,7 +3738,9 @@ async function loadEnterpriseTree(
       }
     });
 
-    const hospitalSelect = document.getElementById("hospital-facility-switcher");
+    const hospitalSelect = document.getElementById(
+      "hospital-facility-switcher",
+    );
     if (hospitalSelect) {
       hospitalSelect.value = currentOrgId;
       hospitalSelect.addEventListener("change", async (e) => {
@@ -3331,16 +3756,22 @@ async function loadEnterpriseTree(
         }
 
         // 1. Instantly update UI header title to match chosen hospital
-        const chosenOptionText = e.target.options[e.target.selectedIndex]?.text || "";
-        const titleDisplayEl = document.querySelector("#hospital-title-display") || document.querySelector("#enterprise-header-facility-name");
+        const chosenOptionText =
+          e.target.options[e.target.selectedIndex]?.text || "";
+        const titleDisplayEl =
+          document.querySelector("#hospital-title-display") ||
+          document.querySelector("#enterprise-header-facility-name");
         if (titleDisplayEl && chosenOptionText) {
           titleDisplayEl.textContent = `🏥 ${chosenOptionText.trim()}`;
         }
 
         // 2. Clear current tree container & show loading state
-        const treeContainer = document.querySelector("#enterprise-tree-container");
+        const treeContainer = document.querySelector(
+          "#enterprise-tree-container",
+        );
         if (treeContainer) {
-          treeContainer.innerHTML = '<div class="feedback" style="padding: 2rem; text-align: center; color: #64748b;">Loading facility hierarchy...</div>';
+          treeContainer.innerHTML =
+            '<div class="feedback" style="padding: 2rem; text-align: center; color: #64748b;">Loading facility hierarchy...</div>';
         }
 
         // 3. Store active org ID & fetch data specifically for this orgId and re-render
@@ -3395,13 +3826,17 @@ function buildDepartmentCardHtml(dept) {
           <h3 style="margin: 0; font-size: 1.15rem;">${escapeHtml(deptName)}</h3>
           ${dept.headDoctor ? `<span class="badge" style="background: #e0e7ff; color: #4338ca; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600;">👑 Head: ${escapeHtml(dept.headDoctor.name)}</span>` : ""}
         </div>
-        ${!isGeneral && isAdminUser ? `
+        ${
+          !isGeneral && isAdminUser
+            ? `
           <div style="display: flex; gap: 0.5rem;">
             <button type="button" class="btn btn-secondary btn-sm" data-action="add-doctor-to-dept" data-dept="${escapeHtml(deptName)}">+ Doctor</button>
             <button type="button" class="btn btn-secondary btn-sm" data-action="add-room-to-dept" data-dept="${escapeHtml(deptName)}">+ Room</button>
             <button type="button" class="btn btn-secondary btn-action-delete btn-sm" data-action="delete-dept" data-dept="${escapeHtml(deptName)}">Delete Dept</button>
           </div>
-        ` : ""}
+        `
+            : ""
+        }
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-top: 0.75rem;">
@@ -3410,34 +3845,60 @@ function buildDepartmentCardHtml(dept) {
           <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
             <span>🚪 Consultation Rooms (${rooms.length})</span>
           </div>
-          ${rooms.length === 0 ? `<div style="font-size: 0.85rem; color: #94a3b8; font-style: italic;">No rooms assigned</div>` : `
+          ${
+            rooms.length === 0
+              ? `<div style="font-size: 0.85rem; color: #94a3b8; font-style: italic;">No rooms assigned</div>`
+              : `
             <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-              ${rooms.map((r) => {
-    const roomDoctors = doctors.filter((doc) => doc.assignedRoom && String(doc.assignedRoom.id || doc.assignedRoom._id || doc.assignedRoom) === String(r.id));
-    return `
+              ${rooms
+                .map((r) => {
+                  const roomDoctors = doctors.filter(
+                    (doc) =>
+                      doc.assignedRoom &&
+                      String(
+                        doc.assignedRoom.id ||
+                          doc.assignedRoom._id ||
+                          doc.assignedRoom,
+                      ) === String(r.id),
+                  );
+                  return `
                   <div class="room-card room-drop-target" data-room-id="${r.id}" style="display: flex; flex-direction: column; background: #ffffff; padding: 0.5rem 0.6rem; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.85rem; transition: all 0.2s ease;">
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                       <div>
                         <strong>${escapeHtml(r.name)}</strong>
                         <span style="font-size: 0.75rem; color: #64748b; display: block;">Cap: ${r.dailyCap} pts/day</span>
                       </div>
-                      ${isAdminUser ? `
+                      ${
+                        isAdminUser
+                          ? `
                         <button type="button" class="btn btn-secondary btn-action-delete btn-sm" style="padding: 2px 6px; font-size: 0.7rem;" data-action="delete-room" data-room-id="${r.id}">&times;</button>
-                      ` : ""}
+                      `
+                          : ""
+                      }
                     </div>
-                    ${roomDoctors.map((doc) => `
+                    ${roomDoctors
+                      .map(
+                        (doc) => `
                       <div class="assigned-doctor-badge flex items-center gap-2 mt-2 p-1.5 bg-blue-50 border border-blue-200 rounded-md text-xs font-medium text-blue-800" style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-top: 0.4rem; padding: 0.3rem 0.5rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 0.75rem; color: #1e40af; font-weight: 600;">
                         <span>👨‍⚕️ ${escapeHtml(doc.name)}</span>
-                        ${isAdminUser ? `
+                        ${
+                          isAdminUser
+                            ? `
                           <button type="button" class="remove-from-room-btn text-xs text-red-500 hover:underline ml-auto" data-action="unassign-doctor-room" data-doctor-id="${doc.id}" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 0.85rem; font-weight: bold; padding: 0 4px;" title="Remove doctor from room">&times;</button>
-                        ` : ""}
+                        `
+                            : ""
+                        }
                       </div>
-                    `).join("")}
+                    `,
+                      )
+                      .join("")}
                   </div>
                 `;
-  }).join("")}
+                })
+                .join("")}
             </div>
-          `}
+          `
+          }
         </div>
 
         <!-- Doctors Column -->
@@ -3445,9 +3906,14 @@ function buildDepartmentCardHtml(dept) {
           <div style="font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 0.5rem;">
             <span>👨‍⚕️ Assigned Doctors (${doctors.length})</span>
           </div>
-          ${doctors.length === 0 ? `<div style="font-size: 0.85rem; color: #94a3b8; font-style: italic;">No doctors assigned</div>` : `
+          ${
+            doctors.length === 0
+              ? `<div style="font-size: 0.85rem; color: #94a3b8; font-style: italic;">No doctors assigned</div>`
+              : `
             <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-              ${doctors.map((d) => `
+              ${doctors
+                .map(
+                  (d) => `
                 <div class="doctor-draggable-card" draggable="true" data-doctor-id="${d.id}" style="display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid #e2e8f0; font-size: 0.85rem; cursor: grab; user-select: none; transition: all 0.15s ease;">
                   <div style="display: flex; align-items: center; gap: 0.5rem;">
                     <span style="color: #94a3b8; font-size: 0.85rem; cursor: grab;" title="Drag doctor to assign room">⋮⋮</span>
@@ -3457,13 +3923,20 @@ function buildDepartmentCardHtml(dept) {
                       <span style="font-size: 0.75rem; color: #64748b; display: block;">${escapeHtml(d.specialty || "General")} ${d.roomName ? `• 🚪 ${escapeHtml(d.roomName)}` : ""}</span>
                     </div>
                   </div>
-                  ${isAdminUser ? `
+                  ${
+                    isAdminUser
+                      ? `
                     <button type="button" class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 0.75rem;" data-action="edit-doctor-node" data-doc-id="${d.id}">⚙️ Edit</button>
-                  ` : ""}
+                  `
+                      : ""
+                  }
                 </div>
-              `).join("")}
+              `,
+                )
+                .join("")}
             </div>
-          `}
+          `
+          }
         </div>
       </div>
     </div>
@@ -3522,7 +3995,10 @@ function wireEnterpriseTreeEvents(container) {
     const deptCard = e.target.closest(".department-card");
     if (deptCard && !e.target.closest(".doctor-draggable-card")) {
       draggedDeptCard = deptCard;
-      e.dataTransfer.setData("text/plain", deptCard.dataset.deptId || deptCard.dataset.deptName);
+      e.dataTransfer.setData(
+        "text/plain",
+        deptCard.dataset.deptId || deptCard.dataset.deptName,
+      );
       e.dataTransfer.effectAllowed = "move";
       deptCard.style.opacity = "0.4";
       return;
@@ -3592,7 +4068,11 @@ function wireEnterpriseTreeEvents(container) {
 
   container.addEventListener("drop", async (e) => {
     const targetDeptCard = e.target.closest(".department-card");
-    if (targetDeptCard && draggedDeptCard && draggedDeptCard !== targetDeptCard) {
+    if (
+      targetDeptCard &&
+      draggedDeptCard &&
+      draggedDeptCard !== targetDeptCard
+    ) {
       e.preventDefault();
       e.stopPropagation();
       targetDeptCard.style.borderTop = "none";
@@ -3612,16 +4092,21 @@ function wireEnterpriseTreeEvents(container) {
       }));
 
       try {
-        const res = await apiRequest(`${API_BASE}/organization/departments/reorder`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            organizationId: window.activeOrgId,
-            departmentOrders,
-          }),
-        });
+        const res = await apiRequest(
+          `${API_BASE}/organization/departments/reorder`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              organizationId: window.activeOrgId,
+              departmentOrders,
+            }),
+          },
+        );
         if (!res.ok) {
-          throw new Error(await getApiErrorMessage(res, "Failed to update department order."));
+          throw new Error(
+            await getApiErrorMessage(res, "Failed to update department order."),
+          );
         }
         showToast("Department order updated successfully.");
       } catch (err) {
@@ -3656,12 +4141,21 @@ function wireEnterpriseTreeEvents(container) {
         body: JSON.stringify({ doctorId, roomId }),
       });
       if (!res.ok) {
-        const fallbackRes = await apiRequest(`${API_BASE}/organization/doctors/${doctorId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ assignedRoom: roomId }),
-        });
-        if (!fallbackRes.ok) throw new Error(await getApiErrorMessage(fallbackRes, "Failed to assign room to doctor."));
+        const fallbackRes = await apiRequest(
+          `${API_BASE}/organization/doctors/${doctorId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ assignedRoom: roomId }),
+          },
+        );
+        if (!fallbackRes.ok)
+          throw new Error(
+            await getApiErrorMessage(
+              fallbackRes,
+              "Failed to assign room to doctor.",
+            ),
+          );
       }
       showToast("Doctor assigned to consultation room successfully.");
       const roomTargetSelector = `.room-drop-target[data-room-id="${roomId}"]`;
@@ -3675,7 +4169,8 @@ function wireEnterpriseTreeEvents(container) {
 }
 
 function showAddHospitalModal() {
-  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const container =
+    document.getElementById("enterprise-modal-container") || document.body;
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
       <div class="modal-sheet card" style="display:block; max-width: 480px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
@@ -3728,7 +4223,9 @@ function showAddHospitalModal() {
         });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "Failed to create hospital facility.");
+          throw new Error(
+            errData.error || "Failed to create hospital facility.",
+          );
         }
         const data = await res.json();
         showToast(data.message || `Hospital '${name}' created successfully.`);
@@ -3754,7 +4251,8 @@ if (typeof window !== "undefined") {
 }
 
 function showDeleteHospitalModal(hospitalName, hospitalId) {
-  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const container =
+    document.getElementById("enterprise-modal-container") || document.body;
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
       <div class="modal-sheet card" style="display:block; max-width: 460px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
@@ -3782,11 +4280,18 @@ function showDeleteHospitalModal(hospitalName, hospitalId) {
   if (confirmBtn) {
     confirmBtn.onclick = async () => {
       try {
-        const res = await apiRequest(`${API_BASE}/organization/${hospitalId}`, { method: "DELETE" });
-        if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to delete hospital."));
+        const res = await apiRequest(`${API_BASE}/organization/${hospitalId}`, {
+          method: "DELETE",
+        });
+        if (!res.ok)
+          throw new Error(
+            await getApiErrorMessage(res, "Failed to delete hospital."),
+          );
         const data = await res.json();
         closeEnterpriseModal();
-        showToast(data.message || `Hospital '${hospitalName}' deleted successfully.`);
+        showToast(
+          data.message || `Hospital '${hospitalName}' deleted successfully.`,
+        );
 
         delete window.activeOrgId;
         delete window._selectedOrgId;
@@ -3802,7 +4307,8 @@ function showDeleteHospitalModal(hospitalName, hospitalId) {
 }
 
 function showDeleteDepartmentModal(deptName) {
-  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const container =
+    document.getElementById("enterprise-modal-container") || document.body;
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
       <div class="modal-sheet card" style="display:block; max-width: 440px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
@@ -3828,8 +4334,14 @@ function showDeleteDepartmentModal(deptName) {
   if (confirmBtn) {
     confirmBtn.onclick = async () => {
       try {
-        const res = await apiRequest(`${API_BASE}/organization/departments/${encodeURIComponent(deptName)}`, { method: "DELETE" });
-        if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to delete department."));
+        const res = await apiRequest(
+          `${API_BASE}/organization/departments/${encodeURIComponent(deptName)}`,
+          { method: "DELETE" },
+        );
+        if (!res.ok)
+          throw new Error(
+            await getApiErrorMessage(res, "Failed to delete department."),
+          );
         showToast(`Department '${deptName}' deleted successfully.`);
         closeEnterpriseModal();
         await loadEnterpriseTree();
@@ -3841,7 +4353,8 @@ function showDeleteDepartmentModal(deptName) {
 }
 
 function showDeleteRoomModal(roomId) {
-  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const container =
+    document.getElementById("enterprise-modal-container") || document.body;
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
       <div class="modal-sheet card" style="display:block; max-width: 440px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
@@ -3867,8 +4380,14 @@ function showDeleteRoomModal(roomId) {
   if (confirmBtn) {
     confirmBtn.onclick = async () => {
       try {
-        const res = await apiRequest(`${API_BASE}/organization/rooms/${roomId}`, { method: "DELETE" });
-        if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to delete room."));
+        const res = await apiRequest(
+          `${API_BASE}/organization/rooms/${roomId}`,
+          { method: "DELETE" },
+        );
+        if (!res.ok)
+          throw new Error(
+            await getApiErrorMessage(res, "Failed to delete room."),
+          );
         showToast("Consultation room deleted.");
         closeEnterpriseModal();
         await loadEnterpriseTree();
@@ -3894,8 +4413,12 @@ function wireModalEscAndBackdrop(container) {
   if (!container) return;
 
   container.onclick = (e) => {
-    const isOverlayBg = e.target.id === "enterprise-modal-overlay-bg" || e.target.classList.contains("enterprise-modal-overlay");
-    const isCloseBtn = e.target.closest("[data-action='close-enterprise-modal']") || e.target.closest(".modal-close-x");
+    const isOverlayBg =
+      e.target.id === "enterprise-modal-overlay-bg" ||
+      e.target.classList.contains("enterprise-modal-overlay");
+    const isCloseBtn =
+      e.target.closest("[data-action='close-enterprise-modal']") ||
+      e.target.closest(".modal-close-x");
     if (isOverlayBg || isCloseBtn) {
       closeEnterpriseModal();
     }
@@ -3912,7 +4435,8 @@ function wireModalEscAndBackdrop(container) {
 }
 
 function showAddDepartmentModal() {
-  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const container =
+    document.getElementById("enterprise-modal-container") || document.body;
   const modalHtml = `
     <div class="enterprise-modal-overlay" id="enterprise-modal-overlay-bg">
       <div class="modal-sheet card" style="display:block; max-width: 420px; width: 100%; position: relative; max-height: 90vh; overflow-y: auto; margin: 0;">
@@ -3936,7 +4460,13 @@ function showAddDepartmentModal() {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form));
-    const currentOrgId = window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || document.querySelector("#hospital-facility-switcher")?.value || document.querySelector("#hospital-switcher")?.value;
+    const currentOrgId =
+      window.activeOrgId ||
+      (typeof localStorage !== "undefined"
+        ? localStorage.getItem("drmeet_active_org_id")
+        : "") ||
+      document.querySelector("#hospital-facility-switcher")?.value ||
+      document.querySelector("#hospital-switcher")?.value;
     if (currentOrgId) {
       data.organizationId = currentOrgId;
       data.orgId = currentOrgId;
@@ -3947,7 +4477,10 @@ function showAddDepartmentModal() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to add department."));
+      if (!res.ok)
+        throw new Error(
+          await getApiErrorMessage(res, "Failed to add department."),
+        );
       showToast("Department added.");
       closeEnterpriseModal();
       await loadEnterpriseTree(currentOrgId);
@@ -3958,12 +4491,13 @@ function showAddDepartmentModal() {
 }
 
 async function showAddDoctorModal(deptName) {
-  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const container =
+    document.getElementById("enterprise-modal-container") || document.body;
   let doctorsList = [];
   try {
     const res = await apiRequest(`${API_BASE}/doctors`);
     if (res.ok) doctorsList = await res.json();
-  } catch (e) { }
+  } catch (e) {}
 
   const tree = window._lastOrgTree || {};
   const deptList = Array.isArray(tree.departments) ? tree.departments : [];
@@ -3977,12 +4511,18 @@ async function showAddDoctorModal(deptName) {
           <div class="mb-4" style="margin-bottom: 0.75rem;">
             <label class="block text-sm font-medium mb-1" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px;">Target Department</label>
             <select id="modal-doctor-dept-select" name="department" class="select-input-unified" style="width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 0.875rem;">
-              ${deptList.length === 0 ? `<option value="${escapeHtml(deptName || "General / Unassigned")}">${escapeHtml(deptName || "General / Unassigned")}</option>` : `
-                ${deptList.map((d) => {
-    const dName = typeof d === "string" ? d : d.name;
-    return `<option value="${escapeHtml(dName)}" ${dName === deptName ? "selected" : ""}>${escapeHtml(dName)}</option>`;
-  }).join("")}
-              `}
+              ${
+                deptList.length === 0
+                  ? `<option value="${escapeHtml(deptName || "General / Unassigned")}">${escapeHtml(deptName || "General / Unassigned")}</option>`
+                  : `
+                ${deptList
+                  .map((d) => {
+                    const dName = typeof d === "string" ? d : d.name;
+                    return `<option value="${escapeHtml(dName)}" ${dName === deptName ? "selected" : ""}>${escapeHtml(dName)}</option>`;
+                  })
+                  .join("")}
+              `
+              }
             </select>
           </div>
           <label>Select Existing Doctor
@@ -4017,10 +4557,18 @@ async function showAddDoctorModal(deptName) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form));
-    const selectedDept = document.getElementById("modal-doctor-dept-select")?.value;
+    const selectedDept = document.getElementById(
+      "modal-doctor-dept-select",
+    )?.value;
     if (selectedDept) data.department = selectedDept;
 
-    const currentOrgId = window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || document.querySelector("#hospital-facility-switcher")?.value || document.querySelector("#hospital-switcher")?.value;
+    const currentOrgId =
+      window.activeOrgId ||
+      (typeof localStorage !== "undefined"
+        ? localStorage.getItem("drmeet_active_org_id")
+        : "") ||
+      document.querySelector("#hospital-facility-switcher")?.value ||
+      document.querySelector("#hospital-switcher")?.value;
     if (currentOrgId) {
       data.organizationId = currentOrgId;
       data.orgId = currentOrgId;
@@ -4032,12 +4580,20 @@ async function showAddDoctorModal(deptName) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to attach doctor."));
+      if (!res.ok)
+        throw new Error(
+          await getApiErrorMessage(res, "Failed to attach doctor."),
+        );
       showToast("Doctor attached to department.");
       closeEnterpriseModal();
-      const deptTargetSelector = selectedDept ? `.department-card[data-dept-name="${escapeHtml(selectedDept)}"]` : null;
+      const deptTargetSelector = selectedDept
+        ? `.department-card[data-dept-name="${escapeHtml(selectedDept)}"]`
+        : null;
       await loadEnterpriseTree(currentOrgId, deptTargetSelector);
-      if (typeof renderAdminSubscriptionsTable === "function" && document.querySelector("#admin-user-search")) {
+      if (
+        typeof renderAdminSubscriptionsTable === "function" &&
+        document.querySelector("#admin-user-search")
+      ) {
         await renderAdminSubscriptionsTable();
       }
     } catch (err) {
@@ -4047,7 +4603,8 @@ async function showAddDoctorModal(deptName) {
 }
 
 function showAddRoomModal(deptName) {
-  const container = document.getElementById("enterprise-modal-container") || document.body;
+  const container =
+    document.getElementById("enterprise-modal-container") || document.body;
   const tree = window._lastOrgTree || {};
   const deptList = Array.isArray(tree.departments) ? tree.departments : [];
 
@@ -4060,12 +4617,18 @@ function showAddRoomModal(deptName) {
           <div class="mb-4" style="margin-bottom: 0.75rem;">
             <label class="block text-sm font-medium mb-1" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 4px;">Target Department</label>
             <select id="modal-room-dept-select" name="department" class="select-input-unified" style="width: 100%; padding: 8px 10px; border-radius: 6px; font-size: 0.875rem;">
-              ${deptList.length === 0 ? `<option value="${escapeHtml(deptName || "General / Unassigned")}">${escapeHtml(deptName || "General / Unassigned")}</option>` : `
-                ${deptList.map((d) => {
-    const dName = typeof d === "string" ? d : d.name;
-    return `<option value="${escapeHtml(dName)}" ${dName === deptName ? "selected" : ""}>${escapeHtml(dName)}</option>`;
-  }).join("")}
-              `}
+              ${
+                deptList.length === 0
+                  ? `<option value="${escapeHtml(deptName || "General / Unassigned")}">${escapeHtml(deptName || "General / Unassigned")}</option>`
+                  : `
+                ${deptList
+                  .map((d) => {
+                    const dName = typeof d === "string" ? d : d.name;
+                    return `<option value="${escapeHtml(dName)}" ${dName === deptName ? "selected" : ""}>${escapeHtml(dName)}</option>`;
+                  })
+                  .join("")}
+              `
+              }
             </select>
           </div>
           <label>Room Name <input name="roomName" placeholder="e.g. Room 101, OPD Suite A" required /></label>
@@ -4086,10 +4649,18 @@ function showAddRoomModal(deptName) {
   form.onsubmit = async (e) => {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form));
-    const selectedDept = document.getElementById("modal-room-dept-select")?.value;
+    const selectedDept = document.getElementById(
+      "modal-room-dept-select",
+    )?.value;
     if (selectedDept) data.department = selectedDept;
 
-    const currentOrgId = window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "") || document.querySelector("#hospital-facility-switcher")?.value || document.querySelector("#hospital-switcher")?.value;
+    const currentOrgId =
+      window.activeOrgId ||
+      (typeof localStorage !== "undefined"
+        ? localStorage.getItem("drmeet_active_org_id")
+        : "") ||
+      document.querySelector("#hospital-facility-switcher")?.value ||
+      document.querySelector("#hospital-switcher")?.value;
     if (currentOrgId) {
       data.organizationId = currentOrgId;
       data.orgId = currentOrgId;
@@ -4101,10 +4672,15 @@ function showAddRoomModal(deptName) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to create room."));
+      if (!res.ok)
+        throw new Error(
+          await getApiErrorMessage(res, "Failed to create room."),
+        );
       showToast("Consultation room created.");
       closeEnterpriseModal();
-      const deptTargetSelector = selectedDept ? `.department-card[data-dept-name="${escapeHtml(selectedDept)}"]` : null;
+      const deptTargetSelector = selectedDept
+        ? `.department-card[data-dept-name="${escapeHtml(selectedDept)}"]`
+        : null;
       await loadEnterpriseTree(currentOrgId, deptTargetSelector);
     } catch (err) {
       showToast(err.message, "error");
@@ -4113,8 +4689,13 @@ function showAddRoomModal(deptName) {
 }
 
 async function showDoctorNodePopover(doctorId) {
-  const container = document.getElementById("enterprise-modal-container") || document.body;
-  const currentOrgId = window.activeOrgId || (typeof localStorage !== "undefined" ? localStorage.getItem("drmeet_active_org_id") : "");
+  const container =
+    document.getElementById("enterprise-modal-container") || document.body;
+  const currentOrgId =
+    window.activeOrgId ||
+    (typeof localStorage !== "undefined"
+      ? localStorage.getItem("drmeet_active_org_id")
+      : "");
   const tree = window._lastOrgTree || {};
   const depts = tree.departments || [];
 
@@ -4129,23 +4710,33 @@ async function showDoctorNodePopover(doctorId) {
   });
 
   const activeDeptNames = depts.map((d) => d.name);
-  const currentDocRoomId = targetDoc?.assignedRoom?.id || targetDoc?.assignedRoom?._id || targetDoc?.assignedRoom || "";
+  const currentDocRoomId =
+    targetDoc?.assignedRoom?.id ||
+    targetDoc?.assignedRoom?._id ||
+    targetDoc?.assignedRoom ||
+    "";
   const currentDocDept = targetDoc?.department || "";
   const currentDocRole = targetDoc?.orgRole || "doctor";
 
   let roomsList = [];
   try {
-    const url = currentOrgId ? `${API_BASE}/organization/rooms?orgId=${encodeURIComponent(currentOrgId)}` : `${API_BASE}/organization/rooms`;
+    const url = currentOrgId
+      ? `${API_BASE}/organization/rooms?orgId=${encodeURIComponent(currentOrgId)}`
+      : `${API_BASE}/organization/rooms`;
     const res = await apiRequest(url);
     if (res.ok) roomsList = await res.json();
-  } catch (e) { }
+  } catch (e) {}
 
   // Consolidate rooms from API response and current tree state
   const allRoomsMap = new Map();
   roomsList.forEach((r) => {
     const rId = String(r._id || r.id);
     if (rId) {
-      allRoomsMap.set(rId, { id: rId, name: r.roomName || r.name, dept: r.department || "General" });
+      allRoomsMap.set(rId, {
+        id: rId,
+        name: r.roomName || r.name,
+        dept: r.department || "General",
+      });
     }
   });
 
@@ -4153,7 +4744,11 @@ async function showDoctorNodePopover(doctorId) {
     (d.rooms || []).forEach((r) => {
       const rId = String(r.id || r._id);
       if (rId && !allRoomsMap.has(rId)) {
-        allRoomsMap.set(rId, { id: rId, name: r.name || r.roomName, dept: d.name || "General" });
+        allRoomsMap.set(rId, {
+          id: rId,
+          name: r.name || r.roomName,
+          dept: d.name || "General",
+        });
       }
     });
   });
@@ -4175,11 +4770,15 @@ async function showDoctorNodePopover(doctorId) {
           <label style="margin-top: 0.75rem; display: block;">Assigned Consultation Room
             <select id="edit-doctor-room-select" name="assignedRoom" class="w-full px-3 py-2 border rounded-md text-sm" style="width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.875rem; background: #ffffff;">
               <option value="">-- No Room Assigned --</option>
-              ${allRooms.map((r) => `
+              ${allRooms
+                .map(
+                  (r) => `
                 <option value="${escapeHtml(r.id)}" ${String(r.id) === String(currentDocRoomId) ? "selected" : ""}>
                   ${escapeHtml(r.name)} (${escapeHtml(r.dept)})
                 </option>
-              `).join("")}
+              `,
+                )
+                .join("")}
             </select>
           </label>
           <label style="margin-top: 0.75rem; display: block;">Organization Role
@@ -4210,16 +4809,25 @@ async function showDoctorNodePopover(doctorId) {
     e.preventDefault();
     const data = Object.fromEntries(new FormData(form));
     try {
-      const res = await apiRequest(`${API_BASE}/organization/doctors/${doctorId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to update doctor assignment."));
+      const res = await apiRequest(
+        `${API_BASE}/organization/doctors/${doctorId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        },
+      );
+      if (!res.ok)
+        throw new Error(
+          await getApiErrorMessage(res, "Failed to update doctor assignment."),
+        );
       showToast("Doctor assignment updated.");
       closeEnterpriseModal();
       await loadEnterpriseTree(currentOrgId);
-      if (typeof renderAdminSubscriptionsTable === "function" && document.querySelector("#admin-user-search")) {
+      if (
+        typeof renderAdminSubscriptionsTable === "function" &&
+        document.querySelector("#admin-user-search")
+      ) {
         await renderAdminSubscriptionsTable();
       }
     } catch (err) {
@@ -4227,25 +4835,37 @@ async function showDoctorNodePopover(doctorId) {
     }
   };
 
-  document.getElementById("detach-doctor-btn")?.addEventListener("click", async () => {
-    if (!confirm("Detach this doctor from the hospital organization?")) return;
-    try {
-      const res = await apiRequest(`${API_BASE}/organization/doctors/${doctorId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ detach: true }),
-      });
-      if (!res.ok) throw new Error(await getApiErrorMessage(res, "Failed to detach doctor."));
-      showToast("Doctor detached from organization.");
-      closeEnterpriseModal();
-      await loadEnterpriseTree(currentOrgId);
-      if (typeof renderAdminSubscriptionsTable === "function" && document.querySelector("#admin-user-search")) {
-        await renderAdminSubscriptionsTable();
+  document
+    .getElementById("detach-doctor-btn")
+    ?.addEventListener("click", async () => {
+      if (!confirm("Detach this doctor from the hospital organization?"))
+        return;
+      try {
+        const res = await apiRequest(
+          `${API_BASE}/organization/doctors/${doctorId}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ detach: true }),
+          },
+        );
+        if (!res.ok)
+          throw new Error(
+            await getApiErrorMessage(res, "Failed to detach doctor."),
+          );
+        showToast("Doctor detached from organization.");
+        closeEnterpriseModal();
+        await loadEnterpriseTree(currentOrgId);
+        if (
+          typeof renderAdminSubscriptionsTable === "function" &&
+          document.querySelector("#admin-user-search")
+        ) {
+          await renderAdminSubscriptionsTable();
+        }
+      } catch (err) {
+        showToast(err.message, "error");
       }
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  });
+    });
 }
 
 function renderPrivacy() {
@@ -4267,7 +4887,8 @@ function showPricingModal(title, contentHtml, onFormSubmit) {
   if (!dialog) {
     dialog = document.createElement("dialog");
     dialog.id = "pricing-interaction-dialog";
-    dialog.className = "rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111a2f] p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm max-w-md w-full overflow-hidden";
+    dialog.className =
+      "rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111a2f] p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm max-w-md w-full overflow-hidden";
     document.body.appendChild(dialog);
   }
   dialog.innerHTML = `
@@ -4304,8 +4925,11 @@ function resetCheckoutButtonState() {
   const proBtn = document.getElementById("pricing-btn-pro");
   if (proBtn) {
     proBtn.disabled = false;
-    const plan = isLoggedIn() ? (localStorage.getItem("subscription_plan") || "starter") : null;
-    proBtn.innerHTML = plan === "pro" ? "✓ Current Plan (Manage)" : "Upgrade to Pro";
+    const plan = isLoggedIn()
+      ? localStorage.getItem("subscription_plan") || "starter"
+      : null;
+    proBtn.innerHTML =
+      plan === "pro" ? "✓ Current Plan (Manage)" : "Upgrade to Pro";
   }
 }
 
@@ -4365,7 +4989,7 @@ async function initiatePayMongoCheckout(btnElement) {
         if (fallbackRes.ok) {
           response = fallbackRes;
         }
-      } catch (e) { }
+      } catch (e) {}
     }
 
     if (!response.ok) {
@@ -4378,7 +5002,7 @@ async function initiatePayMongoCheckout(btnElement) {
         if (fallbackRes2.ok) {
           response = fallbackRes2;
         }
-      } catch (e) { }
+      } catch (e) {}
     }
 
     const data = await response.json();
@@ -4387,11 +5011,16 @@ async function initiatePayMongoCheckout(btnElement) {
     if (checkoutUrl) {
       window.location.href = checkoutUrl;
     } else {
-      throw new Error(data?.error || "Failed to retrieve PayMongo checkout URL.");
+      throw new Error(
+        data?.error || "Failed to retrieve PayMongo checkout URL.",
+      );
     }
   } catch (err) {
     console.error("[PayMongo Checkout Error]", err);
-    showToast(err?.message || "Failed to initiate checkout. Please try again.", "error");
+    showToast(
+      err?.message || "Failed to initiate checkout. Please try again.",
+      "error",
+    );
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = originalHtml;
@@ -4404,30 +5033,38 @@ function renderPricing() {
   setPageTone("");
 
   const signedIn = isLoggedIn();
-  const plan = signedIn ? (localStorage.getItem("subscription_plan") || "starter") : null;
+  const plan = signedIn
+    ? localStorage.getItem("subscription_plan") || "starter"
+    : null;
 
   // Starter Button styling
   let starterBtnText = "Get Started";
-  let starterBtnClass = "w-full py-3 px-4 rounded-xl font-semibold text-center text-slate-900 dark:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors duration-200 cursor-pointer";
+  let starterBtnClass =
+    "w-full py-3 px-4 rounded-xl font-semibold text-center text-slate-900 dark:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors duration-200 cursor-pointer";
   if (plan === "starter") {
     starterBtnText = "✓ Current Plan";
-    starterBtnClass = "w-full py-3 px-4 rounded-xl font-semibold text-center text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 transition-colors duration-200 cursor-default";
+    starterBtnClass =
+      "w-full py-3 px-4 rounded-xl font-semibold text-center text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900 transition-colors duration-200 cursor-default";
   }
 
   // Pro Button styling
   let proBtnText = "Upgrade to Pro";
-  let proBtnClass = "w-full py-3 px-4 rounded-xl font-semibold text-center text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 hover:shadow-indigo-500/50 transition-all duration-200 cursor-pointer";
+  let proBtnClass =
+    "w-full py-3 px-4 rounded-xl font-semibold text-center text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/30 hover:shadow-indigo-500/50 transition-all duration-200 cursor-pointer";
   if (plan === "pro") {
     proBtnText = "✓ Current Plan (Manage)";
-    proBtnClass = "w-full py-3 px-4 rounded-xl font-semibold text-center text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/30 hover:shadow-emerald-500/50 transition-all duration-200 cursor-pointer";
+    proBtnClass =
+      "w-full py-3 px-4 rounded-xl font-semibold text-center text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/30 hover:shadow-emerald-500/50 transition-all duration-200 cursor-pointer";
   }
 
   // Enterprise Button styling
   let entBtnText = "Contact Sales";
-  let entBtnClass = "w-full py-3 px-4 rounded-xl font-semibold text-center text-slate-900 dark:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors duration-200 cursor-pointer";
+  let entBtnClass =
+    "w-full py-3 px-4 rounded-xl font-semibold text-center text-slate-900 dark:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors duration-200 cursor-pointer";
   if (plan === "enterprise") {
     entBtnText = "✓ Current Plan (Inquiry Active)";
-    entBtnClass = "w-full py-3 px-4 rounded-xl font-semibold text-center text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/30 hover:shadow-emerald-500/50 transition-all duration-200 cursor-pointer";
+    entBtnClass =
+      "w-full py-3 px-4 rounded-xl font-semibold text-center text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/30 hover:shadow-emerald-500/50 transition-all duration-200 cursor-pointer";
   }
 
   mainContent.innerHTML = `
@@ -4559,65 +5196,95 @@ function renderPricing() {
   `;
 
   // Bind Buttons
-  document.getElementById("pricing-btn-starter")?.addEventListener("click", () => {
-    if (!isLoggedIn()) {
-      showToast("Please register or login to get started.", "info");
-      window.location.hash = "#signup?role=doctor";
-      void renderSignup();
-      return;
-    }
+  document
+    .getElementById("pricing-btn-starter")
+    ?.addEventListener("click", () => {
+      if (!isLoggedIn()) {
+        showToast("Please register or login to get started.", "info");
+        window.location.hash = "#signup?role=doctor";
+        void renderSignup();
+        return;
+      }
 
-    if (plan === "starter") {
-      showPricingModal(
-        "Starter Active",
-        `<div class="text-center py-4">
+      if (plan === "starter") {
+        showPricingModal(
+          "Starter Active",
+          `<div class="text-center py-4">
           <div class="text-4xl mb-3">✅</div>
           <p class="text-sm text-slate-600 dark:text-slate-400 font-semibold mb-2">You are on the Starter Plan.</p>
           <p class="text-xs text-slate-500 dark:text-slate-450">Active access to Starter scheduling and quick medical reference links.</p>
           <button type="button" id="pricing-modal-ok" class="mt-6 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-colors cursor-pointer">OK</button>
-        </div>`
-      );
-    } else {
-      // Downgrade confirmation
-      showPricingModal(
-        "Switch to Starter Plan",
-        `<div class="text-center py-4">
+        </div>`,
+        );
+      } else {
+        // Downgrade confirmation
+        showPricingModal(
+          "Switch to Starter Plan",
+          `<div class="text-center py-4">
           <div class="text-4xl mb-3">❓</div>
           <p class="text-sm text-slate-600 dark:text-slate-400">Would you like to switch to the Starter plan? This will downgrade your active subscription benefits.</p>
           <div class="mt-6 flex gap-4">
             <button type="button" id="pricing-btn-confirm-starter" class="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-colors cursor-pointer">Confirm Switch</button>
             <button type="button" id="pricing-modal-ok" class="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-colors cursor-pointer">Cancel</button>
           </div>
-        </div>`
-      );
-      document.getElementById("pricing-btn-confirm-starter")?.addEventListener("click", () => {
-        localStorage.setItem("subscription_plan", "starter");
-        showToast("Downgraded to Starter plan.", "success");
-        const dialog = document.getElementById("pricing-interaction-dialog");
-        dialog?.close();
-        updateSidebarAccountInfoAndPlan();
-        renderPricing();
-      });
-    }
-  });
+        </div>`,
+        );
+        document
+          .getElementById("pricing-btn-confirm-starter")
+          ?.addEventListener("click", () => {
+            localStorage.setItem("subscription_plan", "starter");
+            showToast("Downgraded to Starter plan.", "success");
+            const dialog = document.getElementById(
+              "pricing-interaction-dialog",
+            );
+            dialog?.close();
+            updateSidebarAccountInfoAndPlan();
+            renderPricing();
+          });
+      }
+    });
 
   const searchParams = new URLSearchParams(window.location.search);
   const hashQueryIndex = window.location.hash.indexOf("?");
-  const hashParams = hashQueryIndex !== -1 ? new URLSearchParams(window.location.hash.substring(hashQueryIndex)) : new URLSearchParams();
-  const isSuccess = searchParams.get("success") === "true" || hashParams.get("success") === "true" || searchParams.get("status") === "success" || hashParams.get("status") === "success";
-  const isCancelled = searchParams.get("status") === "cancelled" || hashParams.get("status") === "cancelled" || searchParams.get("cancelled") === "true" || hashParams.get("cancelled") === "true";
+  const hashParams =
+    hashQueryIndex !== -1
+      ? new URLSearchParams(window.location.hash.substring(hashQueryIndex))
+      : new URLSearchParams();
+  const isSuccess =
+    searchParams.get("success") === "true" ||
+    hashParams.get("success") === "true" ||
+    searchParams.get("status") === "success" ||
+    hashParams.get("status") === "success";
+  const isCancelled =
+    searchParams.get("status") === "cancelled" ||
+    hashParams.get("status") === "cancelled" ||
+    searchParams.get("cancelled") === "true" ||
+    hashParams.get("cancelled") === "true";
 
   if (isSuccess) {
     localStorage.setItem("subscription_plan", "pro");
     showToast("Subscription successful! Welcome to Clinic Pro.", "success");
     const cleanHash = window.location.hash.split("?")[0] || "#pricing";
-    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + cleanHash;
+    const cleanUrl =
+      window.location.protocol +
+      "//" +
+      window.location.host +
+      window.location.pathname +
+      cleanHash;
     window.history.replaceState({ path: cleanUrl }, "", cleanUrl);
     updateSidebarAccountInfoAndPlan();
   } else if (isCancelled) {
-    showToast("Checkout cancelled. You can retry upgrading whenever you are ready.", "info");
+    showToast(
+      "Checkout cancelled. You can retry upgrading whenever you are ready.",
+      "info",
+    );
     const cleanHash = window.location.hash.split("?")[0] || "#pricing";
-    const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + cleanHash;
+    const cleanUrl =
+      window.location.protocol +
+      "//" +
+      window.location.host +
+      window.location.pathname +
+      cleanHash;
     window.history.replaceState({ path: cleanUrl }, "", cleanUrl);
   }
 
@@ -4641,16 +5308,21 @@ function renderPricing() {
             <button type="button" id="pricing-btn-cancel-pro" class="w-full py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold transition-colors cursor-pointer">Cancel Subscription</button>
             <button type="button" id="pricing-modal-ok" class="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-900 dark:text-white font-semibold transition-colors cursor-pointer">Done</button>
           </div>
-        </div>`
+        </div>`,
       );
-      document.getElementById("pricing-btn-cancel-pro")?.addEventListener("click", () => {
-        localStorage.setItem("subscription_plan", "starter");
-        showToast("Subscription cancelled. Downgraded to Starter.", "success");
-        const dialog = document.getElementById("pricing-interaction-dialog");
-        dialog?.close();
-        updateSidebarAccountInfoAndPlan();
-        renderPricing();
-      });
+      document
+        .getElementById("pricing-btn-cancel-pro")
+        ?.addEventListener("click", () => {
+          localStorage.setItem("subscription_plan", "starter");
+          showToast(
+            "Subscription cancelled. Downgraded to Starter.",
+            "success",
+          );
+          const dialog = document.getElementById("pricing-interaction-dialog");
+          dialog?.close();
+          updateSidebarAccountInfoAndPlan();
+          renderPricing();
+        });
       return;
     }
 
@@ -4658,30 +5330,32 @@ function renderPricing() {
     initiatePayMongoCheckout(btn);
   });
 
-  document.getElementById("pricing-btn-enterprise")?.addEventListener("click", () => {
-    if (!isLoggedIn()) {
-      showToast("Please register or login to contact sales.", "info");
-      window.location.hash = "#signup?role=doctor";
-      void renderSignup();
-      return;
-    }
+  document
+    .getElementById("pricing-btn-enterprise")
+    ?.addEventListener("click", () => {
+      if (!isLoggedIn()) {
+        showToast("Please register or login to contact sales.", "info");
+        window.location.hash = "#signup?role=doctor";
+        void renderSignup();
+        return;
+      }
 
-    if (plan === "enterprise") {
-      showPricingModal(
-        "Enterprise Inquiry Status",
-        `<div class="text-center py-4">
+      if (plan === "enterprise") {
+        showPricingModal(
+          "Enterprise Inquiry Status",
+          `<div class="text-center py-4">
           <div class="text-4xl mb-3">💼</div>
           <p class="text-sm text-slate-600 dark:text-slate-400 font-semibold mb-2">Your Enterprise inquiry is active.</p>
           <p class="text-xs text-slate-500 dark:text-slate-450">Our team is reviewing your requirements and will reach out via email shortly.</p>
           <button type="button" id="pricing-modal-ok" class="mt-6 w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition-colors cursor-pointer">OK</button>
-        </div>`
-      );
-      return;
-    }
+        </div>`,
+        );
+        return;
+      }
 
-    showPricingModal(
-      "Contact Enterprise Sales",
-      `<form id="enterprise-form" class="space-y-4">
+      showPricingModal(
+        "Contact Enterprise Sales",
+        `<form id="enterprise-form" class="space-y-4">
         <p class="text-sm text-slate-500 dark:text-slate-400">Tell us about your clinic setup, and our team will prepare a custom proposal.</p>
         <div>
           <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Full Name</label>
@@ -4708,28 +5382,31 @@ function renderPricing() {
           Submit Inquiry
         </button>
       </form>`,
-      () => {
-        localStorage.setItem("subscription_plan", "enterprise");
-        showToast("Inquiry submitted! Our sales team will contact you shortly.", "success");
-        updateSidebarAccountInfoAndPlan();
-        renderPricing();
-      }
-    );
-  });
+        () => {
+          localStorage.setItem("subscription_plan", "enterprise");
+          showToast(
+            "Inquiry submitted! Our sales team will contact you shortly.",
+            "success",
+          );
+          updateSidebarAccountInfoAndPlan();
+          renderPricing();
+        },
+      );
+    });
   syncPricingTheme();
 }
 
 function syncPricingTheme() {
-  const title = document.getElementById('pricing-title');
-  const desc = document.getElementById('pricing-desc');
+  const title = document.getElementById("pricing-title");
+  const desc = document.getElementById("pricing-desc");
   if (!title || !desc) return;
 
-  if (document.body.classList.contains('theme-dark')) {
-    title.style.color = '#ffffff';
-    desc.style.color = '#cbd5e1';
+  if (document.body.classList.contains("theme-dark")) {
+    title.style.color = "#ffffff";
+    desc.style.color = "#cbd5e1";
   } else {
-    title.style.color = '#0f172a';
-    desc.style.color = '#475569';
+    title.style.color = "#0f172a";
+    desc.style.color = "#475569";
   }
 }
 
@@ -4750,14 +5427,15 @@ function renderHome() {
       ${bookCta}
       <div class="inbox-live-row">
         <span class="live-badge ${dashboardState.websocketActive ? "active" : ""}">Live</span>
-        <span class="live-status-text">${dashboardState.websocketActive
-      ? "Live connection active — inbox updates are on."
-      : dashboardState.socketReconnecting
-        ? "Connecting... live updates can take up to 30 seconds to resume."
-        : dashboardState.socketAwaitingFirstConnect
-          ? "Connecting... preparing live updates."
-          : "Offline — live updates unavailable."
-    }</span>
+        <span class="live-status-text">${
+          dashboardState.websocketActive
+            ? "Live connection active — inbox updates are on."
+            : dashboardState.socketReconnecting
+              ? "Connecting... live updates can take up to 30 seconds to resume."
+              : dashboardState.socketAwaitingFirstConnect
+                ? "Connecting... preparing live updates."
+                : "Offline — live updates unavailable."
+        }</span>
       </div>
     </section>
     <section class="why-drmeet card">
@@ -4816,9 +5494,10 @@ function renderHome() {
         </button>
       </div>
     </section>
-    ${signedIn
-      ? `<p class="clinical-muted dashboard-messages-hint">Use the <strong>Messages</strong> button at the bottom-right to read and send secure chat.</p>`
-      : ""
+    ${
+      signedIn
+        ? `<p class="clinical-muted dashboard-messages-hint">Use the <strong>Messages</strong> button at the bottom-right to read and send secure chat.</p>`
+        : ""
     }
   `;
   if (signedIn && getCurrentUserRole() === "admin") {
@@ -4886,7 +5565,6 @@ function renderHome() {
       window.location.hash = "#book";
       renderPatientBooking();
     });
-
 }
 
 export function createSkeletonRows(total = 3) {
@@ -4974,44 +5652,44 @@ export function wireMessengerShell(rootEl) {
     menu.innerHTML = `
       <div class="emoji-menu-grid" role="listbox">
         ${[
-        "😀",
-        "😁",
-        "😂",
-        "🤣",
-        "😊",
-        "😍",
-        "😘",
-        "😎",
-        "😅",
-        "😉",
-        "🙂",
-        "🤔",
-        "😴",
-        "😷",
-        "🤒",
-        "🤕",
-        "👍",
-        "🙏",
-        "👏",
-        "💪",
-        "🙌",
-        "🤝",
-        "✅",
-        "❌",
-        "❤️",
-        "💛",
-        "💙",
-        "💚",
-        "✨",
-        "🔥",
-        "🎉",
-        "📎",
-      ]
-        .map(
-          (e) =>
-            `<button type="button" class="emoji-item" data-emoji="${e}" aria-label="${e}">${e}</button>`,
-        )
-        .join("")}
+          "😀",
+          "😁",
+          "😂",
+          "🤣",
+          "😊",
+          "😍",
+          "😘",
+          "😎",
+          "😅",
+          "😉",
+          "🙂",
+          "🤔",
+          "😴",
+          "😷",
+          "🤒",
+          "🤕",
+          "👍",
+          "🙏",
+          "👏",
+          "💪",
+          "🙌",
+          "🤝",
+          "✅",
+          "❌",
+          "❤️",
+          "💛",
+          "💙",
+          "💚",
+          "✨",
+          "🔥",
+          "🎉",
+          "📎",
+        ]
+          .map(
+            (e) =>
+              `<button type="button" class="emoji-item" data-emoji="${e}" aria-label="${e}">${e}</button>`,
+          )
+          .join("")}
       </div>`;
     rootEl.appendChild(menu);
     return menu;
@@ -5145,17 +5823,17 @@ export function buildThreadMessagesHtml(messages, currentUserId) {
 
       const attachmentMarkup = msg.attachmentUrl
         ? (() => {
-          const type = String(msg.attachmentType || "").toLowerCase();
-          const url = escapeHtml(msg.attachmentUrl);
-          const name = escapeHtml(msg.attachmentName || "Open attachment");
-          const rawUrl = String(msg.attachmentUrl || "");
-          const isImage =
-            type.startsWith("image/") ||
-            /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(rawUrl);
-          return isImage
-            ? `<div class="thread-attachment-wrap"><a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${name}" class="thread-attachment-image" /></a><p><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p></div>`
-            : `<p class="thread-attachment-file"><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p>`;
-        })()
+            const type = String(msg.attachmentType || "").toLowerCase();
+            const url = escapeHtml(msg.attachmentUrl);
+            const name = escapeHtml(msg.attachmentName || "Open attachment");
+            const rawUrl = String(msg.attachmentUrl || "");
+            const isImage =
+              type.startsWith("image/") ||
+              /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(rawUrl);
+            return isImage
+              ? `<div class="thread-attachment-wrap"><a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${name}" class="thread-attachment-image" /></a><p><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p></div>`
+              : `<p class="thread-attachment-file"><a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a></p>`;
+          })()
         : "";
       const rowSide = isYou ? "outgoing" : "incoming";
       const bubbleClass = isYou
@@ -5283,7 +5961,8 @@ async function renderPatientBooking() {
     doctors = await res.json();
     if (!Array.isArray(doctors)) doctors = [];
   } catch (e) {
-    if (grid) grid.innerHTML = `<div class="feedback error">${e.message || "Failed to load doctors."}</div>`;
+    if (grid)
+      grid.innerHTML = `<div class="feedback error">${e.message || "Failed to load doctors."}</div>`;
     return;
   }
 
@@ -5314,32 +5993,32 @@ async function renderPatientBooking() {
           <h3 class="doctor-specialty-heading">${escapeHtml(specialtyKey)}</h3>
           <div class="patient-doctor-grid">
             ${items
-            .map((d) => {
-              const name = formatDoctorDisplayName(d);
-              const spec = d.specialty || "Specialty not listed";
-              const subSpec = String(
-                d.subSpecialization || d.subSpecialty || "",
-              ).trim();
-              const subSpecBadge = subSpec
-                ? `<span class="pill-tag" style="margin-left:0;">${escapeHtml(subSpec)}</span>`
-                : "";
-              const dept = d.department
-                ? `<p class="doctor-pick-meta">${d.department}</p>`
-                : "";
-              const clinic = d.affiliatedClinics
-                ? `<p class="doctor-pick-clinic">${d.affiliatedClinics}</p>`
-                : "";
-              const receptionistName = d.receptionistName
-                ? `<p class="doctor-pick-reception">Receptionist: ${d.receptionistName}</p>`
-                : "";
-              const receptionistPhone = d.receptionistPhone
-                ? `<p class="doctor-pick-reception">Contact: ${d.receptionistPhone}</p>`
-                : "";
-              const receptionistEmail = d.receptionistEmail
-                ? `<p class="doctor-pick-reception">Email: ${d.receptionistEmail}</p>`
-                : "";
-              const avail = buildDoctorAvailabilityLabel(d);
-              return `
+              .map((d) => {
+                const name = formatDoctorDisplayName(d);
+                const spec = d.specialty || "Specialty not listed";
+                const subSpec = String(
+                  d.subSpecialization || d.subSpecialty || "",
+                ).trim();
+                const subSpecBadge = subSpec
+                  ? `<span class="pill-tag" style="margin-left:0;">${escapeHtml(subSpec)}</span>`
+                  : "";
+                const dept = d.department
+                  ? `<p class="doctor-pick-meta">${d.department}</p>`
+                  : "";
+                const clinic = d.affiliatedClinics
+                  ? `<p class="doctor-pick-clinic">${d.affiliatedClinics}</p>`
+                  : "";
+                const receptionistName = d.receptionistName
+                  ? `<p class="doctor-pick-reception">Receptionist: ${d.receptionistName}</p>`
+                  : "";
+                const receptionistPhone = d.receptionistPhone
+                  ? `<p class="doctor-pick-reception">Contact: ${d.receptionistPhone}</p>`
+                  : "";
+                const receptionistEmail = d.receptionistEmail
+                  ? `<p class="doctor-pick-reception">Email: ${d.receptionistEmail}</p>`
+                  : "";
+                const avail = buildDoctorAvailabilityLabel(d);
+                return `
           <article class="doctor-pick-card">
             <h3 class="doctor-pick-name">${name}</h3>
             <p class="doctor-pick-specialty">${spec}</p>
@@ -5354,8 +6033,8 @@ async function renderPatientBooking() {
               <button type="button" class="btn btn-primary btn-sm doctor-pick-book" data-book-doctor="${d._id}">Book with this doctor</button>
             </div>
           </article>`;
-            })
-            .join("")}
+              })
+              .join("")}
           </div>
         </section>`,
       )
@@ -5382,7 +6061,10 @@ async function renderPatientBooking() {
     const d = doctors.find((x) => String(x._id) === String(doctorId));
     const displayName = formatDoctorDisplayName(d) || "your doctor";
     const specialty = d?.specialty || "General Medicine";
-    const availText = typeof buildDoctorAvailabilityLabel === "function" ? buildDoctorAvailabilityLabel(d) : (d?.availabilityText || "Operating hours listed");
+    const availText =
+      typeof buildDoctorAvailabilityLabel === "function"
+        ? buildDoctorAvailabilityLabel(d)
+        : d?.availabilityText || "Operating hours listed";
 
     const drawerTitle = document.getElementById("patient-booking-doctor-title");
     if (drawerTitle) {
@@ -5476,19 +6158,30 @@ async function renderPatientBooking() {
         return;
       }
       const info = await res.json();
-      const availableList = (Array.isArray(info.suggestedAvailableTimes) ? info.suggestedAvailableTimes : [])
+      const availableList = (
+        Array.isArray(info.suggestedAvailableTimes)
+          ? info.suggestedAvailableTimes
+          : []
+      )
         .map((t) => normalizeTimeText(t))
         .filter(Boolean);
-      const conflictList = (Array.isArray(info.conflictingTimes) ? info.conflictingTimes : [])
+      const conflictList = (
+        Array.isArray(info.conflictingTimes) ? info.conflictingTimes : []
+      )
         .map((t) => normalizeTimeText(t))
         .filter(Boolean);
 
       activeAvailableTimes = new Set(availableList);
       activeConflictingTimes = new Set(conflictList);
 
-      const upcomingAvailable = availableList.filter((t) => !isPastSlot(date, t, 0));
+      const upcomingAvailable = availableList.filter(
+        (t) => !isPastSlot(date, t, 0),
+      );
       const availableSlotsCount = upcomingAvailable.length;
-      const displayRemaining = typeof info.remainingSlots === "number" ? Math.min(info.remainingSlots, availableSlotsCount) : availableSlotsCount;
+      const displayRemaining =
+        typeof info.remainingSlots === "number"
+          ? Math.min(info.remainingSlots, availableSlotsCount)
+          : availableSlotsCount;
 
       const timeSelect = document.getElementById("patient-booking-time");
       if (timeSelect) {
@@ -5497,7 +6190,7 @@ async function renderPatientBooking() {
           curVal,
           info.suggestedAvailableTimes,
           info.conflictingTimes,
-          availableSlotsCount === 0
+          availableSlotsCount === 0,
         );
         if (curVal && timeSelect.querySelector(`option[value="${curVal}"]`)) {
           timeSelect.value = curVal;
@@ -5510,9 +6203,10 @@ async function renderPatientBooking() {
           displayRemaining > 0 && availableSlotsCount > 0
             ? "feedback booking-hint"
             : "feedback error booking-hint";
-        smartHintEl.textContent = availableSlotsCount > 0
-          ? `Booked ${info.bookedCount ?? 0}/${info.maxPatientsPerDay ?? 10}. ${displayRemaining} slot(s) left.`
-          : "No upcoming available schedule slots for the selected date. Please pick another date.";
+        smartHintEl.textContent =
+          availableSlotsCount > 0
+            ? `Booked ${info.bookedCount ?? 0}/${info.maxPatientsPerDay ?? 10}. ${displayRemaining} slot(s) left.`
+            : "No upcoming available schedule slots for the selected date. Please pick another date.";
       }
       if (smartTimesEl) {
         smartTimesEl.innerHTML = buildBookingTimeGridHtml({
@@ -5564,7 +6258,8 @@ async function renderPatientBooking() {
         if (feedbackEl) {
           feedbackEl.className = "feedback error";
           feedbackEl.style.display = "block";
-          feedbackEl.textContent = "Please select both a date and a valid time slot.";
+          feedbackEl.textContent =
+            "Please select both a date and a valid time slot.";
         }
         return;
       }
@@ -5584,7 +6279,8 @@ async function renderPatientBooking() {
         if (feedbackEl) {
           feedbackEl.className = "feedback error";
           feedbackEl.style.display = "block";
-          feedbackEl.textContent = "Selected time is outside the doctor's available schedule.";
+          feedbackEl.textContent =
+            "Selected time is outside the doctor's available schedule.";
         }
         return;
       }
@@ -5593,17 +6289,29 @@ async function renderPatientBooking() {
         if (feedbackEl) {
           feedbackEl.className = "feedback error";
           feedbackEl.style.display = "block";
-          feedbackEl.textContent = "Selected time slot is already booked or conflicting. Please choose another time.";
+          feedbackEl.textContent =
+            "Selected time slot is already booked or conflicting. Please choose another time.";
         }
         return;
       }
 
-      const selectedDoc = doctors.find((d) => String(d._id) === String(doctorId) || String(d.userId) === String(doctorId));
-      const doctorName = selectedDoc ? `${selectedDoc.title || "Dr."} ${selectedDoc.firstName} ${selectedDoc.lastName}` : "Selected Doctor";
-      const dateDisplay = typeof formatDateDisplay === "function" ? formatDateDisplay(date) : date;
+      const selectedDoc = doctors.find(
+        (d) =>
+          String(d._id) === String(doctorId) ||
+          String(d.userId) === String(doctorId),
+      );
+      const doctorName = selectedDoc
+        ? `${selectedDoc.title || "Dr."} ${selectedDoc.firstName} ${selectedDoc.lastName}`
+        : "Selected Doctor";
+      const dateDisplay =
+        typeof formatDateDisplay === "function"
+          ? formatDateDisplay(date)
+          : date;
       const timeDisplay = formatTimeLabel(time);
 
-      const detailsText = `• Doctor: ${doctorName}\n• Date: ${dateDisplay}\n• Time: ${timeDisplay}` + (notes ? `\n• Notes: ${notes}` : "");
+      const detailsText =
+        `• Doctor: ${doctorName}\n• Date: ${dateDisplay}\n• Time: ${timeDisplay}` +
+        (notes ? `\n• Notes: ${notes}` : "");
 
       const isConfirmed = await showCustomConfirm({
         title: "Confirm Appointment Booking",
@@ -5683,9 +6391,7 @@ async function loadHmoProviders() {
 
 function parseAffiliatedClinics(value) {
   if (Array.isArray(value)) {
-    return value
-      .map((item) => String(item || "").trim())
-      .filter(Boolean);
+    return value.map((item) => String(item || "").trim()).filter(Boolean);
   }
   return String(value || "")
     .split(",")
@@ -5746,7 +6452,11 @@ function setupTaggedFacilityMultiSelect({
       event.preventDefault();
       addClinic(input.value);
       input.value = "";
-    } else if (event.key === "Backspace" && !input.value.trim() && selected.length) {
+    } else if (
+      event.key === "Backspace" &&
+      !input.value.trim() &&
+      selected.length
+    ) {
       const last = selected.pop();
       if (last) selectedSet.delete(last);
       render();
